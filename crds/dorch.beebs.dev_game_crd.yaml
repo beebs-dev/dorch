@@ -25,6 +25,26 @@ spec:
         description: Auto-generated derived type for GameSpec via `CustomResource`
         properties:
           spec:
+            properties:
+              files:
+                items:
+                  type: string
+                type: array
+              iwad:
+                type: string
+              s3_secret_name:
+                type: string
+              skill:
+                format: int32
+                nullable: true
+                type: integer
+              warp:
+                nullable: true
+                type: string
+            required:
+            - files
+            - iwad
+            - s3_secret_name
             type: object
           status:
             description: Status object for the [`Game`] resource.

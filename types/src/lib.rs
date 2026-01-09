@@ -20,7 +20,13 @@ use std::{fmt, str::FromStr};
 #[kube(
     printcolumn = "{\"jsonPath\": \".status.lastUpdated\", \"name\": \"AGE\", \"type\": \"date\" }"
 )]
-pub struct GameSpec {}
+pub struct GameSpec {
+    pub s3_secret_name: String,
+    pub iwad: String,
+    pub files: Vec<String>,
+    pub warp: Option<String>,
+    pub skill: Option<i32>,
+}
 
 /// Status object for the [`Game`] resource.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default, JsonSchema)]
