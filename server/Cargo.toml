@@ -1,0 +1,14 @@
+[package]
+name = "dorch-server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dorch-common = { path = "../common" }
+dorch-types = { path = "../types" }
+tokio = { workspace = true }
+prometheus = { version = "0.13", optional = true }
+
+[features]
+default = ["metrics"]        # Enable metrics by default
+metrics = ["dep:prometheus"] # metrics feature requires prometheus crate

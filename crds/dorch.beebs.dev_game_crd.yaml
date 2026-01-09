@@ -1,0 +1,62 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: games.game.beebs.dev
+spec:
+  group: game.beebs.dev
+  names:
+    categories: []
+    kind: Game
+    plural: games
+    shortNames: []
+    singular: game
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: PHASE
+      type: string
+    - jsonPath: .status.lastUpdated
+      name: AGE
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for GameSpec via `CustomResource`
+        properties:
+          spec:
+            type: object
+          status:
+            description: Status object for the [`Game`] resource.
+            nullable: true
+            properties:
+              lastUpdated:
+                description: Timestamp of when the [`GameStatus`] object was last updated.
+                nullable: true
+                type: string
+              message:
+                description: |-
+                  A human-readable message indicating details about why the
+                  [`Game`] is in this phase.
+                nullable: true
+                type: string
+              phase:
+                description: A short description of the [`Game`] resource's current state.
+                enum:
+                - Pending
+                - Starting
+                - Error
+                - Active
+                - Terminating
+                type: string
+            required:
+            - phase
+            type: object
+        required:
+        - spec
+        title: Game
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
