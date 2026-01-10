@@ -78,7 +78,13 @@ pub async fn run(
     let mut tick = tokio::time::interval(renew_every);
     loop {
         tokio::select! {
-            _ = shutdown.cancelled() => break Ok(()),
+            _ = shutdown.cancelled() => {
+                if let Some(task) = controller_task.take() {
+                    task.abort();
+                    task.await.ok();
+                }
+                break Ok(())
+            },
             _ = tick.tick() => {}
         }
         let lease = match leadership.try_acquire_or_renew().await {

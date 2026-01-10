@@ -94,7 +94,7 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                     RoomEvent::DataReceived { payload, topic, participant, .. } => {
                         println!("DataReceived: topic={:?} participant={:?} payload_len={}", topic, participant.as_ref().map(|p| p.identity()), payload.len());
                         let Some(p) = participant.as_ref() else { continue };
-                        if topic.as_deref().unwrap_or("") != "udp" {
+                        if topic.as_deref() != Some("udp") {
                             continue;
                         }
                         let pid = p.identity().to_string();
@@ -190,6 +190,7 @@ async fn player_udp_sender(
         tokio::select! {
             _ = cancel.cancelled() => break Ok(()),
             Some(buf) = rx.recv() => {
+                println!("Sending UDP packet to game server, len={}", buf.len());
                 sock.send_to(buf.as_slice(), game_addr).await.context("failed to send UDP packet")?;
             }
         }
@@ -219,7 +220,7 @@ async fn player_udp_receiver(
 
                 // One unavoidable copy here
                 let payload = Arc::new(buf[..n].to_vec());
-
+                println!("Received UDP packet from game server, len={}", n);
                 if tx_udp_to_lk.send(UdpToLk {
                     player_id: player_id.clone(),
                     payload,
