@@ -1,0 +1,8 @@
+apiVersion: v2
+description: "Doom Orchestrator - A platform to manage and deploy browser-based Doom multiplayer on Kubernetes."
+name: dorch
+version: 0.0.1
+maintainers:
+  - name: Tom Havlik
+    email: thavlik@protonmail.com
+    url: https://github.com/thavlik
