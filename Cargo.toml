@@ -2,7 +2,8 @@
 members = [
     "common",
     "operator",
-    "proxy",
+    "server",
+    "types"
 ]
 resolver = "3"
 

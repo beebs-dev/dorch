@@ -10,12 +10,12 @@ use kube::{
 };
 
 /// Updates the `Game`'s phase to Active.
-pub async fn active(client: Client, instance: &Game, peggy_pod_name: &str) -> Result<(), Error> {
+pub async fn active(client: Client, instance: &Game, pod_name: &str) -> Result<(), Error> {
     patch_status(client, instance, |status| {
         status.phase = GamePhase::Active;
         status.message = Some(format!(
-            "The peggy Pod '{}' is active and running.",
-            peggy_pod_name
+            "The game server pod '{}' is active and running.",
+            pod_name
         ));
     })
     .await?;
@@ -41,7 +41,7 @@ pub async fn delete_pod(client: Client, instance: &Game) -> Result<(), Error> {
 }
 
 fn starting_message(pod_name: &str) -> String {
-    format!("The peggy Pod '{}' is starting.", pod_name)
+    format!("The game server pod '{}' is starting.", pod_name)
 }
 
 pub async fn starting(client: Client, instance: &Game, pod_name: &str) -> Result<(), Error> {

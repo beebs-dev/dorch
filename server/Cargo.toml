@@ -3,6 +3,10 @@ name = "dorch-server"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "dorch-server"
+path = "src/main.rs"
+
 [dependencies]
 dorch-common = { path = "../common" }
 dorch-types = { path = "../types" }

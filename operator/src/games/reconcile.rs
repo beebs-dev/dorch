@@ -1,3 +1,8 @@
+use super::actions;
+use crate::util::{
+    Error, PROBE_INTERVAL,
+    colors::{FG1, FG2},
+};
 use chrono::Utc;
 use dorch_types::*;
 use futures::stream::StreamExt;
@@ -7,41 +12,96 @@ use kube::{
     client::Client,
     runtime::{Controller, controller::Action},
 };
+use kube_leader_election::{LeaseLock, LeaseLockParams};
 use owo_colors::OwoColorize;
 use std::sync::Arc;
 use tokio::time::Duration;
-
-use super::actions;
-use crate::util::{
-    Error, PROBE_INTERVAL,
-    colors::{FG1, FG2},
-};
+use tokio_util::sync::CancellationToken;
 
 #[cfg(feature = "metrics")]
 use crate::util::metrics::ControllerMetrics;
 
 /// Entrypoint for the `Game` controller.
+
 pub async fn run(client: Client) -> Result<(), Error> {
-    println!("{}", "Starting Game controller...".green());
-
-    // Preparation of resources used by the `kube_runtime::Controller`
-    let crd_api: Api<Game> = Api::all(client.clone());
     let context: Arc<ContextData> = Arc::new(ContextData::new(client.clone()));
+    // Namespace where the Lease object lives.
+    // Commonly: the controller's namespace. If you deploy in one namespace, hardcode it.
+    // If you want it dynamic, inject POD_NAMESPACE via the Downward API.
+    let lease_namespace = std::env::var("POD_NAMESPACE").unwrap_or_else(|_| "default".to_string());
+    // Unique identity per replica (Downward API POD_NAME is ideal).
+    // Fallback to hostname if not present.
+    let holder_id = std::env::var("POD_NAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .unwrap_or_else(|_| format!("game-controller-{}", uuid::Uuid::new_v4()));
+    // The shared lock name across all replicas
+    let lease_name = "game-controller-lock".to_string();
+    // TTL: how long leadership is considered valid without renewal.
+    // Renew should happen well before TTL expires.
+    let lease_ttl = Duration::from_secs(15);
+    let renew_every = Duration::from_secs(5);
+    let leadership = LeaseLock::new(
+        client.clone(),
+        &lease_namespace,
+        LeaseLockParams {
+            holder_id,
+            lease_name,
+            lease_ttl,
+        },
+    );
 
+    let shutdown = CancellationToken::new();
+    let shutdown_signal = shutdown.clone();
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install SIGTERM handler");
+        shutdown_signal.cancel();
+    });
     dorch_common::signal_ready();
-
-    // The controller comes from the `kube_runtime` crate and manages the reconciliation process.
-    // It requires the following information:
-    // - `kube::Api<T>` this controller "owns". In this case, `T = Game`, as this controller owns the `Game` resource,
-    // - `kube::api::ListParams` to select the `Game` resources with. Can be used for Game filtering `Game` resources before reconciliation,
-    // - `reconcile` function with reconciliation logic to be called each time a resource of `Game` kind is created/updated/deleted,
-    // - `on_error` function to call whenever reconciliation fails.
-    Controller::new(crd_api, Default::default())
-        .owns(Api::<Pod>::all(client), Default::default())
-        .run(reconcile, on_error, context)
-        .for_each(|_reconciliation_result| async move {})
-        .await;
-    Ok(())
+    println!("{}", "Starting Game controller...".green());
+    // We run indefinitely; only the leader runs the controller.
+    // On leadership loss, we abort the controller and go back to standby.
+    let mut controller_task: Option<tokio::task::JoinHandle<()>> = None;
+    let mut tick = tokio::time::interval(renew_every);
+    loop {
+        tokio::select! {
+            _ = shutdown.cancelled() => break Ok(()),
+            _ = tick.tick() => {}
+        }
+        let lease = match leadership.try_acquire_or_renew().await {
+            Ok(l) => l,
+            Err(e) => {
+                // If we can't talk to the apiserver / update Lease, assume we are not safe to lead.
+                eprintln!("leader election renew/acquire failed: {e}");
+                if let Some(task) = controller_task.take() {
+                    task.abort();
+                    eprintln!("aborted controller due to leader election error");
+                }
+                continue;
+            }
+        };
+        if lease.acquired_lease {
+            // We are leader; ensure controller is running
+            if controller_task.is_none() {
+                println!("acquired leadership; starting controller");
+                let client_for_controller = client.clone();
+                let context_for_controller = context.clone();
+                let crd_api_for_controller: Api<Game> = Api::all(client_for_controller.clone());
+                controller_task = Some(tokio::spawn(async move {
+                    Controller::new(crd_api_for_controller, Default::default())
+                        .owns(Api::<Pod>::all(client_for_controller), Default::default())
+                        .run(reconcile, on_error, context_for_controller)
+                        .for_each(|_res| async move {})
+                        .await;
+                }));
+            }
+        } else if let Some(task) = controller_task.take() {
+            // We are NOT leader; ensure controller is stopped
+            eprintln!("lost leadership; stopping controller");
+            task.abort();
+        }
+    }
 }
 
 /// Context injected with each `reconcile` and `on_error` method invocation.
