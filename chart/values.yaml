@@ -1,5 +1,8 @@
+registry: "" # same as "docker.io/"
+
 livekit:
   url: "ws://livekit-livekit-server.livekit.svc.cluster.local:7881"
+  secret: livekit-cred
   apiKey:
     valueFrom:
       secretKeyRef:
@@ -22,3 +25,6 @@ operator:
       memory: "128Mi"
     limits:
       memory: "256Mi"
+
+prometheus:
+  enabled: false

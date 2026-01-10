@@ -1,4 +1,4 @@
-ARG RUNTIME_IMAGE=debian:bullseye-slim
+ARG RUNTIME_IMAGE=debian:bookworm-slim
 ARG BASE_IMAGE=thavlik/dorch-base:latest
 
 FROM ${BASE_IMAGE} AS builder

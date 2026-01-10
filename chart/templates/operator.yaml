@@ -1,3 +1,4 @@
+{{- $image := printf "%s%s" .Values.registry .Values.operator.image -}}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -10,9 +11,9 @@ kind: Role
 metadata:
   name: {{ .Release.Name }}-controller-lease
 rules:
-  - apiGroups: ["coordination.k8s.io"]
-    resources: ["leases"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -21,6 +22,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: {{ .Release.Name }}-operator
+    namespace: {{ .Release.Namespace }} 
 roleRef:
   kind: Role
   name: {{ .Release.Name }}-controller-lease
@@ -72,7 +74,6 @@ subjects:
     name: {{ .Release.Name }}-operator
     namespace: {{ .Release.Namespace }}
 ---
-{{- $image := printf "%s%s" .Values.registry .Values.operator.image -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -132,6 +133,10 @@ spec:
           value: info,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info
         - name: LOG_LEVEL
           value: {{ .Values.operator.logLevel }}
+        - name: LIVEKIT_URL
+          value: {{ .Values.livekit.url }}
+        - name: LIVEKIT_SECRET
+          value: {{ .Values.livekit.secret }}
         - name: POD_NAME
           valueFrom:
             fieldRef:

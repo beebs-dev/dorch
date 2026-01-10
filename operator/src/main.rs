@@ -52,8 +52,6 @@ enum Command {
 
 /// Secondary entrypoint that runs the appropriate subcommand.
 async fn run(client: Client) {
-    dorch_common::init();
-
     let cli = Cli::parse();
 
     #[cfg(feature = "metrics")]
