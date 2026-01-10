@@ -155,16 +155,30 @@ async fn ensure_player_session(
     if sessions.contains_key(player_id) {
         return Ok(());
     }
+    // IMPORTANT: sender+receiver must share the same UDP socket.
+    // Otherwise, the game server will reply to the sender's source port and the receiver
+    // (bound to a different ephemeral port) will never see those packets.
+    let game_addr = SocketAddr::from(([127, 0, 0, 1], game_port));
+    let sock = UdpSocket::bind("0.0.0.0:0")
+        .await
+        .context("failed to bind UDP socket")?;
+    sock.connect(game_addr)
+        .await
+        .context("failed to connect UDP socket")?;
+    let local_addr = sock.local_addr().context("failed to get UDP local addr")?;
+
+    let sock = Arc::new(sock);
     let (tx_to_udp, rx_to_udp) = mpsc::channel::<Arc<Vec<u8>>>(256);
     let cancel = CancellationToken::new();
     let pid = player_id.to_string();
-    let sender = tokio::spawn(player_udp_sender(cancel.clone(), rx_to_udp, game_port));
-    let receiver = tokio::spawn(player_udp_receiver(
-        cancel.clone(),
-        game_port,
-        pid.clone(),
-        tx_udp_to_lk,
-    ));
+    let pid_clone = player_id.to_string();
+    let sender = tokio::spawn(player_udp_sender(cancel.clone(), sock.clone(), rx_to_udp));
+    let receiver = player_udp_receiver(cancel.clone(), sock.clone(), pid.clone(), tx_udp_to_lk);
+    let receiver = tokio::spawn(async move {
+        let res = receiver.await;
+        println!("UDP receiver for player {} exiting: {:?}", pid_clone, res);
+        res.context("player UDP receiver failed")
+    });
     sessions.insert(
         pid.clone(),
         PlayerSession {
@@ -173,25 +187,23 @@ async fn ensure_player_session(
             tasks: Arc::new(Mutex::new(Some(PlayerSessionTasks { sender, receiver }))),
         },
     );
-    eprintln!("🧩 created per-player UDP session: {pid}");
+    eprintln!(
+        "🧩 created per-player UDP session: {pid} udp_local={local_addr} udp_peer={game_addr}"
+    );
     Ok(())
 }
 
 async fn player_udp_sender(
     cancel: CancellationToken,
+    sock: Arc<UdpSocket>,
     mut rx: mpsc::Receiver<Arc<Vec<u8>>>,
-    game_port: u16,
 ) -> Result<()> {
-    let sock = UdpSocket::bind("0.0.0.0:0")
-        .await
-        .context("failed to bind UDP socket")?;
-    let game_addr = SocketAddr::from(([127, 0, 0, 1], game_port));
     loop {
         tokio::select! {
             _ = cancel.cancelled() => break Ok(()),
             Some(buf) = rx.recv() => {
                 println!("Sending UDP packet to game server, len={}", buf.len());
-                sock.send_to(buf.as_slice(), game_addr).await.context("failed to send UDP packet")?;
+                sock.send(buf.as_slice()).await.context("failed to send UDP packet")?;
             }
         }
     }
@@ -199,23 +211,16 @@ async fn player_udp_sender(
 
 async fn player_udp_receiver(
     cancel: CancellationToken,
-    game_port: u16,
+    sock: Arc<UdpSocket>,
     player_id: String,
     tx_udp_to_lk: mpsc::Sender<UdpToLk>,
 ) -> Result<()> {
-    let sock = UdpSocket::bind("0.0.0.0:0")
-        .await
-        .context("failed to bind UDP socket")?;
-    let game_addr = SocketAddr::from(([127, 0, 0, 1], game_port));
-    sock.connect(game_addr)
-        .await
-        .context("failed to connect UDP socket")?;
     let mut buf = vec![0u8; 2048];
     loop {
         tokio::select! {
             _ = cancel.cancelled() => break Ok(()),
             res = sock.recv(&mut buf) => {
-                let n = res?;
+                let n = res.context("failed to receive UDP packet")?;
                 if n == 0 { continue; }
 
                 // One unavoidable copy here

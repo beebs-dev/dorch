@@ -7,7 +7,6 @@ echo "Using Game Skill: ${SKILL:-unset}"
 echo "Using Data Root: ${DATA_ROOT:-unset}"
 CMD=(
   /usr/games/woof
-  -port "5030"
   -privateserver
   -complevel boom
 )

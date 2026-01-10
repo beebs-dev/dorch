@@ -16,5 +16,5 @@ RUN /tmp/aws/install && \
 COPY server.sh /server.sh
 COPY download.sh /download.sh
 RUN chmod +x /server.sh /download.sh
-EXPOSE 5030/udp
+EXPOSE 2342/udp
 CMD ["/server.sh"]
