@@ -101,6 +101,7 @@ pub async fn run(
                 let context_for_controller = context.clone();
                 let crd_api_for_controller: Api<Game> = Api::all(client_for_controller.clone());
                 controller_task = Some(tokio::spawn(async move {
+                    println!("{}", "Game controller started.".green());
                     Controller::new(crd_api_for_controller, Default::default())
                         .owns(Api::<Pod>::all(client_for_controller), Default::default())
                         .run(reconcile, on_error, context_for_controller)

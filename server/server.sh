@@ -2,20 +2,21 @@
 set -euo pipefail
 echo "Game ID: ${GAME_ID:-unset}"
 echo "Using IWAD: $IWAD"
-echo "Warp level: ${WARP:-unset}"
-echo "Using game skill: ${SKILL:-unset}"
+echo "Warp Level: ${WARP:-unset}"
+echo "Using Game Skill: ${SKILL:-unset}"
+echo "Using Data Root: ${DATA_ROOT:-unset}"
 CMD=(
-  woof
+  /usr/games/woof
+  -port "5030"
   -privateserver
   -complevel boom
-  -iwad "$IWAD"
 )
-if [[ -n "${WARP:-}" ]]; then
-    CMD+=(-warp "$WARP")
-fi
-if [[ -n "${SKILL:-}" ]]; then
-    CMD+=(-skill "$SKILL")
-fi
+# if [[ -n "${WARP:-}" ]]; then
+#     CMD+=(-warp "$WARP")
+# fi
+# if [[ -n "${SKILL:-}" ]]; then
+#     CMD+=(-skill "$SKILL")
+# fi
 if [[ -n "${WAD_LIST:-}" ]]; then
     IFS=',' read -r -a WADS <<< "$WAD_LIST"
     for wad in "${WADS[@]}"; do
@@ -30,5 +31,12 @@ if [[ -n "${WAD_LIST:-}" ]]; then
         CMD+=(-file "$wad")
     done
 fi
+
+export XDG_RUNTIME_DIR=/tmp/xdg
+mkdir -p "$XDG_RUNTIME_DIR"
+chmod 700 "$XDG_RUNTIME_DIR"
+export SDL_AUDIODRIVER=dummy
+export DOOMWADDIR="$DATA_ROOT"
+cd "$DATA_ROOT"
 echo ">>> ${CMD[*]}"
 exec "${CMD[@]}"

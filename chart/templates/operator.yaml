@@ -48,7 +48,7 @@ rules:
       - patch
       - delete
   - apiGroups:
-      - "game.beebs.dev"
+      - "dorch.beebs.dev"
     resources:
       - games
       - games/status

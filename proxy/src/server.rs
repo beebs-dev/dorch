@@ -26,12 +26,25 @@ pub async fn run(args: ServerArgs) -> Result<()> {
     let identity = "server";
     let token = make_token(&room_name, identity, &api_key, &api_secret)?;
     let options = RoomOptions::default();
+    println!("connecting to LiveKit at {}", args.livekit_url);
     let (room, mut events) = Room::connect(&args.livekit_url, &token, options).await?;
     eprintln!("connected: identity={identity} room={room_name}");
     let (tx_udp_to_lk, mut rx_udp_to_lk) = mpsc::channel::<UdpToLk>(1024);
     let mut sessions: HashMap<String, PlayerSession> = HashMap::new();
+    let shutdown = CancellationToken::new();
+    let shutdown_signal = shutdown.clone();
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install SIGTERM handler");
+        shutdown_signal.cancel();
+    });
     loop {
         tokio::select! {
+            _ = shutdown.cancelled() => {
+                eprintln!("Graceful shutdown initiated");
+                break;
+            }
             // UDP -> LK publish path (single owner of `Room`)
             maybe = rx_udp_to_lk.recv() => {
                 let Some(msg) = maybe else { continue; };

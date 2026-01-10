@@ -1,7 +1,7 @@
 registry: "" # same as "docker.io/"
 
 livekit:
-  url: "ws://livekit-livekit-server.livekit.svc.cluster.local:7881"
+  url: "ws://livekit-livekit-server.livekit.svc.cluster.local"
   secret: livekit-cred
   apiKey:
     valueFrom:

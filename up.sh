@@ -28,6 +28,7 @@ do_restart() {
 }
 main() {
     do_build "$@"
+    kubectl --context $KUBECONTEXT apply -f crds/
     do_restart "$@"
     k9s -n $NAMESPACE --splashless --context $KUBECONTEXT
 }

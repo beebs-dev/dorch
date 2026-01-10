@@ -9,4 +9,4 @@ RUN cargo build --release --bin dorch-proxy
 
 FROM ${RUNTIME_IMAGE}
 COPY --from=builder /app/target/release/dorch-proxy /usr/local/bin/dorch-proxy
-CMD ["dorch-proxy"]
+CMD ["dorch-proxy", "server"]
