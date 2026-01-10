@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=rust:1-slim-bullseye
+ARG BASE_IMAGE=rust:1-slim-bookworm
 
 FROM ${BASE_IMAGE} AS chef
 RUN cargo install cargo-chef
@@ -7,18 +7,20 @@ COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM ${BASE_IMAGE}
-RUN apt-get update \
-    && apt-get install -y \
-    pkg-config libssl-dev build-essential cmake zlib1g libzstd-dev \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+RUN apt-get update && apt-get install -y \
+    pkg-config libssl-dev cmake zlib1g libzstd-dev \
+    libglib2.0-dev libva-dev libdrm-dev \
+    clang lld \
+ && rm -rf /var/lib/apt/lists/*
+ENV CC=clang
+ENV CXX=clang++
 RUN cargo install cargo-chef
 WORKDIR /app
 COPY Cargo.toml .
 COPY Cargo.lock .
 COPY common/Cargo.toml common/Cargo.toml
 COPY operator/Cargo.toml operator/Cargo.toml
-COPY server/Cargo.toml server/Cargo.toml
+COPY proxy/Cargo.toml proxy/Cargo.toml
 COPY types/Cargo.toml types/Cargo.toml
 COPY --from=chef /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json

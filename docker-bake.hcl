@@ -5,7 +5,8 @@ variable "REGISTRY" {
 group "default" {
   targets = [
     "operator",
-    "server"
+    "server",
+    "proxy"
   ]
 }
 
@@ -27,9 +28,17 @@ target "operator" {
 
 target "server" {
   contexts   = { base_context = "target:base" }
-  context    = "./"
-  dockerfile = "server/Dockerfile"
+  context    = "server/"
   args       = { BASE_IMAGE = "base_context" }
   tags       = ["${REGISTRY}thavlik/dorch-server:latest"]
+  push       = true
+}
+
+target "proxy" {
+  contexts   = { base_context = "target:base" }
+  context    = "./"
+  dockerfile = "proxy/Dockerfile"
+  args       = { BASE_IMAGE = "base_context" }
+  tags       = ["${REGISTRY}thavlik/dorch-proxy:latest"]
   push       = true
 }

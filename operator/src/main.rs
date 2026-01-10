@@ -27,7 +27,27 @@ struct Cli {
 /// e.g. `ManageConsumers` becomes `manage-consumers`.
 #[derive(Subcommand)]
 enum Command {
-    ManageGames,
+    ManageGames {
+        #[arg(
+            long,
+            env = "DORCH_PROXY_IMAGE",
+            default_value = "thavlik/dorch-proxy:latest"
+        )]
+        proxy_image: String,
+
+        #[arg(
+            long,
+            env = "DORCH_SERVER_IMAGE",
+            default_value = "thavlik/dorch-server:latest"
+        )]
+        server_image: String,
+
+        #[arg(long, env = "LIVEKIT_URL", required = true)]
+        livekit_url: String,
+
+        #[arg(long, env = "LIVEKIT_SECRET", required = true)]
+        livekit_secret: String,
+    },
 }
 
 /// Secondary entrypoint that runs the appropriate subcommand.
@@ -42,7 +62,21 @@ async fn run(client: Client) {
     }
 
     match cli.command {
-        Command::ManageGames => games::run(client).await,
+        Command::ManageGames {
+            proxy_image,
+            server_image,
+            livekit_url,
+            livekit_secret,
+        } => {
+            games::run(
+                client,
+                proxy_image,
+                server_image,
+                livekit_url,
+                livekit_secret,
+            )
+            .await
+        }
     }
     .unwrap();
 

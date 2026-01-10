@@ -2,12 +2,13 @@
 members = [
     "common",
     "operator",
-    "server",
+    "proxy",
     "types"
 ]
 resolver = "3"
 
 [workspace.dependencies]
+nix = { version = "0.29", default-features = false, features = ["signal", "process"] }
 owo-colors = { version = "4.2.3", features = ["supports-colors"] }
 uuid = { version = "1.18.1", features = ["serde", "v4", "v8"] }
 serde = { version = "1.0.228", features = ["derive"] }

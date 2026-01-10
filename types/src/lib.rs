@@ -21,6 +21,7 @@ use std::{fmt, str::FromStr};
     printcolumn = "{\"jsonPath\": \".status.lastUpdated\", \"name\": \"AGE\", \"type\": \"date\" }"
 )]
 pub struct GameSpec {
+    pub game_id: String,
     pub s3_secret_name: String,
     pub iwad: String,
     pub files: Vec<String>,

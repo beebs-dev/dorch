@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+echo "Game ID: ${GAME_ID:-unset}"
 echo "Using IWAD: $IWAD"
 echo "Warp level: ${WARP:-unset}"
 echo "Using game skill: ${SKILL:-unset}"

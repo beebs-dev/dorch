@@ -53,12 +53,19 @@ pub async fn starting(client: Client, instance: &Game, pod_name: &str) -> Result
     Ok(())
 }
 
-fn game_pod(instance: &Game) -> Pod {
+fn game_pod(
+    instance: &Game,
+    proxy_image: &str,
+    server_image: &str,
+    livekit_url: &str,
+    livekit_secret: &str,
+) -> Pod {
+    let game_port = 5030;
+
     // For simplicity, we create a pod spec with a single container
     // that runs ffmpeg to stream from the source to the destination
     const DATA_ROOT: &str = "/data";
-    let image = String::from("thavlik/dorch-server:latest");
-    let mut game_env = vec![
+    let mut woof_env = vec![
         EnvVar {
             name: "IWAD".to_string(),
             value: Some(instance.spec.iwad.clone()),
@@ -76,19 +83,60 @@ fn game_pod(instance: &Game) -> Pod {
         },
     ];
     if let Some(warp) = instance.spec.warp.as_deref() {
-        game_env.push(EnvVar {
+        woof_env.push(EnvVar {
             name: "WARP".to_string(),
             value: Some(warp.to_string()),
             ..Default::default()
         });
     }
     if let Some(skill) = instance.spec.skill {
-        game_env.push(EnvVar {
+        woof_env.push(EnvVar {
             name: "SKILL".to_string(),
             value: Some(skill.to_string()),
             ..Default::default()
         });
     }
+    let proxy_env = vec![
+        EnvVar {
+            name: "GAME_PORT".to_string(),
+            value: Some(game_port.to_string()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "GAME_ID".to_string(),
+            value: Some(instance.spec.game_id.clone()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "LIVEKIT_URL".to_string(),
+            value: Some(livekit_url.to_string()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "LIVEKIT_API_KEY".to_string(),
+            value_from: Some(EnvVarSource {
+                secret_key_ref: Some(SecretKeySelector {
+                    name: livekit_secret.to_string(),
+                    key: "api_key".to_string(),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "LIVEKIT_API_SECRET".to_string(),
+            value_from: Some(EnvVarSource {
+                secret_key_ref: Some(SecretKeySelector {
+                    name: livekit_secret.to_string(),
+                    key: "api_secret".to_string(),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    ];
     Pod {
         metadata: ObjectMeta {
             name: instance.meta().name.clone(),
@@ -104,7 +152,7 @@ fn game_pod(instance: &Game) -> Pod {
             }]),
             init_containers: Some(vec![Container {
                 name: "downloader".to_string(),
-                image: Some(image.clone()),
+                image: Some(server_image.to_string()),
                 image_pull_policy: Some("Always".to_string()),
                 command: Some(vec!["/download.sh".to_string()]),
                 volume_mounts: Some(vec![VolumeMount {
@@ -196,24 +244,33 @@ fn game_pod(instance: &Game) -> Pod {
                 ]),
                 ..Default::default()
             }]),
-            containers: vec![Container {
-                name: "game".to_string(),
-                image: Some(image.clone()),
-                image_pull_policy: Some("Always".to_string()),
-                command: Some(vec!["/server.sh".to_string()]),
-                volume_mounts: Some(vec![VolumeMount {
-                    name: "data".to_string(),
-                    mount_path: DATA_ROOT.to_string(),
+            containers: vec![
+                Container {
+                    name: "server".to_string(),
+                    image: Some(server_image.to_string()),
+                    image_pull_policy: Some("Always".to_string()),
+                    command: Some(vec!["/server.sh".to_string()]),
+                    volume_mounts: Some(vec![VolumeMount {
+                        name: "data".to_string(),
+                        mount_path: DATA_ROOT.to_string(),
+                        ..Default::default()
+                    }]),
+                    ports: Some(vec![ContainerPort {
+                        container_port: game_port,
+                        protocol: Some("UDP".to_string()),
+                        ..Default::default()
+                    }]),
+                    env: Some(woof_env),
                     ..Default::default()
-                }]),
-                ports: Some(vec![ContainerPort {
-                    container_port: 5030,
-                    protocol: Some("UDP".to_string()),
+                },
+                Container {
+                    name: "proxy".to_string(),
+                    image: Some(proxy_image.to_string()),
+                    image_pull_policy: Some("Always".to_string()),
+                    env: Some(proxy_env),
                     ..Default::default()
-                }]),
-                env: Some(game_env),
-                ..Default::default()
-            }],
+                },
+            ],
             restart_policy: Some("Never".to_string()),
             ..Default::default()
         }),
@@ -221,8 +278,21 @@ fn game_pod(instance: &Game) -> Pod {
     }
 }
 
-pub async fn create_pod(client: Client, instance: &Game) -> Result<(), Error> {
-    let pod = game_pod(instance);
+pub async fn create_pod(
+    client: Client,
+    instance: &Game,
+    proxy_image: &str,
+    server_image: &str,
+    livekit_url: &str,
+    livekit_secret: &str,
+) -> Result<(), Error> {
+    let pod = game_pod(
+        instance,
+        proxy_image,
+        server_image,
+        livekit_url,
+        livekit_secret,
+    );
     patch_status(client.clone(), instance, |status| {
         status.phase = GamePhase::Starting;
         status.message = Some(starting_message(pod.meta().name.as_ref().unwrap()));

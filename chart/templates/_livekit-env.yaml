@@ -1,0 +1,11 @@
+{{/*
+LiveKit environment variables template
+*/}}
+{{- define "dorch.livekit-env" -}}
+- name: LIVEKIT_URL
+  value: {{ tpl .Values.livekit.url . }}
+- name: LIVEKIT_API_KEY
+{{ tpl (toYaml .Values.livekit.apiKey) . | indent 2 }}
+- name: LIVEKIT_API_SECRET
+{{ tpl (toYaml .Values.livekit.apiSecret) . | indent 2 }}
+{{- end -}}

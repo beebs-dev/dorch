@@ -30,6 +30,8 @@ spec:
                 items:
                   type: string
                 type: array
+              game_id:
+                type: string
               iwad:
                 type: string
               s3_secret_name:
@@ -43,6 +45,7 @@ spec:
                 type: string
             required:
             - files
+            - game_id
             - iwad
             - s3_secret_name
             type: object

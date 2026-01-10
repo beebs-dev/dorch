@@ -23,8 +23,20 @@ use crate::util::metrics::ControllerMetrics;
 
 /// Entrypoint for the `Game` controller.
 
-pub async fn run(client: Client) -> Result<(), Error> {
-    let context: Arc<ContextData> = Arc::new(ContextData::new(client.clone()));
+pub async fn run(
+    client: Client,
+    proxy_image: String,
+    server_image: String,
+    livekit_url: String,
+    livekit_secret: String,
+) -> Result<(), Error> {
+    let context: Arc<ContextData> = Arc::new(ContextData::new(
+        client.clone(),
+        proxy_image,
+        server_image,
+        livekit_url,
+        livekit_secret,
+    ));
     // Namespace where the Lease object lives.
     // Commonly: the controller's namespace. If you deploy in one namespace, hardcode it.
     // If you want it dynamic, inject POD_NAMESPACE via the Downward API.
@@ -111,6 +123,11 @@ struct ContextData {
 
     #[cfg(feature = "metrics")]
     metrics: ControllerMetrics,
+
+    proxy_image: String,
+    server_image: String,
+    livekit_url: String,
+    livekit_secret: String,
 }
 
 impl ContextData {
@@ -119,17 +136,33 @@ impl ContextData {
     /// # Arguments:
     /// - `client`: A Kubernetes client to make Kubernetes REST API requests with. Resources
     ///   will be created and deleted with this client.
-    pub fn new(client: Client) -> Self {
+    pub fn new(
+        client: Client,
+        proxy_image: String,
+        server_image: String,
+        livekit_url: String,
+        livekit_secret: String,
+    ) -> Self {
         #[cfg(feature = "metrics")]
         {
             ContextData {
                 client,
                 metrics: ControllerMetrics::new("consumers"),
+                proxy_image,
+                server_image,
+                livekit_url,
+                livekit_secret,
             }
         }
         #[cfg(not(feature = "metrics"))]
         {
-            ContextData { client }
+            ContextData {
+                client,
+                proxy_image,
+                server_image,
+                livekit_url,
+                livekit_secret,
+            }
         }
     }
 }
@@ -285,7 +318,15 @@ async fn reconcile(instance: Arc<Game>, context: Arc<ContextData>) -> Result<Act
             // Add a finalizer so the resource can be properly garbage collected.
             //let instance = finalizer::add(client.clone(), &name, &namespace).await?;
             // Note: finalizer is not required since we do not have custom logic on deletion of child resources.
-            actions::create_pod(client.clone(), &instance).await?;
+            actions::create_pod(
+                client.clone(),
+                &instance,
+                &context.proxy_image,
+                &context.server_image,
+                &context.livekit_url,
+                &context.livekit_secret,
+            )
+            .await?;
 
             Action::await_change()
         }

@@ -1,3 +1,16 @@
+livekit:
+  url: "ws://livekit-livekit-server.livekit.svc.cluster.local:7881"
+  apiKey:
+    valueFrom:
+      secretKeyRef:
+        name: livekit-cred
+        key: api_key
+  apiSecret:
+    valueFrom:
+      secretKeyRef:
+        name: livekit-cred
+        key: api_secret
+
 operator:
   enabled: true
   image: thavlik/dorch-operator:latest
