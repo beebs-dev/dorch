@@ -92,6 +92,7 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                         }
                     }
                     RoomEvent::DataReceived { payload, topic, participant, .. } => {
+                        println!("DataReceived: topic={:?} participant={:?} payload_len={}", topic, participant.as_ref().map(|p| p.identity()), payload.len());
                         let Some(p) = participant.as_ref() else { continue };
                         if topic.as_deref().unwrap_or("") != "udp" {
                             continue;

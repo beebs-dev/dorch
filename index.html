@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>LiveKit Hello World Data Message</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
+      .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+      button { padding: 10px 14px; border-radius: 10px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+      button:disabled { opacity: .5; cursor: not-allowed; }
+      input { padding: 10px 12px; border-radius: 10px; border: 1px solid #ccc; min-width: 320px; }
+      pre { padding: 12px; border-radius: 12px; background: #0b1020; color: #e6edf3; overflow: auto; }
+      .ok { color: #0a7a2f; }
+      .bad { color: #b42318; }
+      .muted { color: #666; }
+    </style>
+  </head>
+
+  <body>
+    <h1>LiveKit “Hello World” (Data Packet)</h1>
+
+    <div class="row">
+      <label class="muted">Room WS URL:</label>
+      <input id="wsUrl" value="wss://webrtc.beebs.dev" />
+    </div>
+
+    <div class="row" style="margin-top: 12px;">
+      <button id="btnConnect">Connect + Send “hello world”</button>
+      <button id="btnSend" disabled>Send again</button>
+      <button id="btnDisconnect" disabled>Disconnect</button>
+      <span id="status" class="muted">Idle</span>
+    </div>
+
+    <h3>Log</h3>
+    <pre id="log"></pre>
+
+    <!-- LiveKit JS SDK (UMD build) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/livekit-client/2.15.7/livekit-client.umd.js"></script>
+
+    <script>
+      // ====== Config you provided ======
+      const TOKEN_URL =
+        "https://api.synapse.beebs.dev/room/25464d97-353d-4584-bc16-e72346f92d6f/join";
+
+      // ====== Helpers ======
+      const elLog = document.getElementById("log");
+      const elStatus = document.getElementById("status");
+      const btnConnect = document.getElementById("btnConnect");
+      const btnSend = document.getElementById("btnSend");
+      const btnDisconnect = document.getElementById("btnDisconnect");
+      const wsUrlInput = document.getElementById("wsUrl");
+
+      function log(...args) {
+        const line = args
+          .map((a) => (typeof a === "string" ? a : JSON.stringify(a, null, 2)))
+          .join(" ");
+        elLog.textContent += line + "\n";
+        elLog.scrollTop = elLog.scrollHeight;
+        console.log(...args);
+      }
+
+      function setStatus(text, kind = "muted") {
+        elStatus.textContent = text;
+        elStatus.className = kind;
+      }
+
+      async function fetchToken() {
+        // If your API requires cookies, change credentials to 'include'
+        const res = await fetch(TOKEN_URL, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          credentials: "omit",
+        });
+
+        if (!res.ok) {
+          const body = await res.text().catch(() => "");
+          throw new Error(`Token request failed: ${res.status} ${res.statusText}\n${body}`);
+        }
+
+        const data = await res.json().catch(() => ({}));
+        // Be permissive about field names:
+        const token =
+          data.token ||
+          data.accessToken ||
+          data.jwt ||
+          (typeof data === "string" ? data : null);
+
+        if (!token || typeof token !== "string") {
+          throw new Error(
+            `Token response JSON did not include a token field. Got: ${JSON.stringify(data)}`
+          );
+        }
+
+        return { token, raw: data };
+      }
+
+      function bytesToUtf8(u8) {
+        try {
+          return new TextDecoder().decode(u8);
+        } catch {
+          return null;
+        }
+      }
+
+      // ====== LiveKit wiring ======
+      let room = null;
+
+      async function connectAndSendHello() {
+        if (!window.LivekitClient) {
+          throw new Error("LiveKit SDK failed to load (LivekitClient global missing).");
+        }
+
+        const wsUrl = wsUrlInput.value.trim();
+        if (!wsUrl.startsWith("ws")) {
+          throw new Error(`Expected a ws:// or wss:// URL, got: ${wsUrl}`);
+        }
+
+        setStatus("Fetching token…");
+        log("Fetching token from:", TOKEN_URL);
+        const { token, raw } = await fetchToken();
+        log("Token response:", raw);
+
+        setStatus("Connecting…");
+        log("Connecting to:", wsUrl);
+
+        room = new LivekitClient.Room({
+          // Keep defaults; add options here if needed
+        });
+
+        // Log important room events
+        room
+          .on(LivekitClient.RoomEvent.Connected, () => log("✅ Room connected"))
+          .on(LivekitClient.RoomEvent.Disconnected, (reason) =>
+            log("🛑 Room disconnected:", reason)
+          )
+          .on(LivekitClient.RoomEvent.Reconnecting, () => log("♻️ Reconnecting…"))
+          .on(LivekitClient.RoomEvent.Reconnected, () => log("✅ Reconnected"))
+          .on(LivekitClient.RoomEvent.ParticipantConnected, (p) =>
+            log("👤 Participant connected:", p.identity)
+          )
+          .on(LivekitClient.RoomEvent.ParticipantDisconnected, (p) =>
+            log("👋 Participant disconnected:", p.identity)
+          )
+          .on(LivekitClient.RoomEvent.DataReceived, (payload, participant, kind, topic) => {
+            const text = bytesToUtf8(payload);
+            log(
+              "📩 DataReceived",
+              {
+                from: participant?.identity ?? "(unknown)",
+                kind,
+                topic: topic ?? null,
+                bytes: payload?.byteLength ?? payload?.length ?? null,
+                text,
+              }
+            );
+          });
+
+        await room.connect(wsUrl, token);
+
+        setStatus("Connected", "ok");
+        btnSend.disabled = false;
+        btnDisconnect.disabled = false;
+        btnConnect.disabled = true;
+
+        await sendHelloWorld();
+        log(
+          "Note: you will NOT receive your own data packet back unless another participant is connected to echo it."
+        );
+      }
+
+      async function sendHelloWorld() {
+        if (!room || !room.localParticipant) throw new Error("Not connected.");
+
+        const msg = "hello world";
+        const bytes = new TextEncoder().encode(msg);
+
+        // Reliable data packet to all participants
+        // (There is no “send to server only”; LiveKit forwards to other participants.)
+        room.localParticipant.publishData(
+          bytes,
+          LivekitClient.DataPacket_Kind.RELIABLE,
+          { topic: "chat" } // optional
+        );
+
+        log("📤 Sent data:", msg);
+      }
+
+      async function disconnect() {
+        if (!room) return;
+        setStatus("Disconnecting…");
+        await room.disconnect();
+        room = null;
+
+        setStatus("Idle");
+        btnSend.disabled = true;
+        btnDisconnect.disabled = true;
+        btnConnect.disabled = false;
+        log("Disconnected.");
+      }
+
+      // ====== UI handlers ======
+      btnConnect.addEventListener("click", async () => {
+        elLog.textContent = "";
+        try {
+          await connectAndSendHello();
+        } catch (e) {
+          setStatus("Error", "bad");
+          log("❌", e?.stack || String(e));
+          // reset buttons on failure
+          btnSend.disabled = true;
+          btnDisconnect.disabled = true;
+          btnConnect.disabled = false;
+        }
+      });
+
+      btnSend.addEventListener("click", async () => {
+        try {
+          await sendHelloWorld();
+        } catch (e) {
+          setStatus("Error", "bad");
+          log("❌", e?.stack || String(e));
+        }
+      });
+
+      btnDisconnect.addEventListener("click", async () => {
+        try {
+          await disconnect();
+        } catch (e) {
+          setStatus("Error", "bad");
+          log("❌", e?.stack || String(e));
+        }
+      });
+
+      // Helpful initial log
+      log("Ready. Click “Connect + Send”.");
+      log("WS URL:", wsUrlInput.value);
+      log("Token endpoint:", TOKEN_URL);
+    </script>
+  </body>
+</html>
