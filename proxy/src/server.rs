@@ -1,4 +1,8 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    sync::{Arc, Mutex},
+};
 
 use crate::args::ServerArgs;
 use anyhow::{Context, Result, bail};
@@ -7,16 +11,38 @@ use livekit_api::access_token;
 use tokio::{net::UdpSocket, sync::mpsc};
 use tokio_util::sync::CancellationToken;
 
+struct PlayerSessionTasks {
+    sender: tokio::task::JoinHandle<Result<()>>,
+    receiver: tokio::task::JoinHandle<Result<()>>,
+}
+
 #[derive(Clone)]
 struct PlayerSession {
     cancel: CancellationToken,
     tx_to_udp: mpsc::Sender<Arc<Vec<u8>>>, // LK -> UDP
+    tasks: Arc<Mutex<Option<PlayerSessionTasks>>>,
 }
 
 /// Packets from UDP receivers back to the LK publisher
 struct UdpToLk {
     player_id: String,
     payload: Arc<Vec<u8>>, // UDP -> LK
+}
+
+async fn cancel_all_sessions(sessions: &mut HashMap<String, PlayerSession>) {
+    sessions
+        .iter_mut()
+        .map(|(_, sess)| &sess.cancel)
+        .for_each(|cancel| {
+            cancel.cancel();
+        });
+    for (_, sess) in sessions.drain() {
+        sess.cancel.cancel();
+        if let Some(tasks) = sess.tasks.lock().unwrap().take() {
+            let _ = tasks.sender.await;
+            let _ = tasks.receiver.await;
+        }
+    }
 }
 
 pub async fn run(args: ServerArgs) -> Result<()> {
@@ -31,21 +57,16 @@ pub async fn run(args: ServerArgs) -> Result<()> {
     eprintln!("connected: identity={identity} room={room_name}");
     let (tx_udp_to_lk, mut rx_udp_to_lk) = mpsc::channel::<UdpToLk>(1024);
     let mut sessions: HashMap<String, PlayerSession> = HashMap::new();
-    let shutdown = CancellationToken::new();
-    let shutdown_signal = shutdown.clone();
+    let cancel = CancellationToken::new();
+    let cancel_clone = cancel.clone();
     tokio::spawn(async move {
-        tokio::signal::ctrl_c()
-            .await
-            .expect("failed to install SIGTERM handler");
-        shutdown_signal.cancel();
+        shutdown_signal().await;
+        println!("SIGINT received, shutting down...");
+        cancel_clone.cancel();
     });
     loop {
         tokio::select! {
-            _ = shutdown.cancelled() => {
-                eprintln!("Graceful shutdown initiated");
-                break;
-            }
-            // UDP -> LK publish path (single owner of `Room`)
+            _ = cancel.cancelled() => break,
             maybe = rx_udp_to_lk.recv() => {
                 let Some(msg) = maybe else { continue; };
                 publish_to_livekit(&room, &msg.player_id, msg.payload)
@@ -91,9 +112,6 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                             .context("failed to send LK->UDP payload")?;
                     }
                     RoomEvent::Disconnected { reason } => {
-                        for (_, sess) in sessions.drain() {
-                            sess.cancel.cancel();
-                        }
                         bail!("disconnected from room: reason={reason:?}");
                     }
                     _ => {}
@@ -101,7 +119,30 @@ pub async fn run(args: ServerArgs) -> Result<()> {
             }
         }
     }
+    println!("Graceful shutdown initiated");
+    cancel_all_sessions(&mut sessions).await;
+    println!("Proxy server gracefully shut down");
     Ok(())
+}
+
+#[cfg(unix)]
+async fn shutdown_signal() {
+    use tokio::signal::unix::{SignalKind, signal};
+
+    let mut term = signal(SignalKind::terminate()).expect("install SIGTERM handler");
+    let mut int = signal(SignalKind::interrupt()).expect("install SIGINT handler");
+
+    tokio::select! {
+        _ = term.recv() => eprintln!("🛑 SIGTERM received, shutting down..."),
+        _ = int.recv()  => eprintln!("🛑 SIGINT received, shutting down..."),
+    }
+}
+
+#[cfg(not(unix))]
+async fn shutdown_signal() {
+    // Fallback: best effort
+    let _ = tokio::signal::ctrl_c().await;
+    eprintln!("🛑 ctrl-c received, shutting down...");
 }
 
 async fn ensure_player_session(
@@ -116,14 +157,21 @@ async fn ensure_player_session(
     let (tx_to_udp, rx_to_udp) = mpsc::channel::<Arc<Vec<u8>>>(256);
     let cancel = CancellationToken::new();
     let pid = player_id.to_string();
-    tokio::spawn(player_udp_sender(cancel.clone(), rx_to_udp, game_port));
-    tokio::spawn(player_udp_receiver(
+    let sender = tokio::spawn(player_udp_sender(cancel.clone(), rx_to_udp, game_port));
+    let receiver = tokio::spawn(player_udp_receiver(
         cancel.clone(),
         game_port,
         pid.clone(),
         tx_udp_to_lk,
     ));
-    sessions.insert(pid.clone(), PlayerSession { cancel, tx_to_udp });
+    sessions.insert(
+        pid.clone(),
+        PlayerSession {
+            cancel,
+            tx_to_udp,
+            tasks: Arc::new(Mutex::new(Some(PlayerSessionTasks { sender, receiver }))),
+        },
+    );
     eprintln!("🧩 created per-player UDP session: {pid}");
     Ok(())
 }
