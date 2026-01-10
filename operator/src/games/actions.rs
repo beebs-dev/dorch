@@ -76,12 +76,14 @@ fn game_pod(
             value: Some(DATA_ROOT.to_string()),
             ..Default::default()
         },
-        EnvVar {
-            name: "WAD_LIST".to_string(),
-            value: Some(instance.spec.files.join(",")),
-            ..Default::default()
-        },
     ];
+    if let Some(files) = instance.spec.files.as_deref() {
+        woof_env.push(EnvVar {
+            name: "WAD_LIST".to_string(),
+            value: Some(files.join(",")),
+            ..Default::default()
+        });
+    }
     if let Some(warp) = instance.spec.warp.as_deref() {
         woof_env.push(EnvVar {
             name: "WARP".to_string(),
@@ -169,8 +171,13 @@ fn game_pod(
                     EnvVar {
                         name: "DOWNLOAD_LIST".to_string(),
                         value: Some({
-                            let combined = instance.spec.files.join(",");
-                            if instance.spec.files.contains(&instance.spec.iwad) {
+                            let combined = instance
+                                .spec
+                                .files
+                                .as_ref()
+                                .map(|files| files.join(","))
+                                .unwrap_or_default();
+                            if combined.contains(&instance.spec.iwad) {
                                 combined
                             } else {
                                 let mut s = instance.spec.iwad.clone();

@@ -5,7 +5,7 @@ use std::{fmt, str::FromStr};
 
 #[derive(CustomResource, Serialize, Deserialize, Default, Debug, PartialEq, Clone, JsonSchema)]
 #[kube(
-    group = "game.beebs.dev",
+    group = "dorch.beebs.dev",
     version = "v1",
     kind = "Game",
     plural = "games",
@@ -24,7 +24,7 @@ pub struct GameSpec {
     pub game_id: String,
     pub s3_secret_name: String,
     pub iwad: String,
-    pub files: Vec<String>,
+    pub files: Option<Vec<String>>,
     pub warp: Option<String>,
     pub skill: Option<i32>,
 }

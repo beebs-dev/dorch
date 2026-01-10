@@ -1,0 +1,9 @@
+apiVersion: dorch.beebs.dev/v1
+kind: Game
+metadata:
+  name: test-game
+  namespace: dorch
+spec:
+  game_id: 25464d97-353d-4584-bc16-e72346f92d6f
+  s3_secret_name: s3-cred
+  iwad: freedoom2.wad
