@@ -30,6 +30,13 @@ enum Command {
     ManageGames {
         #[arg(
             long,
+            env = "DORCH_DOWNLOADER_IMAGE",
+            default_value = "thavlik/dorch-downloader:latest"
+        )]
+        downloader_image: String,
+
+        #[arg(
+            long,
             env = "DORCH_PROXY_IMAGE",
             default_value = "thavlik/dorch-proxy:latest"
         )]
@@ -38,7 +45,7 @@ enum Command {
         #[arg(
             long,
             env = "DORCH_SERVER_IMAGE",
-            default_value = "thavlik/dorch-server:latest"
+            default_value = "thavlik/zandronum-server:latest"
         )]
         server_image: String,
 
@@ -65,10 +72,12 @@ async fn run(client: Client) {
             server_image,
             livekit_url,
             livekit_secret,
+            downloader_image,
         } => {
             games::run(
                 client,
                 proxy_image,
+                downloader_image,
                 server_image,
                 livekit_url,
                 livekit_secret,

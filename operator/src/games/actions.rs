@@ -56,6 +56,7 @@ pub async fn starting(client: Client, instance: &Game, pod_name: &str) -> Result
 fn game_pod(
     instance: &Game,
     proxy_image: &str,
+    downloader_image: &str,
     server_image: &str,
     livekit_url: &str,
     livekit_secret: &str,
@@ -166,7 +167,7 @@ fn game_pod(
             }]),
             init_containers: Some(vec![Container {
                 name: "downloader".to_string(),
-                image: Some(server_image.to_string()),
+                image: Some(downloader_image.to_string()),
                 image_pull_policy: Some("Always".to_string()),
                 command: Some(vec!["/download.sh".to_string()]),
                 volume_mounts: Some(vec![VolumeMount {
@@ -301,6 +302,7 @@ pub async fn create_pod(
     client: Client,
     instance: &Game,
     proxy_image: &str,
+    downloader_image: &str,
     server_image: &str,
     livekit_url: &str,
     livekit_secret: &str,
@@ -308,6 +310,7 @@ pub async fn create_pod(
     let pod = game_pod(
         instance,
         proxy_image,
+        downloader_image,
         server_image,
         livekit_url,
         livekit_secret,

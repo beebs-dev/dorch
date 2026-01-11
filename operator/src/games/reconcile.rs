@@ -26,6 +26,7 @@ use crate::util::metrics::ControllerMetrics;
 pub async fn run(
     client: Client,
     proxy_image: String,
+    downloader_image: String,
     server_image: String,
     livekit_url: String,
     livekit_secret: String,
@@ -33,6 +34,7 @@ pub async fn run(
     let context: Arc<ContextData> = Arc::new(ContextData::new(
         client.clone(),
         proxy_image,
+        downloader_image,
         server_image,
         livekit_url,
         livekit_secret,
@@ -132,6 +134,7 @@ struct ContextData {
     metrics: ControllerMetrics,
 
     proxy_image: String,
+    downloader_image: String,
     server_image: String,
     livekit_url: String,
     livekit_secret: String,
@@ -146,6 +149,7 @@ impl ContextData {
     pub fn new(
         client: Client,
         proxy_image: String,
+        downloader_image: String,
         server_image: String,
         livekit_url: String,
         livekit_secret: String,
@@ -156,6 +160,7 @@ impl ContextData {
                 client,
                 metrics: ControllerMetrics::new("consumers"),
                 proxy_image,
+                downloader_image,
                 server_image,
                 livekit_url,
                 livekit_secret,
@@ -329,6 +334,7 @@ async fn reconcile(instance: Arc<Game>, context: Arc<ContextData>) -> Result<Act
                 client.clone(),
                 &instance,
                 &context.proxy_image,
+                &context.downloader_image,
                 &context.server_image,
                 &context.livekit_url,
                 &context.livekit_secret,

@@ -7,7 +7,8 @@ group "default" {
     "operator",
     "server",
     "proxy",
-    "client"
+    "client",
+    "downloader"
   ]
 }
 
@@ -28,10 +29,15 @@ target "operator" {
 }
 
 target "server" {
-  contexts   = { base_context = "target:base" }
-  dockerfile = "server/Dockerfile"
-  args       = { BASE_IMAGE = "base_context" }
-  tags       = ["${REGISTRY}thavlik/dorch-server:latest"]
+  context    = "zandronum/"
+  dockerfile = "Dockerfile.server"
+  tags       = ["${REGISTRY}thavlik/zandronum-server:latest"]
+  push       = true
+}
+
+target "downloader" {
+  context    = "downloader/"
+  tags       = ["${REGISTRY}thavlik/dorch-downloader:latest"]
   push       = true
 }
 
@@ -45,7 +51,8 @@ target "proxy" {
 }
 
 target "client" {
-  context    = "Dwasm/"
-  tags       = ["${REGISTRY}thavlik/dwasm:latest"]
+  context    = "zandronum/"
+  dockerfile = "Dockerfile.client"
+  tags       = ["${REGISTRY}thavlik/zandronum-client:latest"]
   push       = true
 }
