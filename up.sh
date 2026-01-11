@@ -17,16 +17,20 @@ do_build() {
 }
 do_restart() {
     restart_args=()
+    restart_app=false
     for arg in "$@"; do
         case "$arg" in
         client)
-            kubectl rollout restart deployment --context $KUBECONTEXT -n apps apps-prboom
+            restart_app=true
             ;;
         *)
             restart_args+=("$arg")
             ;;
         esac
     done
+    if [ "$restart_app" = true ] || [ "${#restart_args[@]}" -eq 0 ]; then
+        kubectl rollout restart deployment --context $KUBECONTEXT -n apps apps-prboom
+    fi
     kubectl rollout restart deployment --context $KUBECONTEXT -n $NAMESPACE "${restart_args[@]/#/$NAMESPACE-}"
 }
 main() {

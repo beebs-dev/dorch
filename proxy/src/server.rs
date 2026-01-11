@@ -126,7 +126,6 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                         }
                     }
                     RoomEvent::DataReceived { payload, topic, participant, .. } => {
-                        println!("DataReceived: topic={:?} participant={:?} payload_len={}", topic, participant.as_ref().map(|p| p.identity()), payload.len());
                         let Some(p) = participant.as_ref() else { continue };
                         if topic.as_deref() != Some("udp") {
                             continue;
@@ -281,8 +280,6 @@ async fn player_udp_sender(
                         buf.len(),
                         hex_prefix(buf.as_slice(), 48)
                     );
-                } else {
-                    println!("Sending UDP packet to game server, len={}", buf.len());
                 }
                 sock.send_to(buf.as_slice(), game_addr)
                     .await
@@ -318,8 +315,6 @@ async fn player_udp_receiver(
                         n,
                         hex_prefix(&buf[..n], 48)
                     );
-                } else {
-                    println!("Received UDP packet from game server, from={} len={}", from, n);
                 }
                 if tx_udp_to_lk.send(UdpToLk {
                     player_id: player_id.clone(),
