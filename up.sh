@@ -33,7 +33,7 @@ do_restart() {
         esac
     done
     if [ "$restart_app" = true ] || [ "${#restart_args[@]}" -eq 0 ]; then
-        kubectl rollout restart deployment --context $KUBECONTEXT -n apps apps-prboom
+        kubectl rollout restart deployment --context $KUBECONTEXT -n apps apps-zandronum
     fi
     if [ "$restart_server" = true ] || [ "${#restart_args[@]}" -eq 0 ]; then
         kubectl delete pod --context $KUBECONTEXT -n $NAMESPACE test-game

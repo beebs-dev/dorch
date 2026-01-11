@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     net::SocketAddr,
     sync::{Arc, Mutex},
+    time::{Duration, Instant},
 };
 
 use crate::args::ServerArgs;
@@ -41,11 +42,9 @@ struct PlayerSessionTasks {
 #[derive(Clone)]
 struct PlayerSession {
     cancel: CancellationToken,
-    sock: Arc<UdpSocket>,
-    game_addr: SocketAddr,
     tx_to_udp: mpsc::Sender<Arc<Vec<u8>>>, // LK -> UDP
     tasks: Arc<Mutex<Option<PlayerSessionTasks>>>,
-    player_index: Arc<Mutex<Option<u8>>>,
+    created_at: Instant,
 }
 
 /// Packets from UDP receivers back to the LK publisher
@@ -62,9 +61,6 @@ async fn cancel_all_sessions(sessions: &mut HashMap<String, PlayerSession>) {
             cancel.cancel();
         });
     for (_, sess) in sessions.drain() {
-        // Best-effort: tell the game server this player is gone.
-        let idx = sess.player_index.lock().unwrap().unwrap_or(0);
-        let _ = send_prboom_quit(sess.sock.as_ref(), sess.game_addr, idx).await;
         sess.cancel.cancel();
         if let Some(tasks) = sess.tasks.lock().unwrap().take() {
             let _ = tasks.sender.await;
@@ -74,6 +70,9 @@ async fn cancel_all_sessions(sessions: &mut HashMap<String, PlayerSession>) {
 }
 
 pub async fn run(args: ServerArgs) -> Result<()> {
+    if udp_debug_enabled() {
+        eprintln!("DORCH_UDP_DEBUG enabled: will log LiveKit/UDP packets");
+    }
     let api_key = std::env::var("LIVEKIT_API_KEY").context("LIVEKIT_API_KEY not set")?;
     let api_secret = std::env::var("LIVEKIT_API_SECRET").context("LIVEKIT_API_SECRET not set")?;
     let room_name = args.game_id.to_string();
@@ -98,17 +97,14 @@ pub async fn run(args: ServerArgs) -> Result<()> {
             maybe = rx_udp_to_lk.recv() => {
                 let Some(msg) = maybe else { continue; };
 
-                // Learn the assigned player index from server->client PKT_SETUP.
-                // setup_packet_s starts immediately after the 8-byte header:
-                //   byte players, yourplayer, ...
-                if msg.payload.len() >= 10 && msg.payload.get(1).copied() == Some(1) {
-                    let yourplayer = msg.payload[9];
-                    if let Some(sess) = sessions.get(&msg.player_id) {
-                        *sess.player_index.lock().unwrap() = Some(yourplayer);
-                    }
-                }
+                // During initial handshake we prefer reliable delivery; afterwards use lossy
+                // to avoid head-of-line blocking for real-time game packets.
+                let reliable = sessions
+                    .get(&msg.player_id)
+                    .map(|s| s.created_at.elapsed() < Duration::from_secs(5))
+                    .unwrap_or(true);
 
-                publish_to_livekit(&room, &msg.player_id, msg.payload)
+                publish_to_livekit(&room, &msg.player_id, msg.payload, reliable)
                     .await
                     .context("failed to publish to livekit")?;
             }
@@ -128,10 +124,6 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                         let pid = participant.identity().to_string();
                         eprintln!("participant disconnected: {pid}");
                         if let Some(sess) = sessions.remove(&pid) {
-                            // Tell the server to free the slot; otherwise it may remain in
-                            // pc_connected and ignore new init packets after a page refresh.
-                            let idx = sess.player_index.lock().unwrap().unwrap_or(0);
-                            let _ = send_prboom_quit(sess.sock.as_ref(), sess.game_addr, idx).await;
                             sess.cancel.cancel();
                             if let Some(tasks) = sess.tasks.lock().unwrap().take() {
                                 let _ = tasks.sender.await;
@@ -141,7 +133,19 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                     }
                     RoomEvent::DataReceived { payload, topic, participant, .. } => {
                         let Some(p) = participant.as_ref() else { continue };
-                        if topic.as_deref() != Some("udp") {
+                        if udp_debug_enabled() {
+                            println!(
+                                "LiveKit DataReceived: from={} topic={:?} len={} hex={}",
+                                p.identity(),
+                                topic,
+                                payload.len(),
+                                hex_prefix(payload.as_slice(), 48)
+                            );
+                        }
+
+                        // Some clients/SDK signatures may omit the topic.
+                        // Treat missing topic as UDP for this app.
+                        if topic.as_deref() != Some("udp") && topic.is_some() {
                             continue;
                         }
                         let pid = p.identity().to_string();
@@ -151,16 +155,6 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                             args.game_port,
                             tx_udp_to_lk.clone(),
                         ).await.context("failed to ensure player session")?;
-
-                        // Learn the player's index from client->server PKT_GO.
-                        // During D_CheckNetGame the client sends:
-                        //   header (8 bytes) + 1 byte consoleplayer
-                        if payload.len() == 9 && payload.get(1).copied() == Some(2) {
-                            let idx = payload[8];
-                            if let Some(sess) = sessions.get(&pid) {
-                                *sess.player_index.lock().unwrap() = Some(idx);
-                            }
-                        }
 
                         sessions
                             .get(&pid)
@@ -247,42 +241,14 @@ async fn ensure_player_session(
         pid.clone(),
         PlayerSession {
             cancel,
-            sock: sock.clone(),
-            game_addr,
             tx_to_udp,
             tasks: Arc::new(Mutex::new(Some(PlayerSessionTasks { sender, receiver }))),
-            player_index: Arc::new(Mutex::new(None)),
+            created_at: Instant::now(),
         },
     );
     eprintln!(
         "🧩 created per-player UDP session: {pid} udp_local={local_addr} udp_peer={game_addr}"
     );
-    Ok(())
-}
-
-async fn send_prboom_quit(sock: &UdpSocket, game_addr: SocketAddr, player_index: u8) -> Result<()> {
-    // PKT_QUIT layout used by PrBoomX:
-    //   packet_header_t (8 bytes) + 1 byte player index
-    // We keep tic=0; server only uses it for logging/timing.
-    const PKT_QUIT: u8 = 7;
-    let mut pkt = [0u8; 9];
-    pkt[0] = 0; // checksum (filled in below)
-    pkt[1] = PKT_QUIT;
-    pkt[2] = 0;
-    pkt[3] = 0;
-    pkt[4] = 0;
-    pkt[5] = 0;
-    pkt[6] = 0;
-    pkt[7] = 0;
-    pkt[8] = player_index;
-    let checksum: u8 = pkt[1..].iter().fold(0u8, |acc, b| acc.wrapping_add(*b));
-    pkt[0] = checksum;
-
-    // Best-effort: send a few times, like the original client.
-    for _ in 0..3 {
-        let _ = sock.send_to(&pkt, game_addr).await;
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-    }
     Ok(())
 }
 
@@ -354,14 +320,12 @@ async fn player_udp_receiver(
     }
 }
 
-async fn publish_to_livekit(room: &Room, player_id: &str, payload: Arc<Vec<u8>>) -> Result<()> {
-    // PrBoomX protocol types (see Dwasm/src/protocol.h):
-    //   PKT_TICS = 4 (server -> client tics)
-    // Keep tics lossy to avoid head-of-line blocking, but make control/setup
-    // packets reliable so they aren't dropped/truncated during handshake.
-    let pkt_type = payload.get(1).copied();
-    let reliable = !matches!(pkt_type, Some(4));
-
+async fn publish_to_livekit(
+    room: &Room,
+    player_id: &str,
+    payload: Arc<Vec<u8>>,
+    reliable: bool,
+) -> Result<()> {
     let datapacket = DataPacket {
         // Dwasm expects topic to be exactly "udp".
         topic: Some("udp".to_string()),
