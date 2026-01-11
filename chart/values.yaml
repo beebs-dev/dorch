@@ -22,9 +22,9 @@ operator:
   logLevel: debug
   resources:
     requests: 
-      memory: "128Mi"
+      memory: "64Mi"
     limits:
-      memory: "256Mi"
+      memory: "128Mi"
 
 prometheus:
   enabled: false

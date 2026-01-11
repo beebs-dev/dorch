@@ -18,10 +18,14 @@ do_build() {
 do_restart() {
     restart_args=()
     restart_app=false
+    restart_server=false
     for arg in "$@"; do
         case "$arg" in
         client)
             restart_app=true
+            ;;
+        server|proxy)
+            restart_server=true
             ;;
         *)
             restart_args+=("$arg")
@@ -30,6 +34,9 @@ do_restart() {
     done
     if [ "$restart_app" = true ] || [ "${#restart_args[@]}" -eq 0 ]; then
         kubectl rollout restart deployment --context $KUBECONTEXT -n apps apps-prboom
+    fi
+    if [ "$restart_server" = true ] || [ "${#restart_args[@]}" -eq 0 ]; then
+        kubectl delete pod --context $KUBECONTEXT -n $NAMESPACE test-game
     fi
     kubectl rollout restart deployment --context $KUBECONTEXT -n $NAMESPACE "${restart_args[@]/#/$NAMESPACE-}"
 }
