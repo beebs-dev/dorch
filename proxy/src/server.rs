@@ -45,6 +45,7 @@ struct PlayerSession {
     game_addr: SocketAddr,
     tx_to_udp: mpsc::Sender<Arc<Vec<u8>>>, // LK -> UDP
     tasks: Arc<Mutex<Option<PlayerSessionTasks>>>,
+    player_index: Arc<Mutex<Option<u8>>>,
 }
 
 /// Packets from UDP receivers back to the LK publisher
@@ -62,7 +63,8 @@ async fn cancel_all_sessions(sessions: &mut HashMap<String, PlayerSession>) {
         });
     for (_, sess) in sessions.drain() {
         // Best-effort: tell the game server this player is gone.
-        let _ = send_prboom_quit(sess.sock.as_ref(), sess.game_addr, 0).await;
+        let idx = sess.player_index.lock().unwrap().unwrap_or(0);
+        let _ = send_prboom_quit(sess.sock.as_ref(), sess.game_addr, idx).await;
         sess.cancel.cancel();
         if let Some(tasks) = sess.tasks.lock().unwrap().take() {
             let _ = tasks.sender.await;
@@ -95,6 +97,17 @@ pub async fn run(args: ServerArgs) -> Result<()> {
             _ = cancel.cancelled() => break,
             maybe = rx_udp_to_lk.recv() => {
                 let Some(msg) = maybe else { continue; };
+
+                // Learn the assigned player index from server->client PKT_SETUP.
+                // setup_packet_s starts immediately after the 8-byte header:
+                //   byte players, yourplayer, ...
+                if msg.payload.len() >= 10 && msg.payload.get(1).copied() == Some(1) {
+                    let yourplayer = msg.payload[9];
+                    if let Some(sess) = sessions.get(&msg.player_id) {
+                        *sess.player_index.lock().unwrap() = Some(yourplayer);
+                    }
+                }
+
                 publish_to_livekit(&room, &msg.player_id, msg.payload)
                     .await
                     .context("failed to publish to livekit")?;
@@ -117,7 +130,8 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                         if let Some(sess) = sessions.remove(&pid) {
                             // Tell the server to free the slot; otherwise it may remain in
                             // pc_connected and ignore new init packets after a page refresh.
-                            let _ = send_prboom_quit(sess.sock.as_ref(), sess.game_addr, 0).await;
+                            let idx = sess.player_index.lock().unwrap().unwrap_or(0);
+                            let _ = send_prboom_quit(sess.sock.as_ref(), sess.game_addr, idx).await;
                             sess.cancel.cancel();
                             if let Some(tasks) = sess.tasks.lock().unwrap().take() {
                                 let _ = tasks.sender.await;
@@ -137,6 +151,17 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                             args.game_port,
                             tx_udp_to_lk.clone(),
                         ).await.context("failed to ensure player session")?;
+
+                        // Learn the player's index from client->server PKT_GO.
+                        // During D_CheckNetGame the client sends:
+                        //   header (8 bytes) + 1 byte consoleplayer
+                        if payload.len() == 9 && payload.get(1).copied() == Some(2) {
+                            let idx = payload[8];
+                            if let Some(sess) = sessions.get(&pid) {
+                                *sess.player_index.lock().unwrap() = Some(idx);
+                            }
+                        }
+
                         sessions
                             .get(&pid)
                             .unwrap()
@@ -226,6 +251,7 @@ async fn ensure_player_session(
             game_addr,
             tx_to_udp,
             tasks: Arc::new(Mutex::new(Some(PlayerSessionTasks { sender, receiver }))),
+            player_index: Arc::new(Mutex::new(None)),
         },
     );
     eprintln!(
@@ -329,11 +355,18 @@ async fn player_udp_receiver(
 }
 
 async fn publish_to_livekit(room: &Room, player_id: &str, payload: Arc<Vec<u8>>) -> Result<()> {
+    // PrBoomX protocol types (see Dwasm/src/protocol.h):
+    //   PKT_TICS = 4 (server -> client tics)
+    // Keep tics lossy to avoid head-of-line blocking, but make control/setup
+    // packets reliable so they aren't dropped/truncated during handshake.
+    let pkt_type = payload.get(1).copied();
+    let reliable = !matches!(pkt_type, Some(4));
+
     let datapacket = DataPacket {
         // Dwasm expects topic to be exactly "udp".
         topic: Some("udp".to_string()),
         payload: payload.as_ref().clone(), // unavoidable copy
-        reliable: false,
+        reliable,
         // Don't broadcast game UDP to all participants; only deliver to the owning player.
         destination_identities: vec![ParticipantIdentity(player_id.to_string())],
         ..DataPacket::default()

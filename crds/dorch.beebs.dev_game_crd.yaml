@@ -38,6 +38,10 @@ spec:
                 type: string
               iwad:
                 type: string
+              players:
+                format: int32
+                nullable: true
+                type: integer
               s3_secret_name:
                 type: string
               skill:

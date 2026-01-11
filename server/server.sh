@@ -6,7 +6,7 @@ echo "Warp Level: ${WARP:-unset}"
 echo "Using Game Skill: ${SKILL:-unset}"
 echo "Using Data Root: ${DATA_ROOT:-unset}"
 PORT="${GAME_PORT:-2342}"
-PLAYERS="${PLAYERS:-1}"
+PLAYERS="${PLAYERS:-4}"
 TICDUP="${TICDUP:-1}"
 XTRATICS="${XTRATICS:-1}"
 
