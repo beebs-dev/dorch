@@ -65,7 +65,7 @@ fn game_pod(
 
     // For simplicity, we create a pod spec with a single container
     // that runs ffmpeg to stream from the source to the destination
-    const DATA_ROOT: &str = "/data";
+    const DATA_ROOT: &str = "/var/wads";
     let mut server_env = vec![
         EnvVar {
             name: "GAME_ID".to_string(),
