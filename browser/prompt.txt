@@ -1,10 +1,265 @@
-Help me write a prompt for copilot to create a matchmaking / level browser GUI for Doom. Requirements:
-- Search bar
+Help me write a prompt for copilot to create a matchmaking / level browser GUI for Doom. I'm using a Svelte 5 scaffold as a starting point.
+
+Requirements:
+
+### Login Page
+- Username and password
+- Sign Up (implement click handler as stub; don't implement a Sign Up page)
+- Forgot your password? (also implement as a stub)
+
+### WAD Browser
+- This is the root page for the app. Login is only required for play features; browsing doesn't require login.
+- Stylized "DORCH" logo with CSS in the header on the left 
+- Search bar in the page header (centered, reasonable max width)
+- Show login status in the page header on the right
 - Sort by: Featured, Release Date,  Most Played, Alphabetical
+- When no search query, show hero thumbnails from featured WADs that lead to the wad details page
+
+### WAD Details
 - Individual pages for each WAD, e.g. /wad/{sha1_hash}
-  Showing:
-    - Map information
-    - Any available screenshots
-    - A button for "Play" (implement as a stub for now)
-- The ability to create, join, manage, and leave a party
-- When a player is in a party, 
+- Any available screenshots
+- If not in a party or the party leader:
+    - "Add to Game" button that becomes "Remove from Game" when pressed. This button adds or removes the wad reference "${sha1}:${filename}"from the `wads` field of GameConfig.
+- For all users in a party:
+    - A button for "Vote" that becomed "Withdraw Vote" when pressed
+- If not logged in:
+    - A single "Login to Play" button which initiates login page auth flow that leads back to the wad page
+- Map listings (and screenshots for individual maps, when available)
+- Show an average rating (1 to 5 stars) with the total review count
+- Show text reviews (where available)
+- The ability to rate/review a wad (text not required, star rating only is acceptable, but provide a multiline text input and a submit button)
+- Individual pages for each map, e.g. /wad/{sha1_hash}/maps/{map_name}
+    - Show the map title
+    - Show any available screenshots
+    - Show the same review/rating information from the parent WAD
+
+    
+### Party management
+- "Party" page implemented as its own route, containing management features (create party, join existing party, kick a party member, invite a member, leave a party, etc).
+- A player can only be in one party a time
+- The creator of the party is the "leader" and makes decisions about which maps to play
+- The party leader can give leader status to another member
+- There can only be one party leader a time
+- When a player is in a party and not the leader, the "Play" buttons are changed to "Nominate" or "Vote" (if already nominated). When a player is the leader, show both "Play (Party)" and "Nominate" / "Vote" (depending on state)
+- When the "Nominate" button is pressed, the wad shows up as a card on the party screen. The button grays out and changed to "Nominated" for the player that nominated it.
+- If a map is already Nominated by another player, it should instead have a button for "Vote" on the wad details screen.
+- When a player votes on a WAD, the "Vote" button should change to "Voted". Pressing the button again retracts the vote.
+- The map cards on the party screen have "Vote" buttons on top of them so other members of the party can easily vote on maps that were already nominated.
+- If not in a party, show pending party invites
+- An "Invite" button that grants the ability to invite a user to the directly by username
+- Party chat
+  - Basic IRC-like features, e.g. chat history
+  - "User is typing..." notifications above the text input
+
+### Infrastructure
+
+#### Authentication
+
+JWT is used to manage user authentication. Here is known-good code for this system written in dart:
+
+```dart
+const apiHost = 'api.slopindustries.com';
+
+class JwtLike {
+  final String accessToken;
+  final String? refreshToken;
+  final String? tokenType;
+  final int? expiresIn;
+  final int? refreshExpiresIn;
+  final String? idToken;
+  final String? scope;
+  final String? sessionState;
+
+  JwtLike({
+    required this.accessToken,
+    required this.refreshToken,
+    required this.tokenType,
+    required this.expiresIn,
+    required this.refreshExpiresIn,
+    required this.idToken,
+    required this.scope,
+    required this.sessionState,
+  });
+
+  static JwtLike fromMap(Map<dynamic, dynamic> m) => JwtLike(
+    accessToken: m['access_token'],
+    refreshToken: m['refresh_token'],
+    tokenType: m['token_type'],
+    expiresIn: m['expires_in'],
+    refreshExpiresIn: m['refresh_expires_in'],
+    idToken: m['id_token'],
+    scope: m['scope'],
+    sessionState: m['session_state'],
+  );
+
+  Map<String, dynamic> toMap() => {
+    'access_token': accessToken,
+    'refresh_token': refreshToken,
+    'token_type': tokenType,
+    'expires_in': expiresIn,
+    'refresh_expires_in': refreshExpiresIn,
+    'id_token': idToken,
+    'scope': scope,
+    'session_state': sessionState,
+  };
+}
+
+class UserCredentials {
+  final String id;
+  final String username;
+  final String? email;
+  final String? firstName;
+  final String? lastName;
+  final JwtLike jwt;
+
+  UserCredentials({
+    required this.id,
+    required this.username,
+    required this.email,
+    required this.firstName,
+    required this.lastName,
+    required this.jwt,
+  });
+
+  String get bearer => "Bearer ${jwt.accessToken}";
+
+  String get base64AccessToken => base64UrlEncode(utf8.encode(jwt.accessToken));
+
+  static UserCredentials fromMap(Map<dynamic, dynamic> m) => UserCredentials(
+    id: m['id'],
+    username: m['username'],
+    email: m['email'],
+    firstName: m['first_name'],
+    lastName: m['last_name'],
+    jwt: JwtLike.fromMap(m['jwt']),
+  );
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'username': username,
+    'email': email,
+    'firstName': firstName,
+    'lastName': lastName,
+    'jwt': jwt.toMap(),
+  };
+}
+
+
+Future<UserCredentials> userLogin(String username, String password) async {
+  final url = Uri.https(apiHost, 'user/login');
+  final response = await http.post(
+    url,
+    headers: {'Content-Type': 'application/json'},
+    body: json.encode({'username': username, 'password': password}),
+  );
+  if (response.statusCode == 401) {
+    throw InvalidCredentialsError();
+  } else if (response.statusCode != 200) {
+    throw ApiStatusError(response.statusCode, response.body);
+  }
+  final j = utf8.decode(response.bodyBytes);
+  debugPrint(j);
+  final decodedResponse = jsonDecode(j) as Map;
+  final creds = UserCredentials.fromMap(decodedResponse);
+  return creds;
+}
+
+/// For refereshing the access token once it expires
+Future<UserCredentials> userRefresh(UserCredentials creds) async {
+  final response = await http.post(
+    Uri.https(apiHost, 'user/refresh'),
+    headers: {'Content-Type': 'application/json'},
+    body: json.encode({'refresh_token': creds.jwt.refreshToken}),
+  );
+  if (response.statusCode != 200) {
+    throw ApiStatusError(response.statusCode, response.body);
+  }
+  return UserCredentials.fromMap(
+    jsonDecode(utf8.decode(response.bodyBytes)) as Map,
+  );
+}
+```
+
+
+### WebSocket connection for live state updates
+
+First authenticate the user by hitting the ws/auth endpoint. This requires signing a request so a single-use connection can be authenticated.
+
+Here is some known-good code written in Dart that does this:
+
+```dart
+
+Future<WebSocketChannel> doConnectWebSock(UserCredentials creds) async {
+  // AES-GCM with 256-bit key (32 bytes), 12-byte nonce
+  final algorithm = crypto.AesGcm.with256bits();
+
+  // Generate key and nonce
+  final secretKey = await algorithm.newSecretKey();
+  final keyBytes = await secretKey.extractBytes(); // 32 bytes
+  final nonce = algorithm.newNonce(); // 12 bytes by default
+
+  final deviceId = await _getDeviceId(creds.id);
+
+  // These were previously key.base64 / iv.base64 -> normal base64 is fine here
+  final connId = await authWebSock(
+    creds: creds,
+    base64Key: base64Encode(keyBytes),
+    base64Nonce: base64Encode(nonce),
+    deviceId: deviceId,
+  );
+  debugPrint('WebSocket connId: $connId');
+
+  // Encrypt the JWT access token with AES-GCM
+  final plainBytes = utf8.encode(creds.jwt.accessToken);
+
+  final secretBox = await algorithm.encrypt(
+    plainBytes,
+    secretKey: secretKey,
+    nonce: nonce,
+  );
+
+  // `encrypt`'s AES-GCM output is ciphertext + tag.
+  // Recreate that layout: [cipherText || mac]
+  final cipherAndTag = <int>[...secretBox.cipherText, ...secretBox.mac.bytes];
+
+  // URL-safe base64 for putting into the query string
+  final payload = base64UrlEncode(cipherAndTag);
+
+  final uriBase = 'wss://${apiHost}/ws';
+  if (kDebugMode) {
+    print("Connecting to $uriBase as '${creds.username}' (connId=$connId)");
+  }
+
+  final uri = '$uriBase?c=${Uri.encodeQueryComponent(connId)}&p=$payload';
+  final ch = WebSocketChannel.connect(Uri.parse(uri));
+  await ch.ready;
+  return ch;
+}
+
+Future<String> authWebSock({
+  required UserCredentials creds,
+  required String base64Key,
+  required String base64Nonce,
+  required String deviceId,
+}) async {
+  final response = await http.post(
+    Uri.https(apiHost, 'ws/auth'),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': creds.bearer,
+    },
+    body: jsonEncode({
+      'key': base64Key,
+      'nonce': base64Nonce,
+      'device_id': deviceId,
+    }),
+  );
+  if (response.statusCode == 401) {
+    throw InvalidCredentialsError();
+  }
+  if (response.statusCode != 200) {
+    throw ApiStatusError(response.statusCode, response.body);
+  }
+  return response.body;
+}
+```
