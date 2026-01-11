@@ -30,6 +30,8 @@ pub struct GameSpec {
     pub warp: Option<String>,
     pub skill: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub private: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub debug_udp: Option<bool>,
 }
 

@@ -8,6 +8,7 @@ group "default" {
     "server",
     "proxy",
     "client",
+    "sock",
     "downloader"
   ]
 }
@@ -25,6 +26,15 @@ target "operator" {
   dockerfile = "operator/Dockerfile"
   args       = { BASE_IMAGE = "base_context" }
   tags       = ["${REGISTRY}thavlik/dorch-operator:latest"]
+  push       = true
+}
+
+target "sock" {
+  contexts   = { base_context = "target:base" }
+  context    = "./"
+  dockerfile = "sock/Dockerfile"
+  args       = { BASE_IMAGE = "base_context" }
+  tags       = ["${REGISTRY}thavlik/dorch-sock:latest"]
   push       = true
 }
 

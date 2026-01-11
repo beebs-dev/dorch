@@ -62,7 +62,8 @@ async fn cancel_all_sessions(sessions: &mut HashMap<String, PlayerSession>) {
         });
     for (_, sess) in sessions.drain() {
         sess.cancel.cancel();
-        if let Some(tasks) = sess.tasks.lock().unwrap().take() {
+        let tasks = sess.tasks.lock().unwrap().take();
+        if let Some(tasks) = tasks {
             let _ = tasks.sender.await;
             let _ = tasks.receiver.await;
         }
@@ -125,7 +126,8 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                         eprintln!("participant disconnected: {pid}");
                         if let Some(sess) = sessions.remove(&pid) {
                             sess.cancel.cancel();
-                            if let Some(tasks) = sess.tasks.lock().unwrap().take() {
+                            let task = sess.tasks.lock().unwrap().take();
+                            if let Some(tasks) = task {
                                 let _ = tasks.sender.await;
                                 let _ = tasks.receiver.await;
                             }
@@ -333,7 +335,6 @@ async fn publish_to_livekit(
         reliable,
         // Don't broadcast game UDP to all participants; only deliver to the owning player.
         destination_identities: vec![ParticipantIdentity(player_id.to_string())],
-        ..DataPacket::default()
     };
     room.local_participant()
         .publish_data(datapacket)

@@ -3,7 +3,10 @@ members = [
     "common",
     "operator",
     "proxy",
-    "types"
+    "types",
+    "sock",
+    "party",
+    "webrtc-auth"
 ]
 resolver = "3"
 
@@ -97,3 +100,8 @@ humantime = "2.3.0"
 lazy_static = "^1.4"
 parse_duration = "2.1.1"
 thiserror = "1"
+async-redis-lock = "0.2.3"
+aes-gcm = "0.10.3"
+jsonwebtoken = "9"
+once_cell = "1"
+url = "2.5.7"

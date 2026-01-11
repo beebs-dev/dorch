@@ -1,0 +1,38 @@
+[package]
+name = "dorch-webrtc-auth"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "dorch-webrtc-auth"
+path = "src/main.rs"
+
+[dependencies]
+dorch-common = { path = "../common" }
+dorch-party = { path = "../party" }
+tokio-postgres = { workspace = true }
+postgres = { workspace = true }
+deadpool-postgres = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+http-body-util = { workspace = true }
+bytes = { workspace = true }
+tokio-util = { workspace = true }
+futures-util = { workspace = true }
+clap = { workspace = true }
+redis = { workspace = true }
+deadpool-redis = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio-stream = { workspace = true }
+anyhow = { workspace = true }
+axum = { workspace = true }
+uuid = { workspace = true }
+base64 = { workspace = true }
+owo-colors = { workspace = true }
+reqwest = { workspace = true }
+futures = { workspace = true }
+humantime = { workspace = true }
+rustls = { workspace = true }
+tokio-rustls = { workspace = true }
+jsonwebtoken = { version = "10.2.0", features = ["aws_lc_rs"] }

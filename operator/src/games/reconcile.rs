@@ -21,8 +21,6 @@ use tokio_util::sync::CancellationToken;
 #[cfg(feature = "metrics")]
 use crate::util::metrics::ControllerMetrics;
 
-/// Entrypoint for the `Game` controller.
-
 pub async fn run(
     client: Client,
     proxy_image: String,
