@@ -61,7 +61,7 @@ fn game_pod(
     livekit_url: &str,
     livekit_secret: &str,
 ) -> Pod {
-    let game_port = 2342;
+    let game_port = 10666;
 
     // For simplicity, we create a pod spec with a single container
     // that runs ffmpeg to stream from the source to the destination
