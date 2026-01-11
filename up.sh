@@ -19,6 +19,9 @@ do_restart() {
     restart_args=()
     for arg in "$@"; do
         case "$arg" in
+        client)
+            kubectl rollout restart deployment --context $KUBECONTEXT -n apps apps-prboom
+            ;;
         *)
             restart_args+=("$arg")
             ;;
