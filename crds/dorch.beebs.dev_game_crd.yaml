@@ -26,6 +26,9 @@ spec:
         properties:
           spec:
             properties:
+              debug_udp:
+                nullable: true
+                type: boolean
               files:
                 items:
                   type: string

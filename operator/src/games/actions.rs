@@ -103,12 +103,7 @@ fn game_pod(
             ..Default::default()
         });
     }
-    let proxy_env = vec![
-        EnvVar {
-            name: "DORCH_UDP_DEBUG".to_string(),
-            value: Some("1".to_string()),
-            ..Default::default()
-        },
+    let mut proxy_env = vec![
         EnvVar {
             name: "GAME_PORT".to_string(),
             value: Some(game_port.to_string()),
@@ -149,6 +144,13 @@ fn game_pod(
             ..Default::default()
         },
     ];
+    if instance.spec.debug_udp == Some(true) {
+        proxy_env.push(EnvVar {
+            name: "DORCH_UDP_DEBUG".to_string(),
+            value: Some("1".to_string()),
+            ..Default::default()
+        });
+    }
     Pod {
         metadata: ObjectMeta {
             name: instance.meta().name.clone(),

@@ -27,6 +27,8 @@ pub struct GameSpec {
     pub files: Option<Vec<String>>,
     pub warp: Option<String>,
     pub skill: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub debug_udp: Option<bool>,
 }
 
 /// Status object for the [`Game`] resource.

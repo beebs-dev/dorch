@@ -7,12 +7,24 @@ echo "Using Game Skill: ${SKILL:-unset}"
 echo "Using Data Root: ${DATA_ROOT:-unset}"
 PORT="${GAME_PORT:-2342}"
 PLAYERS="${PLAYERS:-1}"
+TICDUP="${TICDUP:-1}"
+XTRATICS="${XTRATICS:-1}"
 
 CMD=(
     /usr/local/bin/dorch-game-server
     -p "$PORT"
     -N "$PLAYERS"
 )
+
+# Net smoothing knobs (PrBoomX server flags):
+# -t <ticdup>: duplicate each tic this many times (helps with loss/jitter)
+# -x <xtratics>: send extra tics (helps hide latency)
+if [[ -n "${TICDUP}" && "${TICDUP}" != "0" && "${TICDUP}" != "1" ]]; then
+    CMD+=( -t "$TICDUP" )
+fi
+if [[ -n "${XTRATICS}" && "${XTRATICS}" != "0" ]]; then
+    CMD+=( -x "$XTRATICS" )
+fi
 # if [[ -n "${WARP:-}" ]]; then
 #     CMD+=(-warp "$WARP")
 # fi
