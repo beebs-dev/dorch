@@ -6,7 +6,8 @@ group "default" {
   targets = [
     "operator",
     "server",
-    "proxy"
+    "proxy",
+    "client"
   ]
 }
 
@@ -28,7 +29,7 @@ target "operator" {
 
 target "server" {
   contexts   = { base_context = "target:base" }
-  context    = "server/"
+  dockerfile = "server/Dockerfile"
   args       = { BASE_IMAGE = "base_context" }
   tags       = ["${REGISTRY}thavlik/dorch-server:latest"]
   push       = true
@@ -40,5 +41,11 @@ target "proxy" {
   dockerfile = "proxy/Dockerfile"
   args       = { BASE_IMAGE = "base_context" }
   tags       = ["${REGISTRY}thavlik/dorch-proxy:latest"]
+  push       = true
+}
+
+target "client" {
+  context    = "Dwasm/"
+  tags       = ["${REGISTRY}thavlik/dwasm:latest"]
   push       = true
 }

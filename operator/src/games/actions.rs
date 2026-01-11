@@ -65,7 +65,12 @@ fn game_pod(
     // For simplicity, we create a pod spec with a single container
     // that runs ffmpeg to stream from the source to the destination
     const DATA_ROOT: &str = "/data";
-    let mut woof_env = vec![
+    let mut server_env = vec![
+        EnvVar {
+            name: "GAME_ID".to_string(),
+            value: Some(instance.spec.game_id.clone()),
+            ..Default::default()
+        },
         EnvVar {
             name: "IWAD".to_string(),
             value: Some(instance.spec.iwad.clone()),
@@ -78,27 +83,32 @@ fn game_pod(
         },
     ];
     if let Some(files) = instance.spec.files.as_deref() {
-        woof_env.push(EnvVar {
+        server_env.push(EnvVar {
             name: "WAD_LIST".to_string(),
             value: Some(files.join(",")),
             ..Default::default()
         });
     }
     if let Some(warp) = instance.spec.warp.as_deref() {
-        woof_env.push(EnvVar {
+        server_env.push(EnvVar {
             name: "WARP".to_string(),
             value: Some(warp.to_string()),
             ..Default::default()
         });
     }
     if let Some(skill) = instance.spec.skill {
-        woof_env.push(EnvVar {
+        server_env.push(EnvVar {
             name: "SKILL".to_string(),
             value: Some(skill.to_string()),
             ..Default::default()
         });
     }
     let proxy_env = vec![
+        EnvVar {
+            name: "DORCH_UDP_DEBUG".to_string(),
+            value: Some("1".to_string()),
+            ..Default::default()
+        },
         EnvVar {
             name: "GAME_PORT".to_string(),
             value: Some(game_port.to_string()),
@@ -267,7 +277,7 @@ fn game_pod(
                         protocol: Some("UDP".to_string()),
                         ..Default::default()
                     }]),
-                    env: Some(woof_env),
+                    env: Some(server_env),
                     ..Default::default()
                 },
                 Container {

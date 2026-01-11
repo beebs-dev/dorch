@@ -5,10 +5,13 @@ echo "Using IWAD: $IWAD"
 echo "Warp Level: ${WARP:-unset}"
 echo "Using Game Skill: ${SKILL:-unset}"
 echo "Using Data Root: ${DATA_ROOT:-unset}"
+PORT="${GAME_PORT:-2342}"
+PLAYERS="${PLAYERS:-1}"
+
 CMD=(
-  /usr/games/woof
-  -privateserver
-  -complevel boom
+    /usr/local/bin/dorch-game-server
+    -p "$PORT"
+    -N "$PLAYERS"
 )
 # if [[ -n "${WARP:-}" ]]; then
 #     CMD+=(-warp "$WARP")
@@ -21,13 +24,10 @@ if [[ -n "${WAD_LIST:-}" ]]; then
     for wad in "${WADS[@]}"; do
         wad="${wad#"${wad%%[![:space:]]*}"}"  # ltrim
         wad="${wad%"${wad##*[![:space:]]}"}"  # rtrim
-        wad="$DATA_ROOT/$wad"
-        if [[ ! -f "$wad" ]]; then
-            echo "❌ WAD not found: $wad" >&2
-            exit 1
-        fi
+        # prboomX-game-server uses -w to announce WADs to clients.
+        # It does not need to read these files locally.
         echo "Adding WAD: $wad"
-        CMD+=(-file "$wad")
+        CMD+=(-w "$wad")
     done
 fi
 
