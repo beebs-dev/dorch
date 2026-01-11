@@ -17,8 +17,8 @@ do_build() {
 }
 do_restart() {
     restart_args=()
-    restart_app=false
-    restart_server=false
+    restart_app=$([ "${#restart_args[@]}" -eq 0 ])
+    restart_server=$([ "${#restart_args[@]}" -eq 0 ])
     for arg in "$@"; do
         case "$arg" in
         client)
@@ -32,10 +32,10 @@ do_restart() {
             ;;
         esac
     done
-    if [ "$restart_app" = true ] || [ "${#restart_args[@]}" -eq 0 ]; then
+    if [ "$restart_app" = true ]; then
         kubectl rollout restart deployment --context $KUBECONTEXT -n apps apps-zandronum
     fi
-    if [ "$restart_server" = true ] || [ "${#restart_args[@]}" -eq 0 ]; then
+    if [ "$restart_server" = true ]; then
         kubectl delete pod --context $KUBECONTEXT -n $NAMESPACE test-game
     fi
     kubectl rollout restart deployment --context $KUBECONTEXT -n $NAMESPACE "${restart_args[@]/#/$NAMESPACE-}"

@@ -1,0 +1,10 @@
+Help me write a prompt for copilot to create a matchmaking / level browser GUI for Doom. Requirements:
+- Search bar
+- Sort by: Featured, Release Date,  Most Played, Alphabetical
+- Individual pages for each WAD, e.g. /wad/{sha1_hash}
+  Showing:
+    - Map information
+    - Any available screenshots
+    - A button for "Play" (implement as a stub for now)
+- The ability to create, join, manage, and leave a party
+- When a player is in a party, 
