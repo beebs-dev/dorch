@@ -184,20 +184,16 @@ fn game_pod(
                     EnvVar {
                         name: "DOWNLOAD_LIST".to_string(),
                         value: Some({
-                            let combined = instance
-                                .spec
-                                .files
-                                .as_ref()
-                                .map(|files| files.join(","))
-                                .unwrap_or_default();
-                            if combined.contains(&instance.spec.iwad) {
-                                combined
-                            } else {
-                                let mut s = instance.spec.iwad.clone();
-                                s.push(',');
-                                s.push_str(&combined);
-                                s
+                            let mut downloads: Vec<String> = Vec::new();
+                            downloads.push(instance.spec.iwad.clone());
+                            if let Some(files) = instance.spec.files.as_ref() {
+                                for f in files {
+                                    if f != &instance.spec.iwad {
+                                        downloads.push(f.clone());
+                                    }
+                                }
                             }
+                            downloads.join(",")
                         }),
                         ..Default::default()
                     },
