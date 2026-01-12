@@ -17,6 +17,7 @@ mod sql {
 
     pub const GET_WAD: &str = include_str!("sql/get_wad.sql");
     pub const GET_WAD_MAPS: &str = include_str!("sql/get_wad_maps.sql");
+    pub const GET_WAD_MAP: &str = include_str!("sql/get_wad_map.sql");
 
     pub const DELETE_WAD_CHILDREN: &str = include_str!("sql/delete_wad_children.sql");
     pub const INSERT_WAD_AUTHOR: &str = include_str!("sql/insert_wad_author.sql");
@@ -74,6 +75,10 @@ impl Database {
             .prepare(sql::GET_WAD_MAPS)
             .await
             .context("failed to prepare GET_WAD_MAPS")?;
+        _ = conn
+            .prepare(sql::GET_WAD_MAP)
+            .await
+            .context("failed to prepare GET_WAD_MAP")?;
 
         _ = conn
             .prepare(sql::DELETE_WAD_CHILDREN)
@@ -170,6 +175,27 @@ impl Database {
         }
 
         Ok(Some(WadMergedOut { meta, maps }))
+    }
+
+    pub async fn get_wad_map(&self, wad_id: Uuid, map_name: &str) -> Result<Option<MapStat>> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+
+        let stmt = conn
+            .prepare_cached(sql::GET_WAD_MAP)
+            .await
+            .context("failed to prepare GET_WAD_MAP")?;
+        let row = conn
+            .query_opt(&stmt, &[&wad_id, &map_name])
+            .await
+            .context("failed to execute GET_WAD_MAP")?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let map_json: serde_json::Value = row.try_get("map_json")?;
+        let map: MapStat = serde_json::from_value(map_json).context("deserialize MapStat")?;
+        Ok(Some(map))
     }
 
     pub async fn search_wads(

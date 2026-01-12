@@ -29,6 +29,7 @@ pub async fn run_server(
         .route("/upsert_wad", post(upsert_wad))
         .route("/wad", post(list_wads))
         .route("/wad/{id}", post(get_wad))
+        .route("/wad/{id}/map/{map}", post(get_wad_map))
         .route("/search", get(search))
         .with_state(app_state)
         .layer(middleware::from_fn(access_log::internal));
@@ -84,6 +85,17 @@ pub async fn list_wads(
     match state.db.list_wads(offset, limit, req.sort_desc).await {
         Ok(wads) => (StatusCode::OK, Json(wads)).into_response(),
         Err(e) => response::error(e.context("Failed to list wads")),
+    }
+}
+
+pub async fn get_wad_map(
+    State(state): State<App>,
+    Path((wad_id, map_name)): Path<(Uuid, String)>,
+) -> impl IntoResponse {
+    match state.db.get_wad_map(wad_id, &map_name).await {
+        Ok(Some(map)) => (StatusCode::OK, Json(map)).into_response(),
+        Ok(None) => response::not_found(anyhow::anyhow!("WAD map not found")),
+        Err(e) => response::error(e.context("Failed to get wad map")),
     }
 }
 
