@@ -1,6 +1,6 @@
 use crate::{
     app::App,
-    client::{Pagination, WadSearchRequest},
+    client::{ListWadsRequest, Pagination, WadSearchRequest},
 };
 use anyhow::{Context, Result};
 use axum::{
@@ -77,7 +77,7 @@ pub async fn upsert_wad(
 ///
 pub async fn list_wads(
     State(state): State<App>,
-    Query(req): Query<Pagination>,
+    Query(req): Query<ListWadsRequest>,
 ) -> impl IntoResponse {
     // TODO: list wads alphabetically with pagination
 }
