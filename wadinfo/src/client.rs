@@ -20,6 +20,16 @@ pub struct SearchOptions {
 }
 
 #[derive(Deserialize)]
+pub struct ListWadsRequest {
+    #[serde(flatten)]
+    pub pagination: Pagination,
+
+    /// If true, sort descending. Otherwise, sort ascending.
+    #[serde(rename = "d", default)]
+    pub sort_desc: bool,
+}
+
+#[derive(Deserialize)]
 pub struct WadSearchRequest {
     pub query: String,
 
