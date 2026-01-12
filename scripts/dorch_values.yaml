@@ -1,6 +1,9 @@
 prometheus:
   enabled: false
 
+nats:
+  url: "nats://nats.nats.svc.cluster.local:4222"
+  
 redis:
   username:
     valueFrom:

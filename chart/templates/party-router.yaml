@@ -1,10 +1,10 @@
-{{- $image := printf "%s%s" .Values.registry .Values.party.router.messages.image -}}
+{{- $image := printf "%s%s" .Values.registry .Values.party.router.image -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-party-router
 spec:
-  replicas: {{ .Values.party.router.messages.replicas }}
+  replicas: {{ .Values.party.router.replicas }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}-party-router
@@ -19,11 +19,11 @@ spec:
     {{- end }}
       containers:
       - name: router
-        imagePullPolicy: {{ .Values.party.router.messages.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.party.router.imagePullPolicy }}
         image: {{ $image }}
-    {{- if .Values.party.router.messages.resources }}
+    {{- if .Values.party.router.resources }}
         resources:
-{{ toYaml .Values.party.router.messages.resources | indent 10 }}
+{{ toYaml .Values.party.router.resources | indent 10 }}
     {{- end }}
         command:
           - dorch-party
@@ -56,7 +56,7 @@ spec:
         - name: RUST_LOG
           value: info,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info
         - name: LOG_LEVEL
-          value: {{ .Values.party.router.messages.logLevel }}
+          value: {{ .Values.party.router.logLevel }}
 {{ include "dorch.metrics-env" . | indent 8 }}
 {{ include "dorch.nats-env" . | indent 8 }}
 {{ include "dorch.redis-env" . | indent 8 }}
