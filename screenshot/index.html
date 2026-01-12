@@ -55,7 +55,7 @@
       import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 
       // >>> CHANGE THIS PATH <<<
-      const PANORAMA_URL = "./output/MAP01/0_pano.jpg";
+      const PANORAMA_URL = "./output/MAP01/5_pano.jpg";
       document.getElementById("imgPath").textContent = PANORAMA_URL;
 
       const canvas = document.getElementById("c");
@@ -97,6 +97,8 @@
         PANORAMA_URL,
         (texture) => {
           texture.colorSpace = THREE.SRGBColorSpace;
+          texture.flipY = false;
+          texture.needsUpdate = true;
 
           // Create sphere and map the panorama on the INSIDE
           const geometry = new THREE.SphereGeometry(500, 64, 32);
