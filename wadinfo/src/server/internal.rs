@@ -1,8 +1,5 @@
-use crate::{
-    app::App,
-    client::{InsertWadRequest, Pagination, SearchOptions},
-};
-use anyhow::{Context, Result, anyhow};
+use crate::{app::App, client::WadSearchRequest};
+use anyhow::{Context, Result};
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
@@ -11,7 +8,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
-use dorch_common::{access_log, response};
+use dorch_common::{access_log, response, types::wad::WadMergedOut};
 use owo_colors::OwoColorize;
 use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
@@ -27,10 +24,8 @@ pub async fn run_server(
         .route("/readyz", get(health));
     let router = Router::new()
         .route("/upsert_wad", post(upsert_wad))
+        .route("/wad/{id}", post(get_wad))
         .route("/search", get(search))
-        .route("/wad", get(list_wads))
-        .route("/wad/{wad_id}", get(get_wad))
-        .route("/wad/{wad_id}/{map_name}", get(get_wad_map))
         .with_state(app_state)
         .layer(middleware::from_fn(access_log::internal));
     let port = args.internal_port;
@@ -67,61 +62,28 @@ async fn health() -> impl IntoResponse {
 
 pub async fn upsert_wad(
     State(state): State<App>,
-    Json(req): Json<InsertWadRequest>,
+    Json(req): Json<WadMergedOut>,
 ) -> impl IntoResponse {
-    match state.db.insert_wad(&req.meta, &req.maps).await {
+    match state.db.insert_wad(&req).await {
         Ok(wad_id) => (StatusCode::OK, Json(wad_id)).into_response(),
         Err(e) => response::error(e.context("Failed to insert wad")),
     }
 }
 
 pub async fn get_wad(State(state): State<App>, Path(wad_id): Path<Uuid>) -> impl IntoResponse {
-    match state.db.get_wad(wad_id).await {
-        Ok(Some(wad)) => (StatusCode::OK, Json(wad)).into_response(),
-        Ok(None) => response::not_found(anyhow!("Wad not found")),
-        Err(e) => response::error(e.context("Failed to get wad")),
-    }
-}
-
-pub async fn get_wad_map(
-    State(state): State<App>,
-    Path((wad_id, map_name)): Path<(Uuid, String)>,
-) -> impl IntoResponse {
-    match state.db.get_wad_map(wad_id, &map_name).await {
-        Ok(Some(map)) => (StatusCode::OK, Json(map)).into_response(),
-        Ok(None) => response::not_found(anyhow!("Wad map not found")),
-        Err(e) => response::error(e.context("Failed to get wad map")),
-    }
+    // TODO: get wad by id
 }
 
 pub async fn search(
     State(state): State<App>,
-    Query(opts): Query<SearchOptions>,
+    Query(req): Query<WadSearchRequest>,
 ) -> impl IntoResponse {
     match state
         .db
-        .search_wads(
-            &opts.query,
-            opts.pagination.offset,
-            opts.pagination.limit.unwrap_or(10).min(100),
-        )
+        .search_wads(&req.query, req.offset, req.limit.unwrap_or(10).min(100))
         .await
     {
         Ok(maps) => (StatusCode::OK, Json(maps)).into_response(),
         Err(e) => response::error(e.context("Failed to search wads")),
-    }
-}
-
-pub async fn list_wads(
-    State(state): State<App>,
-    Query(opts): Query<Pagination>,
-) -> impl IntoResponse {
-    match state
-        .db
-        .list_wads(opts.offset, opts.limit.unwrap_or(10).min(100))
-        .await
-    {
-        Ok(maps) => (StatusCode::OK, Json(maps)).into_response(),
-        Err(e) => response::error(e.context("Failed to get wad maps")),
     }
 }

@@ -1,5 +1,5 @@
 use dorch_common::types::wad::WadMeta;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
 pub struct Pagination {
@@ -31,7 +31,7 @@ pub struct WadSearchRequest {
     // TODO: add filters, sorting, etc.
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct WadSearchResults {
     pub query: String,
     pub items: Vec<WadMeta>,

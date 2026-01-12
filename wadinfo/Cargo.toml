@@ -34,3 +34,4 @@ axum-keycloak-auth = { workspace = true }
 tokio-postgres = { workspace = true }
 postgres = { workspace = true }
 deadpool-postgres = { workspace = true }
+chrono = { workspace = true }

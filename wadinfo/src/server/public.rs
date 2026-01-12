@@ -30,10 +30,7 @@ pub async fn run_server(
         .expected_audiences(vec![args.kc.client_id])
         .build();
     let router = Router::new()
-        .route("/wad", get(internal::list_wads))
         .route("/search", get(internal::search))
-        .route("/wad/{wad_id}", get(internal::get_wad))
-        .route("/wad/{wad_id}/{map_name}", get(internal::get_wad_map))
         .with_state(app_state)
         .layer(keycloak_layer)
         .layer(middleware::from_fn(access_log::public))
