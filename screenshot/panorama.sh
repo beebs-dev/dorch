@@ -8,6 +8,7 @@ python main.py \
     --files ./assets/sunlust.wad \
     --output output \
     --panorama \
+    --panorama-format webp \
     --no-monsters \
     --format webp \
     -n 6

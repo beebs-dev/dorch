@@ -55,7 +55,7 @@
       import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 
       // >>> CHANGE THIS PATH <<<
-      const PANORAMA_URL = "./output/MAP04/5_pano.jpg";
+      const PANORAMA_URL = "./output/MAP04/5_pano.webp";
       document.getElementById("imgPath").textContent = PANORAMA_URL;
 
       const canvas = document.getElementById("c");
@@ -95,13 +95,68 @@
       camera.updateProjectionMatrix();
 
       // Texture loader
+      async function webpUrlToPngObjectUrl(webpUrl) {
+        const response = await fetch(webpUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch WEBP (${response.status}): ${webpUrl}`);
+        }
+        const webpBlob = await response.blob();
+
+        // Decode the image (prefer createImageBitmap; fall back to <img>.decode()).
+        let bitmap;
+        try {
+          bitmap = await createImageBitmap(webpBlob);
+        } catch {
+          const webpObjectUrl = URL.createObjectURL(webpBlob);
+          try {
+            const img = new Image();
+            img.decoding = "async";
+            img.src = webpObjectUrl;
+            if (img.decode) {
+              await img.decode();
+            } else {
+              await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+              });
+            }
+            bitmap = img;
+          } finally {
+            URL.revokeObjectURL(webpObjectUrl);
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const ctx = canvas.getContext("2d", { alpha: false });
+        if (!ctx) {
+          throw new Error("Failed to get 2D canvas context for WEBP->PNG conversion");
+        }
+        ctx.drawImage(bitmap, 0, 0);
+
+        const pngBlob = await new Promise((resolve, reject) => {
+          canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("canvas.toBlob returned null"))), "image/png");
+        });
+
+        // If bitmap was an ImageBitmap, free its resources.
+        if (bitmap && typeof bitmap.close === "function") {
+          bitmap.close();
+        }
+
+        return URL.createObjectURL(pngBlob);
+      }
+
       const loader = new THREE.TextureLoader();
-      loader.load(
-        PANORAMA_URL,
-        (texture) => {
+      (async () => {
+        let pngObjectUrl;
+        try {
+          pngObjectUrl = await webpUrlToPngObjectUrl(PANORAMA_URL);
+          const texture = await loader.loadAsync(pngObjectUrl);
+
           texture.colorSpace = THREE.SRGBColorSpace;
           texture.wrapS = THREE.RepeatWrapping;
-          texture.repeat.x = - 1;
+          texture.repeat.x = -1;
           texture.flipY = false;
           texture.needsUpdate = true;
 
@@ -112,13 +167,13 @@
           const material = new THREE.MeshBasicMaterial({ map: texture });
           const mesh = new THREE.Mesh(geometry, material);
           scene.add(mesh);
-        },
-        undefined,
-        (err) => {
+        } catch (err) {
           console.error("Failed to load panorama:", err);
           alert("Failed to load panorama. Check the PANORAMA_URL path and that you're serving via a local web server.");
+        } finally {
+          if (pngObjectUrl) URL.revokeObjectURL(pngObjectUrl);
         }
-      );
+      })();
 
       // Resize handling
       function resizeRendererToDisplaySize() {

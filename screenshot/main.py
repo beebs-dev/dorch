@@ -1347,9 +1347,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 	)
 	parser.add_argument(
 		"--panorama-format",
-		choices=["jpg", "png"],
+		choices=["jpg", "png", "webp"],
 		default="jpg",
-		help="Format for the stitched equirect panorama image (jpg or png)",
+		help="Format for the stitched equirect panorama image (jpg, png, or webp)",
 	)
 	parser.add_argument(
 		"--panorama-face-size",
