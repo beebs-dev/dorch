@@ -3,6 +3,7 @@ use anyhow::{Context, Result, bail};
 use async_nats::{ConnectOptions, Subscriber};
 use bytes::Bytes;
 use dorch_common::streams::subjects;
+use owo_colors::OwoColorize;
 use tokio_stream::StreamExt;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -27,6 +28,8 @@ pub async fn run(args: args::RouterArgs) -> Result<()> {
         dorch_common::shutdown::shutdown_signal().await;
         cancel_clone.cancel();
     });
+    dorch_common::signal_ready();
+    println!("{}", "🚀 Starting party router".green());
     run_inner(cancel, nats, sub, store).await
 }
 

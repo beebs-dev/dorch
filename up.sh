@@ -8,6 +8,9 @@ do_build() {
     build_args=()
         for arg in "$@"; do
             case "$arg" in
+            party-router)
+                build_args+=("party")
+                ;;
             *)
                 build_args+=("$arg")
                 ;;
@@ -21,6 +24,10 @@ do_restart() {
     restart_server=$([ "${#restart_args[@]}" -eq 0 ])
     for arg in "$@"; do
         case "$arg" in
+        party)
+            restart_args+=("party")
+            restart_args+=("party-router")
+            ;;
         client)
             restart_app=true
             ;;

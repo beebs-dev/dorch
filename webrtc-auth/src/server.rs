@@ -25,6 +25,9 @@ pub async fn run(
     args: crate::args::ServerArgs,
     app_state: App,
 ) -> Result<()> {
+    let health_router = Router::new()
+        .route("/healthz", get(health))
+        .route("/readyz", get(health));
     let kc = args.kc;
     let keycloak_auth_instance = KeycloakAuthInstance::new(
         KeycloakConfig::builder()
@@ -54,7 +57,7 @@ pub async fn run(
         "🚀 Starting server • port=".green(),
         port.green().dimmed()
     );
-    axum::serve(listener, router)
+    axum::serve(listener, health_router.merge(router))
         .with_graceful_shutdown(async move {
             cancel.cancelled().await;
         })
@@ -62,6 +65,10 @@ pub async fn run(
         .context("Failed to serve public router")?;
     println!("{}", "🛑 Server shut down gracefully.".red());
     Ok(())
+}
+
+async fn health() -> impl IntoResponse {
+    StatusCode::OK.into_response()
 }
 
 #[derive(serde::Deserialize)]

@@ -27,7 +27,7 @@ pub use request_context::*;
 pub const DEFAULT_ENDPOINT: &str = "https://api.psyslop.tv";
 
 pub fn signal_ready() {
-    std::fs::write("/tmp/ready", "ready").expect("Failed to write readiness file");
+    std::fs::write("/etc/ready", "ready").expect("Failed to write readiness file");
 }
 
 // Internal time system notes:

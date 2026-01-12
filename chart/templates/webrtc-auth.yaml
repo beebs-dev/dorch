@@ -27,6 +27,7 @@ spec:
     {{- end }}
         command:
           - dorch-webrtc-auth
+          - server
           - --port
           - "80"
         ports:
