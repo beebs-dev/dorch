@@ -9,6 +9,7 @@ group "default" {
     "proxy",
     "client",
     "sock",
+    "iam",
     "webrtc-auth",
     "party",
     "downloader"
@@ -28,6 +29,15 @@ target "operator" {
   dockerfile = "operator/Dockerfile"
   args       = { BASE_IMAGE = "base_context" }
   tags       = ["${REGISTRY}thavlik/dorch-operator:latest"]
+  push       = true
+}
+
+target "iam" {
+  contexts   = { base_context = "target:base" }
+  context    = "./"
+  dockerfile = "iam/Dockerfile"
+  args       = { BASE_IMAGE = "base_context" }
+  tags       = ["${REGISTRY}thavlik/dorch-iam:latest"]
   push       = true
 }
 

@@ -21,6 +21,7 @@ COPY Cargo.lock .
 COPY common/Cargo.toml common/Cargo.toml
 COPY operator/Cargo.toml operator/Cargo.toml
 COPY party/Cargo.toml party/Cargo.toml
+COPY iam/Cargo.toml iam/Cargo.toml
 COPY webrtc-auth/Cargo.toml webrtc-auth/Cargo.toml
 COPY sock/Cargo.toml sock/Cargo.toml
 COPY proxy/Cargo.toml proxy/Cargo.toml

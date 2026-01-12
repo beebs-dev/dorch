@@ -1048,6 +1048,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "dorch-iam"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "axum-keycloak-auth",
+ "base64 0.22.1",
+ "chrono",
+ "clap",
+ "deadpool-redis",
+ "dorch-common",
+ "dorch-iam-client",
+ "futures",
+ "futures-util",
+ "http 1.4.0",
+ "keycloak",
+ "owo-colors",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "tower",
+ "tower-http",
+ "uuid",
+]
+
+[[package]]
+name = "dorch-iam-client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "dorch-operator"
 version = "0.1.0"
 dependencies = [
