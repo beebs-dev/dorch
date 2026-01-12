@@ -50,3 +50,12 @@ pub struct WadSearchResults {
     pub limit: i64,
     pub truncated: bool,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct WadListResults {
+    pub items: Vec<WadMeta>,
+    pub full_count: i64,
+    pub offset: i64,
+    pub limit: i64,
+    pub truncated: bool,
+}

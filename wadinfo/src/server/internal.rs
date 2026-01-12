@@ -1,6 +1,6 @@
 use crate::{
     app::App,
-    client::{ListWadsRequest, Pagination, WadSearchRequest},
+    client::{ListWadsRequest, WadSearchRequest},
 };
 use anyhow::{Context, Result};
 use axum::{
@@ -79,7 +79,12 @@ pub async fn list_wads(
     State(state): State<App>,
     Query(req): Query<ListWadsRequest>,
 ) -> impl IntoResponse {
-    // TODO: list wads alphabetically with pagination
+    let offset = req.pagination.offset.max(0);
+    let limit = req.pagination.limit.unwrap_or(10).max(1).min(100);
+    match state.db.list_wads(offset, limit, req.sort_desc).await {
+        Ok(wads) => (StatusCode::OK, Json(wads)).into_response(),
+        Err(e) => response::error(e.context("Failed to list wads")),
+    }
 }
 
 pub async fn get_wad(State(state): State<App>, Path(wad_id): Path<Uuid>) -> impl IntoResponse {

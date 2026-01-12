@@ -1,4 +1,4 @@
-use crate::client::WadSearchResults;
+use crate::client::{WadListResults, WadSearchResults};
 use anyhow::{Context, Result};
 use dorch_common::{
     postgres::strip_sql_comments,
@@ -11,6 +11,9 @@ mod sql {
     pub const TABLES: &str = include_str!("sql/tables.sql");
     pub const INSERT_WAD: &str = include_str!("sql/insert_wad.sql");
     pub const SEARCH_WADS: &str = include_str!("sql/search_wads.sql");
+
+    pub const LIST_WADS_ASC: &str = include_str!("sql/list_wads_asc.sql");
+    pub const LIST_WADS_DESC: &str = include_str!("sql/list_wads_desc.sql");
 
     pub const GET_WAD: &str = include_str!("sql/get_wad.sql");
     pub const GET_WAD_MAPS: &str = include_str!("sql/get_wad_maps.sql");
@@ -53,6 +56,15 @@ impl Database {
             .prepare(sql::SEARCH_WADS)
             .await
             .context("failed to prepare SEARCH_WADS")?;
+
+        _ = conn
+            .prepare(sql::LIST_WADS_ASC)
+            .await
+            .context("failed to prepare LIST_WADS_ASC")?;
+        _ = conn
+            .prepare(sql::LIST_WADS_DESC)
+            .await
+            .context("failed to prepare LIST_WADS_DESC")?;
 
         _ = conn
             .prepare(sql::GET_WAD)
@@ -199,6 +211,60 @@ impl Database {
         tx.commit().await.context("failed to commit transaction")?;
         Ok(WadSearchResults {
             query: query.to_string(),
+            items,
+            full_count,
+            offset,
+            limit,
+            truncated: offset + limit < full_count,
+        })
+    }
+
+    pub async fn list_wads(
+        &self,
+        offset: i64,
+        limit: i64,
+        sort_desc: bool,
+    ) -> Result<WadListResults> {
+        let mut conn = self.pool.get().await.context("failed to get connection")?;
+        let tx = conn
+            .transaction()
+            .await
+            .context("failed to begin transaction")?;
+
+        let sql = if sort_desc {
+            sql::LIST_WADS_DESC
+        } else {
+            sql::LIST_WADS_ASC
+        };
+        let stmt = tx
+            .prepare_cached(sql)
+            .await
+            .context("failed to prepare LIST_WADS")?;
+
+        let rows = tx
+            .query(&stmt, &[&offset, &limit])
+            .await
+            .context("failed to execute LIST_WADS")?;
+
+        let full_count = rows
+            .first()
+            .map(|r| r.try_get::<_, i64>("full_count"))
+            .transpose()
+            .context("failed to get full_count from LIST_WADS")?
+            .unwrap_or(0);
+
+        let items = rows
+            .into_iter()
+            .map(|row| {
+                let meta_json: serde_json::Value = row.try_get("meta_json")?;
+                let meta = serde_json::from_value::<WadMeta>(meta_json)
+                    .context("deserialize WadMeta from meta_json")?;
+                Ok(meta)
+            })
+            .collect::<Result<Vec<WadMeta>>>()?;
+
+        tx.commit().await.context("failed to commit transaction")?;
+        Ok(WadListResults {
             items,
             full_count,
             offset,
