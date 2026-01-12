@@ -81,6 +81,48 @@ MONSTER_THING_IDS = {
     3003: "baron",
 }
 
+# Common Doom item/pickup thing types (vanilla).
+# Used for a per-map item breakdown similar to the monster breakdown.
+ITEM_THING_IDS = {
+    # Weapons
+    2001: "shotgun",
+    82: "super_shotgun",
+    2002: "chaingun",
+    2003: "rocket_launcher",
+    2004: "plasma_rifle",
+    2005: "chainsaw",
+    2006: "bfg9000",
+
+    # Ammo
+    2007: "ammo_clip",
+    2048: "ammo_box",
+    2008: "shells",
+    2049: "shell_box",
+    2010: "rocket",
+    2046: "rocket_box",
+    2047: "cell",
+    17: "cell_pack",
+    8: "backpack",
+
+    # Health / Armor
+    2011: "stimpack",
+    2012: "medikit",
+    2014: "health_bonus",
+    2015: "armor_bonus",
+    2018: "green_armor",
+    2019: "blue_armor",
+    2013: "soulsphere",
+    83: "megasphere",
+
+    # Powerups
+    2023: "berserk",
+    2022: "invulnerability",
+    2024: "invisibility",
+    2025: "radiation_suit",
+    2026: "computer_area_map",
+    2045: "light_amp_goggles",
+}
+
 SECRET_EXIT_SPECIALS = {51, 124, 198}
 TELEPORT_SPECIALS = {39, 97, 125, 126, 174, 195}
 
@@ -248,10 +290,18 @@ def map_summary_from_wad_bytes(buf: bytes, block: Dict[str, Any]) -> Dict[str, A
         "by_type": {},
     }
 
+    items: Dict[str, Any] = {
+        "total": 0,
+        "by_type": {},
+    }
+
     difficulty: Dict[str, Any] = {
         "uv_monsters": 0,
         "hmp_monsters": 0,
         "htr_monsters": 0,
+        "uv_items": 0,
+        "hmp_items": 0,
+        "htr_items": 0,
     }
 
     compatibility = "unknown"
@@ -287,9 +337,16 @@ def map_summary_from_wad_bytes(buf: bytes, block: Dict[str, Any]) -> Dict[str, A
         total_monsters = 0
         by_type: Dict[str, int] = {}
 
+        total_items = 0
+        items_by_type: Dict[str, int] = {}
+
         uv = 0
         hmp = 0
         htr = 0
+
+        uv_items = 0
+        hmp_items = 0
+        htr_items = 0
 
         for ttype, flags in things:
             if ttype in KEY_THING_IDS:
@@ -307,6 +364,18 @@ def map_summary_from_wad_bytes(buf: bytes, block: Dict[str, Any]) -> Dict[str, A
                 if flags & (1 << 0):
                     htr += 1
 
+            iname = ITEM_THING_IDS.get(ttype)
+            if iname:
+                total_items += 1
+                items_by_type[iname] = items_by_type.get(iname, 0) + 1
+
+                if flags & (1 << 2):
+                    uv_items += 1
+                if flags & (1 << 1):
+                    hmp_items += 1
+                if flags & (1 << 0):
+                    htr_items += 1
+
         mechanics["keys"] = sorted(list(key_set))
         monsters["total"] = total_monsters
         monsters["by_type"] = dict(sorted(by_type.items(), key=lambda kv: (-kv[1], kv[0])))
@@ -314,11 +383,18 @@ def map_summary_from_wad_bytes(buf: bytes, block: Dict[str, Any]) -> Dict[str, A
         difficulty["hmp_monsters"] = hmp
         difficulty["htr_monsters"] = htr
 
+        items["total"] = total_items
+        items["by_type"] = dict(sorted(items_by_type.items(), key=lambda kv: (-kv[1], kv[0])))
+        difficulty["uv_items"] = uv_items
+        difficulty["hmp_items"] = hmp_items
+        difficulty["htr_items"] = htr_items
+
     return {
         "map": block["map"],
         "format": fmt,
         "stats": stats,
         "monsters": monsters,
+        "items": items,
         "mechanics": mechanics,
         "difficulty": difficulty,
         "compatibility": compatibility,
