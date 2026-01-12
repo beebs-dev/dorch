@@ -1,0 +1,7 @@
+{{/*
+Redis environment variables template
+*/}}
+{{- define "dorch.nats-env" -}}
+- name: NATS_URL
+  value: {{ .Values.nats.url | quote }}
+{{- end -}}

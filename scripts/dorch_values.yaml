@@ -1,0 +1,40 @@
+prometheus:
+  enabled: false
+
+redis:
+  username:
+    valueFrom:
+      secretKeyRef:
+        name: redis-cred
+        key: username
+  password:
+    valueFrom:
+      secretKeyRef:
+        name: redis-cred
+        key: password
+  host:
+    valueFrom:
+      secretKeyRef:
+        name: redis-cred
+        key: host
+  port:
+    valueFrom:
+      secretKeyRef:
+        name: redis-cred
+        key: port
+  proto:
+    value: rediss
+
+keycloak:
+  endpoint: "https://keycloak.beebs.dev"
+  realm: dorch
+  clientId:
+    valueFrom:
+      secretKeyRef:
+        name: keycloak-client-cred
+        key: clientid
+  clientSecret:
+    valueFrom:
+      secretKeyRef:
+        name: keycloak-client-cred
+        key: clientsecret

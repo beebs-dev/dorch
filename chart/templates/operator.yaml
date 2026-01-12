@@ -134,7 +134,7 @@ spec:
         - name: LOG_LEVEL
           value: {{ .Values.operator.logLevel }}
         - name: LIVEKIT_URL
-          value: {{ .Values.livekit.url }}
+          value: {{ .Values.livekit.internalUrl }}
         - name: LIVEKIT_SECRET
           value: {{ .Values.livekit.secret }}
         - name: POD_NAME

@@ -90,8 +90,8 @@ fn aud_contains(aud: &Value, expected: &str) -> bool {
 /// Returns the verified claims (as JSON) if valid.
 pub async fn validate_keycloak_access_token(
     access_token: &str,
-    issuer: &str,       // e.g. "https://keycloak.beebs.dev/realms/synapse"
-    expected_aud: &str, // e.g. "synapse"
+    issuer: &str,       // e.g. "https://keycloak.beebs.dev/realms/dorch"
+    expected_aud: &str, // e.g. "dorch"
     jwks_url: &Url,     // e.g. https://.../protocol/openid-connect/certs
 ) -> Result<Value> {
     // Header: get kid

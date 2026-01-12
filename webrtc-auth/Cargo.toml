@@ -28,3 +28,5 @@ humantime = { workspace = true }
 rustls = { workspace = true }
 tokio-rustls = { workspace = true }
 jsonwebtoken = { version = "10.2.0", features = ["aws_lc_rs"] }
+keycloak = { workspace = true }
+axum-keycloak-auth = { workspace = true }

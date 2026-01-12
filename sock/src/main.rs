@@ -17,7 +17,7 @@ async fn main() -> Result<()> {
     dorch_common::init();
     let cli = args::Cli::parse();
     let port = cli.port;
-    let keycloak = cli.keycloak.clone();
+    let keycloak = cli.kc.clone();
     let app_state = AppState::new(cli).await;
     server::run(port, app_state, keycloak).await
 }

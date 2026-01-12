@@ -35,7 +35,7 @@ impl AppState {
             .expect("Failed to connect to NATS")
         });
         let kc = Keycloak {
-            args: cli.keycloak,
+            args: cli.kc,
             client: reqwest::Client::new(),
         };
         AppState { redis, nats, kc }

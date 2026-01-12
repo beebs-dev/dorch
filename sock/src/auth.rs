@@ -131,14 +131,10 @@ pub async fn auth_conn(
         kc.args.realm
     );
     let jwks_url = Url::parse(&format!("{}/protocol/openid-connect/certs", issuer))?;
-    let claims = validate_keycloak_access_token(
-        &access_token,
-        &issuer,
-        &kc.args.client_id, // expected aud = "synapse"
-        &jwks_url,
-    )
-    .await
-    .context("Failed to validate access token")?;
+    let claims =
+        validate_keycloak_access_token(&access_token, &issuer, &kc.args.client_id, &jwks_url)
+            .await
+            .context("Failed to validate access token")?;
     let user_id = claims
         .get("sub")
         .and_then(|v| v.as_str())

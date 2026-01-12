@@ -12,13 +12,14 @@ pub mod token;
 #[tokio::main]
 async fn main() -> Result<()> {
     dorch_common::init();
+    dorch_common::metrics::maybe_spawn_metrics_server();
     let cli = args::Cli::parse();
     match cli.command {
-        Commands::Server(args) => run_servers(args).await,
+        Commands::Server(args) => run_server(args).await,
     }
 }
 
-async fn run_servers(args: args::ServerArgs) -> Result<()> {
+async fn run_server(args: args::ServerArgs) -> Result<()> {
     let cancel = CancellationToken::new();
     let cancel_clone = cancel.clone();
     tokio::spawn(async move {
@@ -31,5 +32,5 @@ async fn run_servers(args: args::ServerArgs) -> Result<()> {
         args.api_secret.clone(),
         args.external_livekit_url.clone(),
     );
-    server::run_server(cancel, args, app_state).await
+    server::run(cancel, args, app_state).await
 }

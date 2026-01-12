@@ -15,8 +15,9 @@ pub mod server;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    dorch_common::init();
     let cli = args::Cli::parse();
+    dorch_common::init();
+    dorch_common::metrics::maybe_spawn_metrics_server();
     match cli.command {
         Commands::Server(args) => run_servers(args).await,
         Commands::Router(args) => router::run(args).await,

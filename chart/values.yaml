@@ -1,7 +1,49 @@
 registry: "" # same as "docker.io/"
 
+prometheus:
+  enabled: false
+
+keycloak:
+  endpoint: "https://keycloak.example.com"
+  realm: dorch
+  clientId:
+    valueFrom:
+      secretKeyRef:
+        name: keycloak-client-cred
+        key: clientid
+  clientSecret:
+    valueFrom:
+      secretKeyRef:
+        name: keycloak-client-cred
+        key: clientsecret
+  admin:
+    realm: master
+    username:
+      valueFrom:
+        secretKeyRef:
+          name: keycloak-client-cred
+          key: username
+    password:
+      valueFrom:
+        secretKeyRef:
+          name: keycloak-client-cred
+          key: password
+
+redis:
+  username:
+    value: ""
+  password:
+    value: ""
+  host:
+    value: ""
+  port:
+    value: ""
+  proto:
+    value: redis
+
 livekit:
-  url: "ws://livekit-livekit-server.livekit.svc.cluster.local"
+  internalUrl: "ws://livekit-livekit-server.livekit.svc.cluster.local"
+  externalUrl: "wss://livekit.example.com"
   secret: livekit-cred
   apiKey:
     valueFrom:
@@ -26,5 +68,45 @@ operator:
     limits:
       memory: "128Mi"
 
-prometheus:
-  enabled: false
+
+party:
+  image: thavlik/dorch-party:latest
+  imagePullPolicy: Always
+  replicas: 1
+  logLevel: debug
+  resources:
+    requests: 
+      memory: "32Mi"
+    limits:
+      memory: "64Mi"
+  router:
+    image: thavlik/dorch-party:latest
+    imagePullPolicy: Always
+    replicas: 1
+    logLevel: debug
+    resources:
+      requests: 
+        memory: "32Mi"
+      limits:
+        memory: "64Mi"
+
+webrtcAuth:
+  image: thavlik/dorch-webrtc-auth:latest
+  imagePullPolicy: Always
+  replicas: 1
+  logLevel: debug
+  resources:
+    requests: 
+      memory: "32Mi"
+    limits:
+      memory: "64Mi"
+  apiKey:
+    valueFrom:
+      secretKeyRef:
+        name: livekit-cred
+        key: api_key
+  apiSecret:
+    valueFrom:
+      secretKeyRef:
+        name: livekit-cred
+        key: api_secret

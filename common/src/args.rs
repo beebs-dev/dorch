@@ -10,15 +10,6 @@ pub struct NatsArgs {
 
     #[arg(long, env = "NATS_PASSWORD", default_value = "devpass")]
     pub nats_password: String,
-
-    #[arg(long, env = "NATS_CONSUMER_REPLICAS", default_value_t = 1)]
-    pub consumer_replicas: usize,
-
-    #[arg(long, env = "NATS_MAX_DELIVER", default_value_t = 5)]
-    pub max_deliver: i64,
-
-    #[arg(long, env = "NATS_MAX_ACK_PENDING", default_value_t = 2)]
-    pub max_ack_pending: i64,
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -120,14 +111,14 @@ pub struct KeycloakArgs {
     #[arg(long, env = "KC_REALM", required = true)]
     pub realm: String,
 
-    #[arg(long, env = "KC_ADMIN_REALM", required = true)]
-    pub admin_realm: String,
+    #[arg(long, env = "KC_ADMIN_REALM")]
+    pub admin_realm: Option<String>,
 
-    #[arg(long, env = "KC_ADMIN_USERNAME", required = true)]
-    pub admin_username: String,
+    #[arg(long, env = "KC_ADMIN_USERNAME")]
+    pub admin_username: Option<String>,
 
-    #[arg(long, env = "KC_ADMIN_PASSWORD", required = true)]
-    pub admin_password: String,
+    #[arg(long, env = "KC_ADMIN_PASSWORD")]
+    pub admin_password: Option<String>,
 
     #[arg(long, env = "KC_CLIENT_ID", required = true)]
     pub client_id: String,

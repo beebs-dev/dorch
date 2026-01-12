@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use dorch_common::args::KeycloakArgs;
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about, long_about = None)]
@@ -32,4 +33,7 @@ pub struct ServerArgs {
         default_value = "wss://webrtc.beebs.dev"
     )]
     pub external_livekit_url: String,
+
+    #[command(flatten)]
+    pub kc: KeycloakArgs,
 }

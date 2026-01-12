@@ -1,0 +1,77 @@
+{{- $image := printf "%s%s" .Values.registry .Values.party.router.messages.image -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-party-router
+spec:
+  replicas: {{ .Values.party.router.messages.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-party-router
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-party-router
+    spec:
+    {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 10 }}
+    {{- end }}
+      containers:
+      - name: router
+        imagePullPolicy: {{ .Values.party.router.messages.imagePullPolicy }}
+        image: {{ $image }}
+    {{- if .Values.party.router.messages.resources }}
+        resources:
+{{ toYaml .Values.party.router.messages.resources | indent 10 }}
+    {{- end }}
+        command:
+          - dorch-party
+          - router
+{{- if .Values.prometheus.enabled }}
+        ports:
+        - containerPort: 2112
+          protocol: TCP
+          name: metrics
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 2112
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 2112
+{{- else }}
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /etc/ready
+          initialDelaySeconds: 5
+          periodSeconds: 5
+{{- end }}
+        env:
+        - name: SERVICE_NAME
+          value: party-router
+        - name: RUST_LOG
+          value: info,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info
+        - name: LOG_LEVEL
+          value: {{ .Values.party.router.messages.logLevel }}
+{{ include "dorch.metrics-env" . | indent 8 }}
+{{ include "dorch.nats-env" . | indent 8 }}
+{{ include "dorch.redis-env" . | indent 8 }}
+---
+{{- if .Values.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ .Release.Name }}-party-router
+  labels:
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-party-router
+  podMetricsEndpoints:
+  - port: metrics
+{{- end }}

@@ -1180,6 +1180,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "axum-keycloak-auth",
  "base64 0.22.1",
  "clap",
  "deadpool-redis",
@@ -1188,6 +1189,7 @@ dependencies = [
  "futures",
  "humantime",
  "jsonwebtoken 10.2.0",
+ "keycloak",
  "owo-colors",
  "redis 0.32.7",
  "reqwest",

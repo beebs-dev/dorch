@@ -3,7 +3,7 @@ LiveKit environment variables template
 */}}
 {{- define "dorch.livekit-env" -}}
 - name: LIVEKIT_URL
-  value: {{ tpl .Values.livekit.url . }}
+  value: {{ tpl .Values.livekit.internalUrl . }}
 - name: LIVEKIT_API_KEY
 {{ tpl (toYaml .Values.livekit.apiKey) . | indent 2 }}
 - name: LIVEKIT_API_SECRET

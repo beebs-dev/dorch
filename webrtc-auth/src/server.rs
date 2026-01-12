@@ -8,20 +8,40 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
+use axum_keycloak_auth::{
+    PassthroughMode,
+    instance::{KeycloakAuthInstance, KeycloakConfig},
+    layer::KeycloakAuthLayer,
+};
 use dorch_common::{access_log, cors, rbac::UserId};
 use owo_colors::OwoColorize;
+use reqwest::Url;
 use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-pub async fn run_server(
+pub async fn run(
     cancel: CancellationToken,
     args: crate::args::ServerArgs,
     app_state: App,
 ) -> Result<()> {
+    let kc = args.kc;
+    let keycloak_auth_instance = KeycloakAuthInstance::new(
+        KeycloakConfig::builder()
+            .server(Url::parse(&kc.endpoint).unwrap())
+            .realm(kc.realm)
+            .build(),
+    );
+    let keycloak_layer = KeycloakAuthLayer::<String>::builder()
+        .instance(keycloak_auth_instance)
+        .passthrough_mode(PassthroughMode::Block)
+        .persist_raw_claims(true)
+        .expected_audiences(vec![kc.client_id, "account".to_string()])
+        .build();
     let router = Router::new()
         .route("/auth/{game_id}", get(handle_auth_game))
         .with_state(app_state)
+        .layer(keycloak_layer)
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::dev());
     let port = args.port;

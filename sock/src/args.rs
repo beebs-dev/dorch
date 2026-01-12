@@ -14,5 +14,5 @@ pub(crate) struct Cli {
     pub redis: dorch_common::args::RedisArgs,
 
     #[command(flatten)]
-    pub keycloak: dorch_common::args::KeycloakArgs,
+    pub kc: dorch_common::args::KeycloakArgs,
 }

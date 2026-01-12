@@ -1,5 +1,5 @@
 ARG RUNTIME_IMAGE=debian:bookworm-slim
-ARG BASE_IMAGE=thavlik/synapse-base:latest
+ARG BASE_IMAGE=thavlik/dorch-base:latest
 
 FROM ${BASE_IMAGE} AS builder
 COPY common/src common/src
