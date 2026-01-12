@@ -1003,6 +1003,252 @@ def _save_image(arr: np.ndarray, out_path: Path, fmt: str, quality: int) -> None
 		raise ValueError(f"Unknown format: {fmt}")
 
 
+def _signed_angle_delta_deg(target: float, current: float) -> float:
+	# Return signed delta in [-180, 180].
+	d = ((target - current + 540.0) % 360.0) - 180.0
+	return float(d)
+
+
+def _turn_to_yaw(game, *, target_yaw_deg: float, max_steps: int = 80, tol_deg: float = 1.0) -> None:
+	from vizdoom import GameVariable
+
+	target = _wrap_angle_deg(float(target_yaw_deg))
+	for _ in range(max_steps):
+		try:
+			cur = _wrap_angle_deg(float(game.get_game_variable(GameVariable.ANGLE)))
+		except Exception:
+			return
+		d = _signed_angle_delta_deg(target, cur)
+		if abs(d) <= tol_deg:
+			return
+		turn = _clamp(d * 0.55, -20.0, 20.0)
+		game.make_action([0, 0, 0, 0, 0, 0, float(turn), 0.0], 1)
+		if game.is_episode_finished():
+			return
+
+
+def _look_to_pitch(game, *, target_pitch_deg: float, max_steps: int = 80, tol_deg: float = 1.0) -> None:
+	from vizdoom import GameVariable
+
+	target = float(target_pitch_deg)
+	for _ in range(max_steps):
+		try:
+			cur = float(game.get_game_variable(GameVariable.PITCH))
+		except Exception:
+			return
+		d = target - cur
+		if abs(d) <= tol_deg:
+			return
+		look = _clamp(d * 0.75, -12.0, 12.0)
+		game.make_action([0, 0, 0, 0, 0, 0, 0.0, float(look)], 1)
+		if game.is_episode_finished():
+			return
+
+
+def _state_to_rgb(game) -> Optional[np.ndarray]:
+	state = game.get_state()
+	if state is None or state.screen_buffer is None:
+		return None
+	# ViZDoom provides HxWx3 uint8 already for RGB24.
+	return np.array(state.screen_buffer, copy=True)
+
+
+def _center_crop_square(arr: np.ndarray) -> np.ndarray:
+	if arr.ndim != 3 or arr.shape[2] != 3:
+		raise ValueError("Expected HxWx3 RGB")
+	h, w = int(arr.shape[0]), int(arr.shape[1])
+	s = min(h, w)
+	y0 = (h - s) // 2
+	x0 = (w - s) // 2
+	return arr[y0 : y0 + s, x0 : x0 + s, :]
+
+
+def _resize_rgb(arr: np.ndarray, size: int) -> np.ndarray:
+	if int(arr.shape[0]) == int(size) and int(arr.shape[1]) == int(size):
+		return arr
+	img = Image.fromarray(arr, mode="RGB")
+	img = img.resize((int(size), int(size)), resample=Image.BICUBIC)
+	return np.array(img, dtype=np.uint8)
+
+
+def _bilinear_sample_rgb(img: np.ndarray, xs: np.ndarray, ys: np.ndarray) -> np.ndarray:
+	# img: HxWx3, xs/ys: (N,) float pixel coords.
+	h, w = int(img.shape[0]), int(img.shape[1])
+	xs = np.clip(xs, 0.0, float(w - 1))
+	ys = np.clip(ys, 0.0, float(h - 1))
+
+	x0 = np.floor(xs).astype(np.int32)
+	y0 = np.floor(ys).astype(np.int32)
+	x1 = np.clip(x0 + 1, 0, w - 1)
+	y1 = np.clip(y0 + 1, 0, h - 1)
+
+	xf = xs - x0.astype(np.float32)
+	yf = ys - y0.astype(np.float32)
+
+	# Weights
+	wa = (1.0 - xf) * (1.0 - yf)
+	wb = xf * (1.0 - yf)
+	wc = (1.0 - xf) * yf
+	wd = xf * yf
+
+	Ia = img[y0, x0].astype(np.float32)
+	Ib = img[y0, x1].astype(np.float32)
+	Ic = img[y1, x0].astype(np.float32)
+	Id = img[y1, x1].astype(np.float32)
+
+	out = Ia * wa[:, None] + Ib * wb[:, None] + Ic * wc[:, None] + Id * wd[:, None]
+	return np.clip(out + 0.5, 0.0, 255.0).astype(np.uint8)
+
+
+def _cubemap_faces_to_equirect(
+	*,
+	front: np.ndarray,
+	right: np.ndarray,
+	back: np.ndarray,
+	left: np.ndarray,
+	up: np.ndarray,
+	down: np.ndarray,
+	out_width: int,
+	out_height: int,
+) -> np.ndarray:
+	# We map to a conventional cubemap (posx/negx/posy/negy/posz/negz):
+	# - posz = front, negz = back
+	# - posx = right, negx = left
+	# - posy = up,    negy = down
+	faces = {
+		"posx": right,
+		"negx": left,
+		"posy": up,
+		"negy": down,
+		"posz": front,
+		"negz": back,
+	}
+
+	# Validate square size.
+	s = int(front.shape[0])
+	for k, v in faces.items():
+		if v.ndim != 3 or v.shape[2] != 3 or int(v.shape[0]) != s or int(v.shape[1]) != s:
+			raise ValueError(f"Cubemap face {k} must be {s}x{s}x3")
+
+	w = int(out_width)
+	h = int(out_height)
+	# Pixel centers in [0,1]
+	uu = (np.arange(w, dtype=np.float32) + 0.5) / float(w)
+	vv = (np.arange(h, dtype=np.float32) + 0.5) / float(h)
+	# lon in [-pi, pi], lat in [pi/2, -pi/2]
+	lon = uu * (2.0 * math.pi) - math.pi
+	lat = (0.5 - vv) * math.pi
+	lon_g, lat_g = np.meshgrid(lon, lat)
+
+	clat = np.cos(lat_g)
+	dx = clat * np.cos(lon_g)
+	dy = np.sin(lat_g)
+	dz = clat * np.sin(lon_g)
+
+	dx_f = dx.reshape(-1)
+	dy_f = dy.reshape(-1)
+	dz_f = dz.reshape(-1)
+
+	ax = np.abs(dx_f)
+	ay = np.abs(dy_f)
+	az = np.abs(dz_f)
+
+	out = np.empty((h * w, 3), dtype=np.uint8)
+
+	# Helper to sample a face for a given mask and (sc, tc) in [-1,1].
+	def sample_into(mask: np.ndarray, face_key: str, sc: np.ndarray, tc: np.ndarray) -> None:
+		if not np.any(mask):
+			return
+		# Convert to pixel coords (0..s-1). tc=+1 is top.
+		px = (sc + 1.0) * 0.5 * float(s - 1)
+		py = (1.0 - (tc + 1.0) * 0.5) * float(s - 1)
+		cols = _bilinear_sample_rgb(faces[face_key], px.astype(np.float32), py.astype(np.float32))
+		out[mask] = cols
+
+	# Major axis selection.
+	use_x = (ax >= ay) & (ax >= az)
+	use_y = (ay > ax) & (ay >= az)
+	use_z = (az > ax) & (az > ay)
+
+	# X faces.
+	mask = use_x & (dx_f > 0)
+	sc = (-dz_f[mask]) / ax[mask]
+	tc = (-dy_f[mask]) / ax[mask]
+	sample_into(mask, "posx", sc, tc)
+
+	mask = use_x & (dx_f <= 0)
+	sc = (dz_f[mask]) / ax[mask]
+	tc = (-dy_f[mask]) / ax[mask]
+	sample_into(mask, "negx", sc, tc)
+
+	# Y faces.
+	mask = use_y & (dy_f > 0)
+	sc = (dx_f[mask]) / ay[mask]
+	tc = (dz_f[mask]) / ay[mask]
+	sample_into(mask, "posy", sc, tc)
+
+	mask = use_y & (dy_f <= 0)
+	sc = (dx_f[mask]) / ay[mask]
+	tc = (-dz_f[mask]) / ay[mask]
+	sample_into(mask, "negy", sc, tc)
+
+	# Z faces.
+	mask = use_z & (dz_f > 0)
+	sc = (dx_f[mask]) / az[mask]
+	tc = (-dy_f[mask]) / az[mask]
+	sample_into(mask, "posz", sc, tc)
+
+	mask = use_z & (dz_f <= 0)
+	sc = (-dx_f[mask]) / az[mask]
+	tc = (-dy_f[mask]) / az[mask]
+	sample_into(mask, "negz", sc, tc)
+
+	return out.reshape((h, w, 3))
+
+
+def _capture_panorama_bundle(
+	*,
+	game,
+	base_front_rgb: np.ndarray,
+	base_yaw_deg: float,
+	face_size: int,
+	turn_yaw_tol_deg: float = 1.0,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+	# Capture the 6 cubemap faces (front/right/back/left/up/down).
+	# We keep the existing front RGB (from the candidate selection) and capture the other faces.
+	s = int(face_size)
+	front = _resize_rgb(_center_crop_square(base_front_rgb), s)
+
+	# Align to base yaw + centered pitch before capturing the remaining faces.
+	_turn_to_yaw(game, target_yaw_deg=float(base_yaw_deg), tol_deg=float(turn_yaw_tol_deg))
+	_look_to_pitch(game, target_pitch_deg=0.0)
+
+	def grab(yaw_off: float, pitch: float) -> np.ndarray:
+		_turn_to_yaw(game, target_yaw_deg=float(base_yaw_deg) + float(yaw_off), tol_deg=float(turn_yaw_tol_deg))
+		_look_to_pitch(game, target_pitch_deg=float(pitch))
+		# Force a render tick to ensure get_state() is populated for this view.
+		game.make_action([0, 0, 0, 0, 0, 0, 0.0, 0.0], 1)
+		if game.is_episode_finished():
+			raise RuntimeError("Episode finished while capturing cubemap face")
+		rgb = _state_to_rgb(game)
+		if rgb is None:
+			raise RuntimeError("Failed to capture cubemap face (no state/screen_buffer)")
+		return _resize_rgb(_center_crop_square(rgb), s)
+
+	right = grab(90.0, 0.0)
+	back = grab(180.0, 0.0)
+	left = grab(270.0, 0.0)
+	# ZDoom pitch range is usually about [-89, +89]. Use 89 to avoid clamping artifacts.
+	up = grab(0.0, 89.0)
+	down = grab(0.0, -89.0)
+
+	# Restore to centered pitch so the rest of the pipeline stays stable.
+	_turn_to_yaw(game, target_yaw_deg=float(base_yaw_deg), tol_deg=float(turn_yaw_tol_deg))
+	_look_to_pitch(game, target_pitch_deg=0.0)
+
+	return front, right, back, left, up, down
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
 	parser = argparse.ArgumentParser(
 		description=(
@@ -1025,6 +1271,38 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 	parser.add_argument("--format", choices=["jpg", "png", "webp"], default="jpg")
 	parser.add_argument("--jpeg-quality", type=int, default=92)
 	parser.add_argument("--webp-quality", type=int, default=70)
+	parser.add_argument(
+		"--panorama",
+		action="store_true",
+		help=(
+			"Also write a 6-sided cubemap and a stitched equirectangular web panorama per shot. "
+			"When enabled, {i}.{format} is the front face, plus 5 additional faces, plus {i}_pano.(jpg|png)."
+		),
+	)
+	parser.add_argument(
+		"--panorama-format",
+		choices=["jpg", "png"],
+		default="jpg",
+		help="Format for the stitched equirect panorama image (jpg or png)",
+	)
+	parser.add_argument(
+		"--panorama-face-size",
+		type=int,
+		default=0,
+		help="Cubemap face size in pixels (square). Default: min(--width,--height)",
+	)
+	parser.add_argument(
+		"--panorama-width",
+		type=int,
+		default=0,
+		help="Equirect panorama width in pixels. Default: 4*face_size",
+	)
+	parser.add_argument(
+		"--panorama-height",
+		type=int,
+		default=0,
+		help="Equirect panorama height in pixels. Default: 2*face_size",
+	)
 	parser.add_argument("--visible", action="store_true", help="Show the VizDoom window")
 	parser.add_argument("--no-monsters", action="store_true", help="Pass -nomonsters")
 	parser.add_argument("--skill", type=int, default=3, help="Doom skill 1-5")
@@ -1062,121 +1340,233 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 		raise SystemExit("--num must be > 0")
 
 	# Import VizDoom only when actually rendering.
-	import vizdoom  # noqa: F401
+	import vizdoom
 
-	for mi, map_name in enumerate(maps):
-		map_seed = int((args.seed * 1000003 + mi * 9176) & 0x7FFFFFFF)
+	try:
+		for mi, map_name in enumerate(maps):
+			map_seed = int((args.seed * 1000003 + mi * 9176) & 0x7FFFFFFF)
 
-		# New approach: choose globally-distributed pickup points as start locations.
-		pickup_points = _pickup_points_for_map(iwad, files, map_name)
-		# Use an oversized, spread-out candidate set so we can skip failed teleports
-		# (some points can be unreachable/invalid due to Z or blocking).
-		starts = _spread_out_points(pickup_points, n=int(args.num) * 6, seed=map_seed)
+			# New approach: choose globally-distributed pickup points as start locations.
+			pickup_points = _pickup_points_for_map(iwad, files, map_name)
+			# Use an oversized, spread-out candidate set so we can skip failed teleports
+			# (some points can be unreachable/invalid due to Z or blocking).
+			starts = _spread_out_points(pickup_points, n=int(args.num) * 6, seed=map_seed)
 
-		game = _init_game(
-			iwad=iwad,
-			files=files,
-			map_name=map_name,
-			seed=map_seed,
-			width=args.width,
-			height=args.height,
-			visible=bool(args.visible),
-			no_monsters=bool(args.no_monsters),
-			skill=int(args.skill),
-			episode_timeout=max(int(args.episode_timeout), int(args.max_steps) * int(args.frame_skip) + 1000),
-		)
-		try:
-			ext = str(args.format)
-			quality = int(args.webp_quality) if args.format == "webp" else int(args.jpeg_quality)
-			map_dir = out_root / map_name
-			map_dir.mkdir(parents=True, exist_ok=True)
-			saved = 0
+			game = _init_game(
+				iwad=iwad,
+				files=files,
+				map_name=map_name,
+				seed=map_seed,
+				width=args.width,
+				height=args.height,
+				visible=bool(args.visible),
+				no_monsters=bool(args.no_monsters),
+				skill=int(args.skill),
+				episode_timeout=max(int(args.episode_timeout), int(args.max_steps) * int(args.frame_skip) + 1000),
+			)
+			try:
+				ext = str(args.format)
+				quality = int(args.webp_quality) if args.format == "webp" else int(args.jpeg_quality)
+				pano_face_size = (
+					int(args.panorama_face_size)
+					if int(args.panorama_face_size) > 0
+					else int(min(args.width, args.height))
+				)
+				pano_w = int(args.panorama_width) if int(args.panorama_width) > 0 else int(4 * pano_face_size)
+				pano_h = int(args.panorama_height) if int(args.panorama_height) > 0 else int(2 * pano_face_size)
+				pano_quality = int(args.jpeg_quality)
+				map_dir = out_root / map_name
+				map_dir.mkdir(parents=True, exist_ok=True)
+				saved = 0
 
-			if starts:
-				# Teleport directly to globally-distributed pickup coordinates.
-				from vizdoom import GameVariable
-				game.new_episode()
-				try:
-					start_x = float(game.get_game_variable(GameVariable.POSITION_X))
-					start_y = float(game.get_game_variable(GameVariable.POSITION_Y))
-				except Exception:
-					start_x, start_y = 0.0, 0.0
-
-				# Visit far targets first.
-				targets = sorted(starts, key=lambda p: -math.hypot(p[0] - start_x, p[1] - start_y))
-				used_xy: List[Tuple[float, float]] = []
-				rng = np.random.default_rng(map_seed ^ 0x5F3759DF)
-				idx = 0
-				for tx, ty in targets:
-					if saved >= int(args.num):
-						break
-					if any(math.hypot(tx - ux, ty - uy) < 768.0 for ux, uy in used_xy):
-						continue
-
+				if starts:
+					# Teleport directly to globally-distributed pickup coordinates.
+					from vizdoom import GameVariable
 					game.new_episode()
-					ok = _teleport_to(game, x=float(tx), y=float(ty))
-					_center_pitch(game)
-					if not ok:
-						continue
 					try:
-						px = float(game.get_game_variable(GameVariable.POSITION_X))
-						py = float(game.get_game_variable(GameVariable.POSITION_Y))
+						start_x = float(game.get_game_variable(GameVariable.POSITION_X))
+						start_y = float(game.get_game_variable(GameVariable.POSITION_Y))
 					except Exception:
-						px, py = float(tx), float(ty)
-					used_xy.append((px, py))
+						start_x, start_y = 0.0, 0.0
 
-					base_angle = float(rng.uniform(0.0, 360.0))
-					best = _best_direction_at_location(
-						game,
-						prefer_gpu=bool(args.prefer_gpu),
-						base_angle_deg=base_angle,
-					)
-					if best is None:
-						continue
-					out_path = map_dir / f"{idx}.{ext}"
-					_save_image(best.screen, out_path, fmt=args.format, quality=quality)
-					saved += 1
-					idx += 1
+					# Visit far targets first.
+					targets = sorted(starts, key=lambda p: -math.hypot(p[0] - start_x, p[1] - start_y))
+					used_xy: List[Tuple[float, float]] = []
+					rng = np.random.default_rng(map_seed ^ 0x5F3759DF)
+					idx = 0
+					for tx, ty in targets:
+						if saved >= int(args.num):
+							break
+						if any(math.hypot(tx - ux, ty - uy) < 768.0 for ux, uy in used_xy):
+							continue
 
-				# If some pickup teleports fail (unreachable/invalid coordinates),
-				# fill the remainder using exploration-based candidates.
-				if saved < int(args.num):
+						game.new_episode()
+						ok = _teleport_to(game, x=float(tx), y=float(ty))
+						_center_pitch(game)
+						if not ok:
+							continue
+						try:
+							px = float(game.get_game_variable(GameVariable.POSITION_X))
+							py = float(game.get_game_variable(GameVariable.POSITION_Y))
+						except Exception:
+							px, py = float(tx), float(ty)
+						used_xy.append((px, py))
+
+						base_angle = float(rng.uniform(0.0, 360.0))
+						best = _best_direction_at_location(
+							game,
+							prefer_gpu=bool(args.prefer_gpu),
+							base_angle_deg=base_angle,
+						)
+						if best is None:
+							continue
+						out_path = map_dir / f"{idx}.{ext}"
+						_save_image(best.screen, out_path, fmt=args.format, quality=quality)
+						if bool(args.panorama):
+							try:
+								front, right, back, left, up, down = _capture_panorama_bundle(
+									game=game,
+									base_front_rgb=best.screen,
+									base_yaw_deg=float(best.angle),
+									face_size=pano_face_size,
+								)
+								# Save the other 5 faces (front already saved as {idx}.{ext}).
+								_save_image(right, map_dir / f"{idx}_right.{ext}", fmt=args.format, quality=quality)
+								_save_image(back, map_dir / f"{idx}_back.{ext}", fmt=args.format, quality=quality)
+								_save_image(left, map_dir / f"{idx}_left.{ext}", fmt=args.format, quality=quality)
+								_save_image(up, map_dir / f"{idx}_up.{ext}", fmt=args.format, quality=quality)
+								_save_image(down, map_dir / f"{idx}_down.{ext}", fmt=args.format, quality=quality)
+								pano = _cubemap_faces_to_equirect(
+									front=front,
+									right=right,
+									back=back,
+									left=left,
+									up=up,
+									down=down,
+									out_width=pano_w,
+									out_height=pano_h,
+								)
+								_save_image(
+									pano,
+									map_dir / f"{idx}_pano.{str(args.panorama_format)}",
+									fmt=str(args.panorama_format),
+									quality=pano_quality,
+								)
+							except Exception as e:
+								print(f"{map_name}: panorama capture failed for shot {idx}: {e}")
+						saved += 1
+						idx += 1
+
+					# If some pickup teleports fail (unreachable/invalid coordinates),
+					# fill the remainder using exploration-based candidates.
+					if saved < int(args.num):
+						game.new_episode()
+						candidates = _gather_candidates(
+							game=game,
+							n=int(args.num),
+							seed=map_seed ^ 0xA53A9E21,
+							warmup_steps=int(args.warmup_steps),
+							max_steps=int(args.max_steps),
+							frame_skip=int(args.frame_skip),
+							keep_every=int(args.keep_every),
+						)
+						selected = _select_diverse(candidates, n=int(args.num) - saved)
+						for j, cand in enumerate(selected, start=idx):
+							out_path = map_dir / f"{j}.{ext}"
+							_save_image(cand.screen, out_path, fmt=args.format, quality=quality)
+							if bool(args.panorama):
+								try:
+									front, right, back, left, up, down = _capture_panorama_bundle(
+										game=game,
+										base_front_rgb=cand.screen,
+										base_yaw_deg=float(cand.angle),
+										face_size=pano_face_size,
+									)
+									_save_image(right, map_dir / f"{j}_right.{ext}", fmt=args.format, quality=quality)
+									_save_image(back, map_dir / f"{j}_back.{ext}", fmt=args.format, quality=quality)
+									_save_image(left, map_dir / f"{j}_left.{ext}", fmt=args.format, quality=quality)
+									_save_image(up, map_dir / f"{j}_up.{ext}", fmt=args.format, quality=quality)
+									_save_image(down, map_dir / f"{j}_down.{ext}", fmt=args.format, quality=quality)
+									pano = _cubemap_faces_to_equirect(
+										front=front,
+										right=right,
+										back=back,
+										left=left,
+										up=up,
+										down=down,
+										out_width=pano_w,
+										out_height=pano_h,
+									)
+									_save_image(
+										pano,
+										map_dir / f"{j}_pano.{str(args.panorama_format)}",
+										fmt=str(args.panorama_format),
+										quality=pano_quality,
+									)
+								except Exception as e:
+									print(f"{map_name}: panorama capture failed for shot {j}: {e}")
+							saved += 1
+				else:
+					# Fallback to exploration if the map has no parseable pickups.
 					game.new_episode()
 					candidates = _gather_candidates(
 						game=game,
 						n=int(args.num),
-						seed=map_seed ^ 0xA53A9E21,
+						seed=map_seed,
 						warmup_steps=int(args.warmup_steps),
 						max_steps=int(args.max_steps),
 						frame_skip=int(args.frame_skip),
 						keep_every=int(args.keep_every),
 					)
-					selected = _select_diverse(candidates, n=int(args.num) - saved)
-					for j, cand in enumerate(selected, start=idx):
-						out_path = map_dir / f"{j}.{ext}"
+					selected = _select_diverse(candidates, n=int(args.num))
+					for i, cand in enumerate(selected):
+						out_path = map_dir / f"{i}.{ext}"
 						_save_image(cand.screen, out_path, fmt=args.format, quality=quality)
+						if bool(args.panorama):
+							try:
+								front, right, back, left, up, down = _capture_panorama_bundle(
+									game=game,
+									base_front_rgb=cand.screen,
+									base_yaw_deg=float(cand.angle),
+									face_size=pano_face_size,
+								)
+								_save_image(right, map_dir / f"{i}_right.{ext}", fmt=args.format, quality=quality)
+								_save_image(back, map_dir / f"{i}_back.{ext}", fmt=args.format, quality=quality)
+								_save_image(left, map_dir / f"{i}_left.{ext}", fmt=args.format, quality=quality)
+								_save_image(up, map_dir / f"{i}_up.{ext}", fmt=args.format, quality=quality)
+								_save_image(down, map_dir / f"{i}_down.{ext}", fmt=args.format, quality=quality)
+								pano = _cubemap_faces_to_equirect(
+									front=front,
+									right=right,
+									back=back,
+									left=left,
+									up=up,
+									down=down,
+									out_width=pano_w,
+									out_height=pano_h,
+								)
+								_save_image(
+									pano,
+									map_dir / f"{i}_pano.{str(args.panorama_format)}",
+									fmt=str(args.panorama_format),
+									quality=pano_quality,
+								)
+							except Exception as e:
+								print(f"{map_name}: panorama capture failed for shot {i}: {e}")
 						saved += 1
-			else:
-				# Fallback to exploration if the map has no parseable pickups.
-				game.new_episode()
-				candidates = _gather_candidates(
-					game=game,
-					n=int(args.num),
-					seed=map_seed,
-					warmup_steps=int(args.warmup_steps),
-					max_steps=int(args.max_steps),
-					frame_skip=int(args.frame_skip),
-					keep_every=int(args.keep_every),
-				)
-				selected = _select_diverse(candidates, n=int(args.num))
-				for i, cand in enumerate(selected):
-					out_path = map_dir / f"{i}.{ext}"
-					_save_image(cand.screen, out_path, fmt=args.format, quality=quality)
-					saved += 1
 
-			print(f"{map_name}: saved {saved}/{args.num} images")
-		finally:
-			game.close()
+				print(f"{map_name}: saved {saved}/{args.num} images")
+			finally:
+				game.close()
+	except KeyboardInterrupt:
+		print("Interrupted (Ctrl-C)")
+		return 0
+	except Exception as e:
+		# ViZDoom can raise SignalException on SIGINT; treat that as a clean interrupt.
+		if type(e).__name__ == "SignalException" and "SIGINT" in str(e):
+			print("Interrupted (SIGINT)")
+			return 0
+		raise
 
 	return 0
 

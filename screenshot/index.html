@@ -1,0 +1,11 @@
+<div id="viewer" style="width: 100%; height: 100vh;"></div>
+<script type="module">
+  import { Viewer } from "https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5/index.module.js";
+
+  new Viewer({
+    container: document.querySelector("#viewer"),
+    panorama: "./output/MAP01/0.jpg", // your equirectangular
+    navbar: ["zoom", "fullscreen"],
+    defaultYaw: 0,
+  });
+</script>
