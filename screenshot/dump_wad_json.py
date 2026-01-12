@@ -322,14 +322,7 @@ def map_summary(wad_path: str, wad_meta: Dict[str, Any], block: Dict[str, Any]) 
         },
     }
 
-
-def main():
-    ap = argparse.ArgumentParser(description="Extract per-map JSON summaries from a WAD")
-    ap.add_argument("wad_path")
-    ap.add_argument("-o", "--out", help="Output JSON path (default: stdout)")
-    args = ap.parse_args()
-
-    wad_path = args.wad_path
+def run(wad_path: str, out_path: Optional[str] = None):
     wad_meta = parse_wad_directory(wad_path)
     blocks = build_map_blocks(wad_meta["lumps"])
 
@@ -337,18 +330,25 @@ def main():
 
     out_obj = {
         "file": os.path.abspath(wad_path),
+        "file_size": wad_meta["file_size"],
         "type": wad_meta["type"],
         "maps": maps,
     }
 
     data = json.dumps(out_obj, indent=2)
 
-    if args.out:
-        with open(args.out, "w", encoding="utf-8") as f:
+    if out_path:
+        with open(out_path, "w", encoding="utf-8") as f:
             f.write(data)
     else:
         print(data)
 
+def _main():
+    ap = argparse.ArgumentParser(description="Extract per-map JSON summaries from a WAD")
+    ap.add_argument("wad_path")
+    ap.add_argument("-o", "--out", help="Output JSON path (default: stdout)")
+    args = ap.parse_args()
+    run(args.wad_path, args.out)
 
 if __name__ == "__main__":
-    main()
+    _main()
