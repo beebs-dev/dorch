@@ -422,6 +422,33 @@ def eprint(*args: Any, **kwargs: Any) -> None:
     print(*args, file=sys.stderr, **kwargs)
 
 
+def is_http_url(s: str) -> bool:
+    return isinstance(s, str) and (s.startswith("http://") or s.startswith("https://"))
+
+
+def download_url_to_file(url: str, dest_path: str, *, timeout_s: float = 60.0) -> None:
+    """Download url -> dest_path (atomic replace)."""
+    parent = os.path.dirname(dest_path) or "."
+    os.makedirs(parent, exist_ok=True)
+
+    fd, tmp_path = tempfile.mkstemp(prefix=os.path.basename(dest_path) + ".", dir=parent)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            with requests.get(url, stream=True, timeout=timeout_s) as r:
+                r.raise_for_status()
+                for chunk in r.iter_content(chunk_size=1024 * 256):
+                    if not chunk:
+                        continue
+                    f.write(chunk)
+        os.replace(tmp_path, dest_path)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
 def read_json_file(path: str) -> Any:
     with open(path, "r", encoding="utf-8") as f:
         lines = f.readlines()
@@ -746,6 +773,130 @@ def extract_from_zip_bytes(buf: bytes, max_text_files: int = 20, max_text_each: 
     out["authors"] = uniq_preserve(authors) or None
     out["descriptions"] = uniq_preserve(descs) or None
     return out
+
+
+def _score_embedded_wad_candidate(path_in_zip: str, wad_meta: Dict[str, Any], size: int) -> int:
+    """
+    Heuristic to pick the "primary" WAD inside a PK3-like zip.
+
+    Goals:
+    - Prefer WADs under maps/ (common convention)
+    - Prefer WADs that actually contain more maps
+    - Prefer larger WADs as a weak tie-break
+    """
+    p = (path_in_zip or "").replace("\\", "/")
+    lower = p.lower()
+
+    score = 0
+    if lower.startswith("maps/") or "/maps/" in lower:
+        score += 10_000
+
+    maps = wad_meta.get("maps")
+    if isinstance(maps, list):
+        score += min(len(maps), 200) * 100
+
+    # Tie-breaks: classic WAD structure indicators
+    lump_count = wad_meta.get("lump_count")
+    if isinstance(lump_count, int):
+        score += min(lump_count, 50_000) // 10
+
+    # Size: 1 point per 64KiB
+    if isinstance(size, int) and size > 0:
+        score += size // 65_536
+
+    return int(score)
+
+
+def find_primary_wad_in_zip_path(zip_path: str) -> Optional[Tuple[str, bytes]]:
+    """Return (path_in_zip, wad_bytes) for the best embedded WAD, else None."""
+    try:
+        with zipfile.ZipFile(zip_path) as z:
+            best: Optional[Tuple[int, str, bytes]] = None
+
+            for info in z.infolist():
+                if info.is_dir():
+                    continue
+
+                fname = info.filename
+                lower = fname.lower()
+                if not (lower.endswith(".wad") or lower.endswith(".iwad") or lower.endswith(".pwad")):
+                    continue
+
+                try:
+                    wbuf = z.read(info)
+                except Exception:
+                    continue
+
+                wad_meta = extract_from_wad_bytes(wbuf)
+                if wad_meta.get("format") != "wad":
+                    continue
+
+                score = _score_embedded_wad_candidate(fname, wad_meta, int(getattr(info, "file_size", 0) or 0))
+                cand = (score, fname, wbuf)
+                if best is None or cand[0] > best[0]:
+                    best = cand
+
+            if best is None:
+                return None
+            return (best[1], best[2])
+
+    except zipfile.BadZipFile:
+        return None
+
+
+def find_all_wads_in_zip_path(zip_path: str) -> List[Tuple[str, bytes]]:
+    """Return [(path_in_zip, wad_bytes), ...] in zip/infolist order."""
+    out: List[Tuple[str, bytes]] = []
+    try:
+        with zipfile.ZipFile(zip_path) as z:
+            for info in z.infolist():
+                if info.is_dir():
+                    continue
+                fname = info.filename
+                lower = fname.lower()
+                if not (lower.endswith(".wad") or lower.endswith(".iwad") or lower.endswith(".pwad")):
+                    continue
+                try:
+                    wbuf = z.read(info)
+                except Exception:
+                    continue
+                wad_meta = extract_from_wad_bytes(wbuf)
+                if wad_meta.get("format") != "wad":
+                    continue
+                out.append((fname, wbuf))
+    except zipfile.BadZipFile:
+        return []
+    return out
+
+
+def merge_per_map_stats(map_lists_in_load_order: List[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    """Merge per-map stats with 'last loaded wins' semantics.
+
+    If a map name appears multiple times across WADs, the later one replaces the earlier.
+    Output ordering follows the *last* occurrence (i.e., overridden maps move later).
+    """
+    by_name: Dict[str, Dict[str, Any]] = {}
+    order: List[str] = []
+
+    for maps in map_lists_in_load_order:
+        if not isinstance(maps, list):
+            continue
+        for m in maps:
+            if not isinstance(m, dict):
+                continue
+            name = m.get("map")
+            if not isinstance(name, str) or not name:
+                continue
+            # If this map was defined before, move it to the end to reflect overwrite.
+            if name in by_name:
+                try:
+                    order.remove(name)
+                except ValueError:
+                    pass
+            by_name[name] = m
+            order.append(name)
+
+    return [by_name[n] for n in order if n in by_name]
 
 
 # -----------------------------
@@ -1123,8 +1274,8 @@ def extract_metadata_from_file(path: str, ext: str) -> Dict[str, Any]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--wads-json", required=True, help="Path to wads.json")
-    ap.add_argument("--idgames-json", required=True, help="Path to idgames.json")
+    ap.add_argument("--wads-json", required=True, help="Path or URL to wads.json")
+    ap.add_argument("--idgames-json", required=True, help="Path or URL to idgames.json")
     ap.add_argument("--s3-base", default=DEFAULT_S3_BASE, help="Base URL for public S3 bucket")
     ap.add_argument("--limit", type=int, default=0, help="Process only N wads (0 = all)")
     ap.add_argument("--start", type=int, default=0, help="Start index into wads.json array")
@@ -1132,6 +1283,22 @@ def main() -> None:
     ap.add_argument("--stream", action="store_true", help="Emit newline-delimited JSON objects (NDJSON)")
     ap.add_argument("--sleep", type=float, default=0.0, help="Sleep seconds between items (politeness)")
     args = ap.parse_args()
+
+    if is_http_url(args.wads_json):
+        eprint(f"Downloading wads.json: {args.wads_json} -> /tmp/wads.json")
+        try:
+            download_url_to_file(args.wads_json, "/tmp/wads.json")
+        except Exception as ex:
+            raise SystemExit(f"Failed to download --wads-json: {ex}")
+        args.wads_json = "/tmp/wads.json"
+
+    if is_http_url(args.idgames_json):
+        eprint(f"Downloading idgames.json: {args.idgames_json} -> /tmp/idgames.json")
+        try:
+            download_url_to_file(args.idgames_json, "/tmp/idgames.json")
+        except Exception as ex:
+            raise SystemExit(f"Failed to download --idgames-json: {ex}")
+        args.idgames_json = "/tmp/idgames.json"
 
     wads_data = read_json_file(args.wads_json)
     idgames_data = read_json_file(args.idgames_json)
@@ -1243,10 +1410,18 @@ def main() -> None:
 
                 extracted = extract_metadata_from_file(file_path, ext)
 
-                # Per-map stats only make sense for classic WADs.
+                # Per-map stats:
+                # - For WADs, run directly
+                # - For PK3-like zips, analyze all embedded WADs in load order and merge maps
                 if ext == "wad":
                     with open(file_path, "rb") as f:
                         per_map_stats = extract_per_map_stats_from_wad_bytes(f.read())
+                elif ext in {"pk3", "pk7", "pkz", "epk", "pke"}:
+                    embedded = find_all_wads_in_zip_path(file_path)
+                    map_lists: List[List[Dict[str, Any]]] = []
+                    for (_wad_path, wbuf) in embedded:
+                        map_lists.append(extract_per_map_stats_from_wad_bytes(wbuf))
+                    per_map_stats = merge_per_map_stats(map_lists)
 
             except Exception as ex:
                 extracted = {
