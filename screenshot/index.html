@@ -76,9 +76,12 @@
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
 
-      // Optional: clamp vertical look so you can't flip upside down
-      controls.minPolarAngle = 0.15;
-      controls.maxPolarAngle = Math.PI - 0.15;
+      // Clamp vertical look to +/- 10 degrees (keep full horizontal freedom)
+      const PITCH_LIMIT_DEG = 10;
+      const pitchLimit = THREE.MathUtils.degToRad(PITCH_LIMIT_DEG);
+      const horizon = Math.PI / 2;
+      controls.minPolarAngle = horizon - pitchLimit;
+      controls.maxPolarAngle = horizon + pitchLimit;
 
       // Optional: zoom
       controls.enableZoom = true;          // set false to disable wheel zoom
