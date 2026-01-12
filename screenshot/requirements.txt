@@ -1,3 +1,4 @@
 vizdoom
 numpy
 Pillow
+requests
