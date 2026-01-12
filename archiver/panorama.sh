@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")"
-source .venv/bin/activate
+source ../.venv/bin/activate
 rm -rf output
 python screenshots.py \
     --iwad ./assets/freedoom2.wad \

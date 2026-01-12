@@ -5,11 +5,11 @@ WORKDIR /app
 COPY requirements.txt .
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends unzip watch \
+ && apt-get install -y --no-install-recommends unzip watch nload \
  && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY screenshot/ /app
+COPY archiver/ /app
 
 CMD ["python", "/app/download_wad.py"]
