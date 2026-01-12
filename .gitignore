@@ -1,3 +1,7 @@
 /target
 secrets/
 .venv/
+__pycache__/
+*.pyc
+_vizdoom
+output

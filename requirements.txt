@@ -2,3 +2,4 @@ vizdoom
 numpy
 Pillow
 requests
+awscli

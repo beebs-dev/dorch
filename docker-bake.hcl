@@ -24,6 +24,13 @@ target "base" {
   push       = false
 }
 
+target "archiver" {
+  context    = "./"
+  dockerfile = "screenshot/Dockerfile"
+  tags       = ["${REGISTRY}thavlik/dorch-archiver:latest"]
+  push       = true
+}
+
 target "operator" {
   contexts   = { base_context = "target:base" }
   context    = "./"

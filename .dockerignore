@@ -1,1 +1,10 @@
-target/
+target
+/*/**/.venv
+/*/**/.git
+/*/**/.git*
+/*/**/secrets
+/*/**/.venv
+/*/**/__pycache__
+/*/**/*.pyc
+/*/**/_vizdoom
+/*/**/output
