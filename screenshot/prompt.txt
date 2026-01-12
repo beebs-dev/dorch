@@ -1,1 +1,0 @@
-the item pickups that are selected for the spawn point are located in the starting area. Ensure a random item in the map, globally, is selected to use as the starting point.
