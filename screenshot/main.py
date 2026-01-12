@@ -8,7 +8,7 @@ import os
 import struct
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 from PIL import Image
@@ -71,6 +71,15 @@ class Candidate:
 	pickup: bool
 
 
+@dataclass(frozen=True)
+class Thing:
+	x: int
+	y: int
+	angle: int
+	type: int
+	flags: int
+
+
 def _parse_wad_map_names(wad_path: Path) -> List[str]:
 	"""Return map marker lumps found in a WAD in appearance order.
 
@@ -119,6 +128,137 @@ def _parse_wad_map_names(wad_path: Path) -> List[str]:
 		if "THINGS" in window and "LINEDEFS" in window:
 			out.append(n)
 	return out
+
+
+def _read_wad_directory(wad_path: Path) -> List[Tuple[int, int, str]]:
+	"""Return list of (filepos, size, name) for each lump."""
+	data = wad_path.read_bytes()
+	if len(data) < 12:
+		raise ValueError(f"WAD too small: {wad_path}")
+
+	ident = data[0:4]
+	if ident not in (b"IWAD", b"PWAD"):
+		raise ValueError(f"Not a WAD file (bad header {ident!r}): {wad_path}")
+
+	num_lumps, dir_offset = struct.unpack_from("<II", data, 4)
+	if dir_offset + num_lumps * 16 > len(data):
+		raise ValueError(f"WAD directory out of range: {wad_path}")
+
+	out: List[Tuple[int, int, str]] = []
+	for i in range(num_lumps):
+		entry_off = dir_offset + i * 16
+		filepos, size, raw_name = struct.unpack_from("<II8s", data, entry_off)
+		name = raw_name.split(b"\x00", 1)[0].decode("ascii", errors="ignore").upper()
+		out.append((int(filepos), int(size), name))
+	return out
+
+
+def _extract_map_lump_bytes(wad_path: Path, map_name: str, lump_name: str) -> Optional[bytes]:
+	"""Extract a map-associated lump (e.g., THINGS) from a WAD for a given map marker."""
+	map_name = map_name.upper()
+	lump_name = lump_name.upper()
+	data = wad_path.read_bytes()
+	directory = _read_wad_directory(wad_path)
+	names = [n for _, _, n in directory]
+	try:
+		start = names.index(map_name)
+	except ValueError:
+		return None
+
+	# Map lumps follow the marker until the next marker or end.
+	for filepos, size, n in directory[start + 1 :]:
+		if n == lump_name:
+			if filepos + size > len(data):
+				return None
+			return data[filepos : filepos + size]
+		if (len(n) == 5 and n.startswith("MAP") and n[3:].isdigit()) or (
+			len(n) == 4 and n.startswith("E") and n[1].isdigit() and n[2] == "M" and n[3].isdigit()
+		):
+			break
+	return None
+
+
+def _parse_things(things_bytes: bytes) -> List[Thing]:
+	"""Parse classic Doom THINGS lump (10 bytes per entry)."""
+	out: List[Thing] = []
+	if len(things_bytes) % 10 != 0:
+		# Some ports use Hexen format (20 bytes). We'll ignore for now.
+		return out
+	for off in range(0, len(things_bytes), 10):
+		x, y, angle, type_, flags = struct.unpack_from("<hhhhh", things_bytes, off)
+		out.append(Thing(x=int(x), y=int(y), angle=int(angle), type=int(type_), flags=int(flags)))
+	return out
+
+
+def _is_pickup_thing_type(type_id: int) -> bool:
+	# Doom / Doom II common pickup thing types.
+	pickups = {
+		# Weapons
+		2001,
+		2002,
+		2003,
+		2004,
+		2005,
+		2006,
+		82,  # Super shotgun
+		# Ammo
+		2007,
+		2008,
+		2010,
+		2047,
+		2048,
+		2049,
+		2046,
+		17,
+		8,
+		2013,
+		# Health / armor
+		2011,
+		2012,
+		2014,
+		2015,
+		2018,
+		2019,
+		# Powerups
+		2022,
+		2023,
+		2024,
+		2025,
+		2026,
+		2045,
+	}
+	return int(type_id) in pickups
+
+
+def _pickup_points_for_map(iwad: Path, files: Sequence[Path], map_name: str) -> List[Tuple[float, float]]:
+	"""Return pickup coordinates from the WAD that provides this map (load-order aware)."""
+	load_order = [iwad, *files]
+	# Prefer the last WAD in load order that contains the map's THINGS lump.
+	for wad in reversed(load_order):
+		things_bytes = _extract_map_lump_bytes(wad, map_name, "THINGS")
+		if things_bytes is None:
+			continue
+		things = _parse_things(things_bytes)
+		points = [(float(t.x), float(t.y)) for t in things if _is_pickup_thing_type(t.type)]
+		return points
+	return []
+
+
+def _spread_out_points(points: Sequence[Tuple[float, float]], n: int, seed: int) -> List[Tuple[float, float]]:
+	if not points or n <= 0:
+		return []
+	pts = np.array(points, dtype=np.float32)
+	rng = np.random.default_rng(seed)
+	start = int(rng.integers(0, len(pts)))
+	selected_idx = [start]
+
+	# Greedy farthest-point sampling in XY.
+	d2 = np.sum((pts - pts[start]) ** 2, axis=1)
+	for _ in range(min(n, len(pts)) - 1):
+		j = int(np.argmax(d2))
+		selected_idx.append(j)
+		d2 = np.minimum(d2, np.sum((pts - pts[j]) ** 2, axis=1))
+	return [points[i] for i in selected_idx]
 
 
 def _effective_map_list(iwad: Path, files: Sequence[Path]) -> List[str]:
@@ -257,8 +397,8 @@ def _init_game(
 
 	# Launch args.
 	args: List[str] = []
-	if not getattr(game, "get_doom_map", lambda: None)() == map_name:
-		args.append(f"+map {map_name}")
+	# Some builds don't expose a getter; still pass +map as a strong hint.
+	args.append(f"+map {map_name}")
 	args.append(f"-skill {int(skill)}")
 	# Make exploration easier / more deterministic.
 	args.append("+freelook 1")
@@ -290,7 +430,8 @@ def _state_to_candidate(game) -> Optional[Candidate]:
 	angle = _wrap_angle_deg(angle)
 	pitch = float(pitch)
 
-	# Always keep camera centered vertically. Reject frames that aren't near level.
+	# Always keep camera centered vertically.
+	# We enforce pitch->0 in control; accept small drift.
 	if abs(pitch) > 3.0:
 		return None
 
@@ -390,6 +531,133 @@ def _capture_best_yaw_sweep(game, *, pickup: bool) -> Optional[Candidate]:
 	return best
 
 
+def _score_images_batch(rgb_images: np.ndarray, *, prefer_gpu: bool) -> np.ndarray:
+	"""Return a score per image. Uses CuPy on CUDA if available."""
+
+	if rgb_images.ndim != 4 or rgb_images.shape[-1] != 3:
+		raise ValueError("Expected (B,H,W,3) RGB batch")
+
+	# Try GPU first.
+	if prefer_gpu:
+		try:
+			import cupy as cp  # type: ignore
+
+			x = cp.asarray(rgb_images, dtype=cp.float32) / 255.0
+			lum = 0.2126 * x[..., 0] + 0.7152 * x[..., 1] + 0.0722 * x[..., 2]
+			lum_std = cp.std(lum, axis=(1, 2))
+			dx = cp.abs(lum[:, :, 1:] - lum[:, :, :-1])
+			dy = cp.abs(lum[:, 1:, :] - lum[:, :-1, :])
+			mag = dx[:, :-1, :] + dy[:, :, :-1]
+			edge_density = cp.mean(mag > 0.08, axis=(1, 2))
+			score = 2.2 * edge_density + 1.1 * lum_std
+			return cp.asnumpy(score)
+		except Exception:
+			pass
+
+	# CPU fallback.
+	x = rgb_images.astype(np.float32) / 255.0
+	lum = 0.2126 * x[..., 0] + 0.7152 * x[..., 1] + 0.0722 * x[..., 2]
+	lum_std = np.std(lum, axis=(1, 2))
+	dx = np.abs(lum[:, :, 1:] - lum[:, :, :-1])
+	dy = np.abs(lum[:, 1:, :] - lum[:, :-1, :])
+	mag = dx[:, :-1, :] + dy[:, :, :-1]
+	edge_density = np.mean(mag > 0.08, axis=(1, 2))
+	return (2.2 * edge_density + 1.1 * lum_std).astype(np.float32)
+
+
+def _teleport_to(game, x: float, y: float) -> bool:
+	"""Best-effort teleport. Returns True if position changes noticeably."""
+	try:
+		from vizdoom import GameVariable
+
+		before_x = float(game.get_game_variable(GameVariable.POSITION_X))
+		before_y = float(game.get_game_variable(GameVariable.POSITION_Y))
+	except Exception:
+		before_x, before_y = 0.0, 0.0
+
+	# Try common ZDoom-style console commands.
+	try:
+		game.send_game_command(f"setpos {x:.0f} {y:.0f} 0")
+	except Exception:
+		try:
+			game.send_game_command(f"setpos {x:.0f} {y:.0f}")
+		except Exception:
+			return False
+
+	# Let engine apply command.
+	try:
+		game.advance_action(1)
+	except Exception:
+		pass
+
+	try:
+		from vizdoom import GameVariable
+
+		after_x = float(game.get_game_variable(GameVariable.POSITION_X))
+		after_y = float(game.get_game_variable(GameVariable.POSITION_Y))
+		return math.hypot(after_x - before_x, after_y - before_y) > 8.0
+	except Exception:
+		return True
+
+
+def _center_pitch(game) -> None:
+	from vizdoom import GameVariable
+
+	# A few iterations to pull pitch to 0.
+	for _ in range(6):
+		try:
+			cur_pitch = float(game.get_game_variable(GameVariable.PITCH))
+		except Exception:
+			cur_pitch = 0.0
+		look = _clamp((-cur_pitch) * 0.9, -12.0, 12.0)
+		game.make_action([0, 0, 0, 0, 0, 0, 0.0, float(look)], 1)
+		if abs(cur_pitch) < 1.0:
+			break
+
+
+def _best_direction_at_location(
+	game,
+	*,
+	prefer_gpu: bool,
+	steps: int = 18,
+	turn_step: float = 20.0,
+) -> Optional[Candidate]:
+	"""Render a full 360 yaw sweep and keep the most interesting direction."""
+
+	frames: List[np.ndarray] = []
+	cands: List[Optional[Candidate]] = []
+
+	# Ensure we start from a centered pitch.
+	_center_pitch(game)
+
+	# Capture at current angle then rotate through the circle.
+	for _ in range(steps):
+		cand = _state_to_candidate(game)
+		cands.append(cand)
+		frames.append(cand.screen if cand is not None else np.zeros((1, 1, 3), dtype=np.uint8))
+		game.make_action([0, 0, 0, 0, 0, 0, float(turn_step), 0.0], 1)
+		if game.is_episode_finished():
+			break
+
+	# If we didn't get enough frames, bail out.
+	valid_idx = [i for i, c in enumerate(cands) if c is not None]
+	if not valid_idx:
+		return None
+
+	batch = np.stack([frames[i] for i in valid_idx], axis=0)
+	scores = _score_images_batch(batch, prefer_gpu=prefer_gpu)
+	best_local = int(valid_idx[int(np.argmax(scores))])
+
+	# After steps turns, we're back at (roughly) the start; turn to best.
+	for _ in range(best_local):
+		game.make_action([0, 0, 0, 0, 0, 0, float(turn_step), 0.0], 1)
+		if game.is_episode_finished():
+			break
+
+	best = _state_to_candidate(game)
+	return best
+
+
 def _feature_distance(a: Candidate, b: Candidate, pos_scale: float) -> float:
 	dx = (a.x - b.x) / pos_scale
 	dy = (a.y - b.y) / pos_scale
@@ -465,7 +733,7 @@ def _gather_candidates(
 			cur_pitch = float(game.get_game_variable(GameVariable.PITCH))
 		except Exception:
 			cur_pitch = 0.0
-		look = _clamp((-cur_pitch) * 0.75, -12.0, 12.0)
+		look = _clamp((-cur_pitch) * 0.9, -12.0, 12.0)
 
 		action = [0, 0, 0, 0, 0, 0, 0.0, 0.0]
 		action[0] = 1 if move_forward else 0
@@ -511,7 +779,7 @@ def _gather_candidates(
 			cur_pitch = float(game.get_game_variable(GameVariable.PITCH))
 		except Exception:
 			cur_pitch = 0.0
-		look = _clamp((-cur_pitch) * 0.75, -12.0, 12.0)
+		look = _clamp((-cur_pitch) * 0.9, -12.0, 12.0)
 
 		# Discrete movement choices, but driven by low-discrepancy values.
 		p = u3
@@ -674,6 +942,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 	parser.add_argument("--frame-skip", type=int, default=4)
 	parser.add_argument("--keep-every", type=int, default=6)
 	parser.add_argument(
+		"--prefer-gpu",
+		action="store_true",
+		help="Prefer GPU-accelerated direction scoring via CuPy if available",
+	)
+	parser.add_argument(
 		"--list-maps",
 		action="store_true",
 		help="List detected maps from IWAD + --files and exit",
@@ -701,6 +974,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
 	for mi, map_name in enumerate(maps):
 		map_seed = int((args.seed * 1000003 + mi * 9176) & 0x7FFFFFFF)
+
+		# New approach: choose globally-distributed pickup points as start locations.
+		pickup_points = _pickup_points_for_map(iwad, files, map_name)
+		starts = _spread_out_points(pickup_points, n=int(args.num), seed=map_seed)
+
 		game = _init_game(
 			iwad=iwad,
 			files=files,
@@ -714,26 +992,41 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 			episode_timeout=int(args.episode_timeout),
 		)
 		try:
-			game.new_episode()
-			candidates = _gather_candidates(
-				game=game,
-				n=int(args.num),
-				seed=map_seed,
-				warmup_steps=int(args.warmup_steps),
-				max_steps=int(args.max_steps),
-				frame_skip=int(args.frame_skip),
-				keep_every=int(args.keep_every),
-			)
-			selected = _select_diverse(candidates, n=int(args.num))
-
-			# If we couldn't gather enough, just take what we got.
 			ext = "jpg" if args.format == "jpg" else "png"
 			map_dir = out_root / map_name
 			map_dir.mkdir(parents=True, exist_ok=True)
-			for i, cand in enumerate(selected):
-				out_path = map_dir / f"{i}.{ext}"
-				_save_image(cand.screen, out_path, fmt=args.format, quality=int(args.jpeg_quality))
-			print(f"{map_name}: saved {len(selected)}/{args.num} images")
+			saved = 0
+
+			if starts:
+				for i, (sx, sy) in enumerate(starts):
+					game.new_episode()
+					_teleport_to(game, sx, sy)
+					_center_pitch(game)
+					best = _best_direction_at_location(game, prefer_gpu=bool(args.prefer_gpu))
+					if best is None:
+						continue
+					out_path = map_dir / f"{i}.{ext}"
+					_save_image(best.screen, out_path, fmt=args.format, quality=int(args.jpeg_quality))
+					saved += 1
+			else:
+				# Fallback to exploration if the map has no parseable pickups.
+				game.new_episode()
+				candidates = _gather_candidates(
+					game=game,
+					n=int(args.num),
+					seed=map_seed,
+					warmup_steps=int(args.warmup_steps),
+					max_steps=int(args.max_steps),
+					frame_skip=int(args.frame_skip),
+					keep_every=int(args.keep_every),
+				)
+				selected = _select_diverse(candidates, n=int(args.num))
+				for i, cand in enumerate(selected):
+					out_path = map_dir / f"{i}.{ext}"
+					_save_image(cand.screen, out_path, fmt=args.format, quality=int(args.jpeg_quality))
+					saved += 1
+
+			print(f"{map_name}: saved {saved}/{args.num} images")
 		finally:
 			game.close()
 
