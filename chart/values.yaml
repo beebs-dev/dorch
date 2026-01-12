@@ -3,6 +3,18 @@ registry: "" # same as "docker.io/"
 prometheus:
   enabled: false
 
+iam:
+  image: thavlik/dorch-iam:latest
+  imagePullPolicy: Always
+  replicas: 1
+  logLevel: debug
+  resources:
+    requests: 
+      memory: "32Mi"
+    limits:
+      memory: "64Mi"
+
+
 keycloak:
   endpoint: "https://keycloak.example.com"
   realm: dorch

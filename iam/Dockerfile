@@ -3,6 +3,7 @@ ARG BASE_IMAGE=thavlik/dorch-base:latest
 
 FROM ${BASE_IMAGE} AS builder
 COPY common/src common/src
+COPY iam-client/src iam-client/src
 COPY iam/src iam/src
 WORKDIR /app/iam
 RUN cargo build --release --bin dorch-iam

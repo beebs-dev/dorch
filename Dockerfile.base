@@ -18,6 +18,7 @@ RUN cargo install cargo-chef
 WORKDIR /app
 COPY Cargo.toml .
 COPY Cargo.lock .
+COPY iam-client/ iam-client/
 COPY common/Cargo.toml common/Cargo.toml
 COPY operator/Cargo.toml operator/Cargo.toml
 COPY party/Cargo.toml party/Cargo.toml
