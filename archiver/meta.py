@@ -425,8 +425,53 @@ def eprint(*args: Any, **kwargs: Any) -> None:
 def read_json_file(path: str) -> Any:
     with open(path, "r", encoding="utf-8") as f:
         lines = f.readlines()
-        items = [json.loads(line) for line in lines if line.strip()]
+        items = [normalize_extended_json_numbers(json.loads(line)) for line in lines if line.strip()]
         return items
+
+
+def normalize_extended_json_numbers(obj: Any) -> Any:
+    """Convert common MongoDB Extended JSON number wrappers into plain numbers.
+
+    Examples:
+      {"$numberLong": "75964"} -> 75964
+      {"$numberInt": "3"} -> 3
+
+    This keeps behavior conservative by only converting *single-key* wrappers.
+    """
+
+    if isinstance(obj, list):
+        return [normalize_extended_json_numbers(v) for v in obj]
+
+    if not isinstance(obj, dict):
+        return obj
+
+    if len(obj) == 1:
+        if "$numberLong" in obj:
+            try:
+                return int(obj["$numberLong"])
+            except (TypeError, ValueError):
+                return obj
+        if "$numberInt" in obj:
+            try:
+                return int(obj["$numberInt"])
+            except (TypeError, ValueError):
+                return obj
+        if "$numberDouble" in obj:
+            try:
+                return float(obj["$numberDouble"])
+            except (TypeError, ValueError):
+                return obj
+        if "$numberDecimal" in obj:
+            # Decimal can exceed float precision; keep as string if it doesn't parse cleanly.
+            v = obj.get("$numberDecimal")
+            if v is None:
+                return obj
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                return obj
+
+    return {k: normalize_extended_json_numbers(v) for k, v in obj.items()}
 
 
 def safe_text_decode(b: bytes) -> str:
