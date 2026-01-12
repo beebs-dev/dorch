@@ -1440,7 +1440,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 									base_yaw_deg=float(best.angle),
 									face_size=pano_face_size,
 								)
-								# Save the other 5 faces (front already saved as {idx}.{ext}).
+								# Save the 6 cubemap faces as square images.
+								_save_image(front, map_dir / f"{idx}_front.{ext}", fmt=args.format, quality=quality)
 								_save_image(right, map_dir / f"{idx}_right.{ext}", fmt=args.format, quality=quality)
 								_save_image(back, map_dir / f"{idx}_back.{ext}", fmt=args.format, quality=quality)
 								_save_image(left, map_dir / f"{idx}_left.{ext}", fmt=args.format, quality=quality)
@@ -1492,6 +1493,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 										base_yaw_deg=float(cand.angle),
 										face_size=pano_face_size,
 									)
+									_save_image(front, map_dir / f"{j}_front.{ext}", fmt=args.format, quality=quality)
 									_save_image(right, map_dir / f"{j}_right.{ext}", fmt=args.format, quality=quality)
 									_save_image(back, map_dir / f"{j}_back.{ext}", fmt=args.format, quality=quality)
 									_save_image(left, map_dir / f"{j}_left.{ext}", fmt=args.format, quality=quality)
@@ -1540,6 +1542,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 									base_yaw_deg=float(cand.angle),
 									face_size=pano_face_size,
 								)
+								_save_image(front, map_dir / f"{i}_front.{ext}", fmt=args.format, quality=quality)
 								_save_image(right, map_dir / f"{i}_right.{ext}", fmt=args.format, quality=quality)
 								_save_image(back, map_dir / f"{i}_back.{ext}", fmt=args.format, quality=quality)
 								_save_image(left, map_dir / f"{i}_left.{ext}", fmt=args.format, quality=quality)
