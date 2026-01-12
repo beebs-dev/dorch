@@ -1,0 +1,4 @@
+SELECT *
+FROM wads
+OFFSET $1
+LIMIT $2;

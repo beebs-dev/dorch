@@ -3,8 +3,6 @@ use tokio_util::sync::CancellationToken;
 
 use crate::party_store::PartyInfoStore;
 
-pub const INVALID_CHUNK_RANGE: &str = "Invalid chunk range";
-
 pub struct AppInner {
     pub cancel: CancellationToken,
     pub store: PartyInfoStore,

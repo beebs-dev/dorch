@@ -1214,6 +1214,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "dorch-wadinfo"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-nats",
+ "axum",
+ "axum-keycloak-auth",
+ "bytes",
+ "clap",
+ "deadpool-postgres",
+ "deadpool-redis",
+ "dorch-common",
+ "futures",
+ "futures-util",
+ "humantime",
+ "keycloak",
+ "owo-colors",
+ "postgres",
+ "redis 0.32.7",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-postgres",
+ "tokio-rustls",
+ "tokio-stream",
+ "tokio-util",
+ "uuid",
+]
+
+[[package]]
 name = "dorch-webrtc-auth"
 version = "0.1.0"
 dependencies = [

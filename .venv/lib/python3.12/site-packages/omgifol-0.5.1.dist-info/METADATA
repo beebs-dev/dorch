@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: omgifol
+Version: 0.5.1
+Summary: A Python library for manipulation of Doom WAD files
+Home-page: https://github.com/devinacker/omgifol
+Author: Devin Acker, Fredrik Johansson
+Author-email: d@revenant1.net
+License: MIT
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.3
+License-File: LICENSE
+

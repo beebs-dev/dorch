@@ -3,7 +3,44 @@ prometheus:
 
 nats:
   url: "nats://nats.nats.svc.cluster.local:4222"
-  
+
+postgres:
+  host:
+    valueFrom:
+      secretKeyRef:
+        name: postgres-cred
+        key: host
+  port:
+    valueFrom:
+      secretKeyRef:
+        name: postgres-cred
+        key: port
+  database:
+    valueFrom:
+      secretKeyRef:
+        name: postgres-cred
+        key: database
+  username:
+    valueFrom:
+      secretKeyRef:
+        name: postgres-cred
+        key: username
+  password:
+    valueFrom:
+      secretKeyRef:
+        name: postgres-cred
+        key: password
+  sslmode:
+    valueFrom:
+      secretKeyRef:
+        name: postgres-cred
+        key: sslmode
+  ca:
+    valueFrom:
+      secretKeyRef:
+        name: postgres-cred
+        key: ca
+
 redis:
   username:
     valueFrom:

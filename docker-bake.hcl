@@ -10,6 +10,7 @@ group "default" {
     "client",
     "sock",
     "iam",
+    "wadinfo",
     "webrtc-auth",
     "party",
     "downloader"
@@ -29,6 +30,15 @@ target "operator" {
   dockerfile = "operator/Dockerfile"
   args       = { BASE_IMAGE = "base_context" }
   tags       = ["${REGISTRY}thavlik/dorch-operator:latest"]
+  push       = true
+}
+
+target "wadinfo" {
+  contexts   = { base_context = "target:base" }
+  context    = "./"
+  dockerfile = "wadinfo/Dockerfile"
+  args       = { BASE_IMAGE = "base_context" }
+  tags       = ["${REGISTRY}thavlik/dorch-wadinfo:latest"]
   push       = true
 }
 

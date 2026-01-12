@@ -3,17 +3,21 @@ registry: "" # same as "docker.io/"
 prometheus:
   enabled: false
 
-iam:
-  image: thavlik/dorch-iam:latest
-  imagePullPolicy: Always
-  replicas: 1
-  logLevel: debug
-  resources:
-    requests: 
-      memory: "32Mi"
-    limits:
-      memory: "64Mi"
-
+postgres:
+  host:
+    value: ""
+  port:
+    value: ""
+  database:
+    value: ""
+  username:
+    value: ""
+  password:
+    value: ""
+  sslmode:
+    value: ""
+  ca:
+    value: ""
 
 keycloak:
   endpoint: "https://keycloak.example.com"
@@ -80,6 +84,27 @@ operator:
     limits:
       memory: "128Mi"
 
+iam:
+  image: thavlik/dorch-iam:latest
+  imagePullPolicy: Always
+  replicas: 1
+  logLevel: debug
+  resources:
+    requests: 
+      memory: "32Mi"
+    limits:
+      memory: "64Mi"
+
+wadinfo:
+  image: thavlik/dorch-wadinfo:latest
+  imagePullPolicy: Always
+  replicas: 1
+  logLevel: debug
+  resources:
+    requests: 
+      memory: "32Mi"
+    limits:
+      memory: "64Mi"
 
 party:
   image: thavlik/dorch-party:latest

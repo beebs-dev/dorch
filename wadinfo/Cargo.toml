@@ -1,0 +1,36 @@
+[package]
+name = "dorch-wadinfo"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "dorch-wadinfo"
+path = "src/main.rs"
+
+[dependencies]
+dorch-common = { path = "../common" }
+tokio = { workspace = true }
+bytes = { workspace = true }
+tokio-util = { workspace = true }
+futures-util = { workspace = true }
+clap = { workspace = true }
+redis = { workspace = true }
+deadpool-redis = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio-stream = { workspace = true }
+anyhow = { workspace = true }
+axum = { workspace = true }
+uuid = { workspace = true }
+owo-colors = { workspace = true }
+reqwest = { workspace = true }
+futures = { workspace = true }
+humantime = { workspace = true }
+rustls = { workspace = true }
+tokio-rustls = { workspace = true }
+async-nats = { workspace = true }
+keycloak = { workspace = true }
+axum-keycloak-auth = { workspace = true }
+tokio-postgres = { workspace = true }
+postgres = { workspace = true }
+deadpool-postgres = { workspace = true }
