@@ -1,15 +1,155 @@
-<html>
-<body>
-<div id="viewer" style="width: 100%; height: 100vh;"></div>
-<script type="module">
-  import { Viewer } from "https://cdn.jsdelivr.net/npm/@photo-sphere-viewer/core@5/index.module.js";
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Doom Panorama Viewer</title>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        background: #000;
+        overflow: hidden;
+        touch-action: none; /* important for mobile dragging */
+      }
+      #c {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        cursor: grab;
+      }
+      #c:active { cursor: grabbing; }
 
-  new Viewer({
-    container: document.querySelector("#viewer"),
-    panorama: "./output/MAP01/0_pano.jpg", // equirectangular panorama
-    navbar: ["zoom", "fullscreen"],
-    defaultYaw: 0,
-  });
-</script>
-</body>
+      .hud {
+        position: fixed;
+        left: 12px;
+        bottom: 10px;
+        padding: 8px 10px;
+        font: 12px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        color: rgba(255,255,255,0.9);
+        background: rgba(0,0,0,0.55);
+        border-radius: 10px;
+        max-width: min(560px, calc(100vw - 24px));
+      }
+      .hud code { color: rgba(255,255,255,0.95); }
+    </style>
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/examples/jsm/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+    </script>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div class="hud">
+      Drag to look around • Wheel to zoom • Double-click to reset<br/>
+      Image: <code id="imgPath"></code>
+    </div>
+
+    <!-- Three.js (module) -->
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+
+      // >>> CHANGE THIS PATH <<<
+      const PANORAMA_URL = "./output/MAP01/0_pano.jpg";
+      document.getElementById("imgPath").textContent = PANORAMA_URL;
+
+      const canvas = document.getElementById("c");
+
+      // Renderer
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+      // Scene + Camera
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(75, 2, 0.1, 2000);
+      camera.position.set(0, 0, 0.01); // inside the sphere
+
+      // Controls (click+drag look)
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enablePan = false;          // no panning (feels like Street View)
+      controls.rotateSpeed = 0.35;
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+
+      // Optional: clamp vertical look so you can't flip upside down
+      controls.minPolarAngle = 0.15;
+      controls.maxPolarAngle = Math.PI - 0.15;
+
+      // Optional: zoom
+      controls.enableZoom = true;          // set false to disable wheel zoom
+      controls.minDistance = 0.01;
+      controls.maxDistance = 0.01;         // keep camera at same "radius"
+      // Note: we "zoom" by changing FOV instead, see wheel handler below.
+
+      // Use FOV zoom like Street View
+      const DEFAULT_FOV = 75;
+      camera.fov = DEFAULT_FOV;
+      camera.updateProjectionMatrix();
+
+      // Texture loader
+      const loader = new THREE.TextureLoader();
+      loader.load(
+        PANORAMA_URL,
+        (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+
+          // Create sphere and map the panorama on the INSIDE
+          const geometry = new THREE.SphereGeometry(500, 64, 32);
+          geometry.scale(-1, 1, 1); // invert the sphere to face inward
+
+          const material = new THREE.MeshBasicMaterial({ map: texture });
+          const mesh = new THREE.Mesh(geometry, material);
+          scene.add(mesh);
+        },
+        undefined,
+        (err) => {
+          console.error("Failed to load panorama:", err);
+          alert("Failed to load panorama. Check the PANORAMA_URL path and that you're serving via a local web server.");
+        }
+      );
+
+      // Resize handling
+      function resizeRendererToDisplaySize() {
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        const needResize = canvas.width !== Math.floor(w * renderer.getPixelRatio()) ||
+                           canvas.height !== Math.floor(h * renderer.getPixelRatio());
+        if (needResize) {
+          renderer.setSize(w, h, false);
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+        }
+      }
+
+      // Wheel-to-zoom via FOV (more Street View-like)
+      window.addEventListener("wheel", (e) => {
+        // If you want NO scroll-wheel zoom, comment out this whole handler.
+        e.preventDefault();
+        const delta = Math.sign(e.deltaY);
+        camera.fov = THREE.MathUtils.clamp(camera.fov + delta * 2.5, 35, 95);
+        camera.updateProjectionMatrix();
+      }, { passive: false });
+
+      // Double click to reset view
+      window.addEventListener("dblclick", () => {
+        controls.reset();
+        camera.fov = DEFAULT_FOV;
+        camera.updateProjectionMatrix();
+      });
+
+      // Animation loop
+      function animate() {
+        resizeRendererToDisplaySize();
+        controls.update();
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+      animate();
+    </script>
+  </body>
 </html>
