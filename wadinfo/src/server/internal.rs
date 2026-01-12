@@ -1,4 +1,7 @@
-use crate::{app::App, client::WadSearchRequest};
+use crate::{
+    app::App,
+    client::{Pagination, WadSearchRequest},
+};
 use anyhow::{Context, Result};
 use axum::{
     Json, Router,
@@ -24,6 +27,7 @@ pub async fn run_server(
         .route("/readyz", get(health));
     let router = Router::new()
         .route("/upsert_wad", post(upsert_wad))
+        .route("/wad", post(list_wads))
         .route("/wad/{id}", post(get_wad))
         .route("/search", get(search))
         .with_state(app_state)
@@ -70,8 +74,20 @@ pub async fn upsert_wad(
     }
 }
 
+///
+pub async fn list_wads(
+    State(state): State<App>,
+    Query(req): Query<Pagination>,
+) -> impl IntoResponse {
+    // TODO: list wads alphabetically with pagination
+}
+
 pub async fn get_wad(State(state): State<App>, Path(wad_id): Path<Uuid>) -> impl IntoResponse {
-    StatusCode::OK.into_response()
+    match state.db.get_wad(wad_id).await {
+        Ok(Some(wad)) => (StatusCode::OK, Json(wad)).into_response(),
+        Ok(None) => response::not_found(anyhow::anyhow!("WAD not found")),
+        Err(e) => response::error(e.context("Failed to get wad")),
+    }
 }
 
 pub async fn search(

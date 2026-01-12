@@ -1,6 +1,9 @@
 use crate::client::WadSearchResults;
 use anyhow::{Context, Result};
-use dorch_common::{postgres::strip_sql_comments, types::wad::WadMergedOut};
+use dorch_common::{
+    postgres::strip_sql_comments,
+    types::wad::{MapStat, WadMergedOut, WadMeta},
+};
 use tokio_postgres::types::Json;
 use uuid::Uuid;
 
@@ -8,6 +11,9 @@ mod sql {
     pub const TABLES: &str = include_str!("sql/tables.sql");
     pub const INSERT_WAD: &str = include_str!("sql/insert_wad.sql");
     pub const SEARCH_WADS: &str = include_str!("sql/search_wads.sql");
+
+    pub const GET_WAD: &str = include_str!("sql/get_wad.sql");
+    pub const GET_WAD_MAPS: &str = include_str!("sql/get_wad_maps.sql");
 
     pub const DELETE_WAD_CHILDREN: &str = include_str!("sql/delete_wad_children.sql");
     pub const INSERT_WAD_AUTHOR: &str = include_str!("sql/insert_wad_author.sql");
@@ -47,6 +53,15 @@ impl Database {
             .prepare(sql::SEARCH_WADS)
             .await
             .context("failed to prepare SEARCH_WADS")?;
+
+        _ = conn
+            .prepare(sql::GET_WAD)
+            .await
+            .context("failed to prepare GET_WAD")?;
+        _ = conn
+            .prepare(sql::GET_WAD_MAPS)
+            .await
+            .context("failed to prepare GET_WAD_MAPS")?;
 
         _ = conn
             .prepare(sql::DELETE_WAD_CHILDREN)
@@ -105,6 +120,44 @@ impl Database {
             .await
             .context("failed to prepare INSERT_WAD_MAP_ITEM")?;
         Ok(Self { pool })
+    }
+
+    pub async fn get_wad(&self, wad_id: Uuid) -> Result<Option<WadMergedOut>> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+
+        let get_wad = conn
+            .prepare_cached(sql::GET_WAD)
+            .await
+            .context("failed to prepare GET_WAD")?;
+        let row = conn
+            .query_opt(&get_wad, &[&wad_id])
+            .await
+            .context("failed to execute GET_WAD")?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let meta_json: serde_json::Value = row.try_get("meta_json")?;
+        let meta: WadMeta = serde_json::from_value(meta_json).context("deserialize WadMeta")?;
+
+        let get_maps = conn
+            .prepare_cached(sql::GET_WAD_MAPS)
+            .await
+            .context("failed to prepare GET_WAD_MAPS")?;
+        let map_rows = conn
+            .query(&get_maps, &[&wad_id])
+            .await
+            .context("failed to execute GET_WAD_MAPS")?;
+
+        let mut maps = Vec::with_capacity(map_rows.len());
+        for row in map_rows {
+            let map_json: serde_json::Value = row.try_get("map_json")?;
+            let map: MapStat = serde_json::from_value(map_json).context("deserialize MapStat")?;
+            maps.push(map);
+        }
+
+        Ok(Some(WadMergedOut { meta, maps }))
     }
 
     pub async fn search_wads(
