@@ -997,6 +997,8 @@ def _save_image(arr: np.ndarray, out_path: Path, fmt: str, quality: int) -> None
 		img.save(out_path, format="JPEG", quality=quality, optimize=True)
 	elif fmt_u == "PNG":
 		img.save(out_path, format="PNG", optimize=True)
+	elif fmt_u == "WEBP":
+		img.save(out_path, format="WEBP", quality=quality, method=6)
 	else:
 		raise ValueError(f"Unknown format: {fmt}")
 
@@ -1005,7 +1007,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 	parser = argparse.ArgumentParser(
 		description=(
 			"Render N diverse first-person screenshots for every map in a WAD using ViZDoom.\n"
-			"Default output layout: ${output}/${map_name}/${i}.jpg"
+			"Default output layout: ${output}/${map_name}/${i}.${format}"
 		)
 	)
 	parser.add_argument("--iwad", required=True, help="Path to IWAD (e.g., doom2.wad)")
@@ -1020,8 +1022,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 	parser.add_argument("--seed", type=int, default=1234, help="Base RNG seed")
 	parser.add_argument("--width", type=int, default=800)
 	parser.add_argument("--height", type=int, default=600)
-	parser.add_argument("--format", choices=["jpg", "png"], default="jpg")
+	parser.add_argument("--format", choices=["jpg", "png", "webp"], default="jpg")
 	parser.add_argument("--jpeg-quality", type=int, default=92)
+	parser.add_argument("--webp-quality", type=int, default=70)
 	parser.add_argument("--visible", action="store_true", help="Show the VizDoom window")
 	parser.add_argument("--no-monsters", action="store_true", help="Pass -nomonsters")
 	parser.add_argument("--skill", type=int, default=3, help="Doom skill 1-5")
@@ -1083,7 +1086,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 			episode_timeout=max(int(args.episode_timeout), int(args.max_steps) * int(args.frame_skip) + 1000),
 		)
 		try:
-			ext = "jpg" if args.format == "jpg" else "png"
+			ext = str(args.format)
+			quality = int(args.webp_quality) if args.format == "webp" else int(args.jpeg_quality)
 			map_dir = out_root / map_name
 			map_dir.mkdir(parents=True, exist_ok=True)
 			saved = 0
@@ -1130,7 +1134,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 					if best is None:
 						continue
 					out_path = map_dir / f"{idx}.{ext}"
-					_save_image(best.screen, out_path, fmt=args.format, quality=int(args.jpeg_quality))
+					_save_image(best.screen, out_path, fmt=args.format, quality=quality)
 					saved += 1
 					idx += 1
 
@@ -1150,7 +1154,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 					selected = _select_diverse(candidates, n=int(args.num) - saved)
 					for j, cand in enumerate(selected, start=idx):
 						out_path = map_dir / f"{j}.{ext}"
-						_save_image(cand.screen, out_path, fmt=args.format, quality=int(args.jpeg_quality))
+						_save_image(cand.screen, out_path, fmt=args.format, quality=quality)
 						saved += 1
 			else:
 				# Fallback to exploration if the map has no parseable pickups.
@@ -1167,7 +1171,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 				selected = _select_diverse(candidates, n=int(args.num))
 				for i, cand in enumerate(selected):
 					out_path = map_dir / f"{i}.{ext}"
-					_save_image(cand.screen, out_path, fmt=args.format, quality=int(args.jpeg_quality))
+					_save_image(cand.screen, out_path, fmt=args.format, quality=quality)
 					saved += 1
 
 			print(f"{map_name}: saved {saved}/{args.num} images")

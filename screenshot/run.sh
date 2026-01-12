@@ -7,4 +7,5 @@ python main.py \
     --iwad ./assets/freedoom2.wad \
     --files ./assets/sunlust.wad \
     --output output \
+    --format webp \
     -n 6
