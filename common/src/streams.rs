@@ -1,3 +1,8 @@
+use bytes::Bytes;
+use uuid::Uuid;
+
+use crate::types::Party;
+
 pub enum LeaveReason {
     Left,
     Kicked,
@@ -32,6 +37,67 @@ pub enum WebsockMessageType {
     MemberLeft,
     PartyInfo,
     Invite,
+}
+
+impl WebsockMessageType {
+    pub fn invite(party_id: Uuid, sender_id: Uuid) -> Bytes {
+        let mut payload = Vec::with_capacity(33);
+        payload.push(WebsockMessageType::Invite.into());
+        payload.extend_from_slice(party_id.as_bytes());
+        payload.extend_from_slice(sender_id.as_bytes());
+        payload.into()
+    }
+
+    pub fn member_joined(party_id: Uuid, user_id: Uuid) -> Bytes {
+        let mut payload = Vec::with_capacity(33);
+        payload.push(WebsockMessageType::MemberJoined.into());
+        payload.extend(party_id.as_bytes());
+        payload.extend(user_id.as_bytes());
+        payload.into()
+    }
+
+    pub fn member_left(party_id: Uuid, user_id: Uuid, reason: LeaveReason) -> Bytes {
+        let mut payload = Vec::with_capacity(33);
+        payload.push(WebsockMessageType::MemberLeft.into());
+        payload.extend(party_id.as_bytes());
+        payload.extend(user_id.as_bytes());
+        payload.push(reason.into());
+        payload.into()
+    }
+
+    pub fn party_info(party: &Party) -> Bytes {
+        let Party {
+            id,
+            name,
+            leader_id,
+            members,
+        } = &party;
+        let mut payload = Vec::with_capacity(
+            33 + name.as_ref().map(|n| n.len()).unwrap_or_default()
+                + 2
+                + members
+                    .as_ref()
+                    .map(|m| 2 + m.len() * 16)
+                    .unwrap_or_default(),
+        );
+        payload.push(WebsockMessageType::PartyInfo.into()); // 1
+        payload.extend(id.as_bytes()); // 16
+        payload.extend(leader_id.as_bytes()); // 16
+        if let Some(name) = name {
+            let name = name.as_bytes();
+            payload.extend(&(name.len() as u16).to_be_bytes()); // name.len() as u16
+            payload.extend(&name[..name.len().min(u16::MAX as usize)]);
+        } else {
+            payload.extend(&0u16.to_be_bytes()); // zero length
+        }
+        if let Some(members) = members {
+            payload.extend(&(members.len() as u16).to_be_bytes());
+            for member in members[..members.len().min(u16::MAX as usize)].iter() {
+                payload.extend(member.as_bytes());
+            }
+        } // don't put anything if None
+        payload.into()
+    }
 }
 
 impl TryFrom<&u8> for WebsockMessageType {

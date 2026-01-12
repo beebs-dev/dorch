@@ -11,6 +11,7 @@ pub struct Cli {
 #[derive(Subcommand, Debug, Clone)]
 pub enum Commands {
     Server(ServerArgs),
+    Router(RouterArgs),
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -29,4 +30,13 @@ pub struct ServerArgs {
 
     #[command(flatten)]
     pub kc: KeycloakArgs,
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct RouterArgs {
+    #[command(flatten)]
+    pub redis: RedisArgs,
+
+    #[command(flatten)]
+    pub nats: NatsArgs,
 }

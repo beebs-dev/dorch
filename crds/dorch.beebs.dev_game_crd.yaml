@@ -43,6 +43,7 @@ spec:
                 nullable: true
                 type: integer
               private:
+                description: If true, the game will only be visible to the creator.
                 nullable: true
                 type: boolean
               s3_secret_name:

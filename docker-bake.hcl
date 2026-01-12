@@ -9,6 +9,8 @@ group "default" {
     "proxy",
     "client",
     "sock",
+    "webrtc-auth",
+    "party",
     "downloader"
   ]
 }
@@ -26,6 +28,24 @@ target "operator" {
   dockerfile = "operator/Dockerfile"
   args       = { BASE_IMAGE = "base_context" }
   tags       = ["${REGISTRY}thavlik/dorch-operator:latest"]
+  push       = true
+}
+
+target "party" {
+  contexts   = { base_context = "target:base" }
+  context    = "./"
+  dockerfile = "party/Dockerfile"
+  args       = { BASE_IMAGE = "base_context" }
+  tags       = ["${REGISTRY}thavlik/dorch-party:latest"]
+  push       = true
+}
+
+target "webrtc-auth" {
+  contexts   = { base_context = "target:base" }
+  context    = "./"
+  dockerfile = "webrtc-auth/Dockerfile"
+  args       = { BASE_IMAGE = "base_context" }
+  tags       = ["${REGISTRY}thavlik/dorch-webrtc-auth:latest"]
   push       = true
 }
 

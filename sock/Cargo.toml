@@ -5,15 +5,10 @@ edition = "2024"
 
 [dependencies]
 dorch-common = { path = "../common" }
-tokio-postgres = { workspace = true }
-postgres = { workspace = true }
-deadpool-postgres = { workspace = true }
-tempfile = { workspace = true }
 tokio = { workspace = true }
 http-body = { workspace = true }
 bytes = { workspace = true }
 tokio-util = { workspace = true }
-percent-encoding = { workspace = true }
 futures-util = { workspace = true }
 clap = { workspace = true }
 redis = { workspace = true }

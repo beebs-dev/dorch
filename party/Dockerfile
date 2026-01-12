@@ -2,13 +2,9 @@ ARG RUNTIME_IMAGE=debian:bookworm-slim
 ARG BASE_IMAGE=thavlik/synapse-base:latest
 
 FROM ${BASE_IMAGE} AS builder
-COPY seer/common/src seer/common/src
 COPY common/src common/src
-COPY iam/src iam/src
-COPY iam-client/src iam-client/src
-COPY scribe/src scribe/src
-COPY webrtc-auth/src webrtc-auth/src
-WORKDIR /app/webrtc-auth
+COPY party/src party/src
+WORKDIR /app/party
 RUN cargo build --release --bin dorch-party
 
 FROM ${RUNTIME_IMAGE}

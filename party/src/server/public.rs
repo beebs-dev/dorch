@@ -1,6 +1,6 @@
 use crate::{
     app::App,
-    party_store::{AcceptInvite, Invite, Kick, LeaveParty, Party},
+    party_store::{AcceptInvite, Invite, Kick, LeaveParty},
     server::internal,
 };
 use anyhow::{Context, Result, anyhow};
@@ -17,7 +17,7 @@ use axum_keycloak_auth::{
     instance::{KeycloakAuthInstance, KeycloakConfig},
     layer::KeycloakAuthLayer,
 };
-use dorch_common::{access_log, cors, rbac::UserId, response};
+use dorch_common::{access_log, cors, rbac::UserId, response, types::Party};
 use owo_colors::OwoColorize;
 use reqwest::Url;
 use std::net::SocketAddr;
@@ -97,12 +97,15 @@ pub async fn accept_invite(
     Path(party_id): Path<Uuid>,
     Json(req): Json<Option<AcceptInvite>>,
 ) -> impl IntoResponse {
-    let mut req = req.unwrap_or_else(|| AcceptInvite { user_id });
-    if req.user_id.is_nil() {
-        req.user_id = user_id;
-    } else if req.user_id != user_id {
+    let req = if req.is_none() {
+        AcceptInvite { user_id }
+    } else if let Some(req) = req
+        && req.user_id == user_id
+    {
+        req
+    } else {
         return response::bad_request(anyhow!("User ID does not match authenticated user"));
-    }
+    };
     internal::accept_invite(State(state), Path(party_id), Json(req))
         .await
         .into_response()
@@ -137,8 +140,8 @@ pub async fn leave(
         Ok(true) => internal::leave(State(state), Path(party_id), Json(LeaveParty { user_id }))
             .await
             .into_response(),
-        Ok(false) => return response::not_found(anyhow!("User is not in party")),
-        Err(e) => return response::error(e.context("Failed to check if user is in party")),
+        Ok(false) => response::not_found(anyhow!("User is not in party")),
+        Err(e) => response::error(e.context("Failed to check if user is in party")),
     }
 }
 
@@ -175,7 +178,7 @@ pub async fn get_party(
                 StatusCode::NOT_FOUND.into_response()
             }
         }
-        Ok(None) => StatusCode::NOT_FOUND.into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(None) => response::not_found(anyhow!("Party not found")),
+        Err(e) => response::error(e.context("Failed to get party info")),
     }
 }

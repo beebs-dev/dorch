@@ -10,6 +10,7 @@ use crate::{app::App, args::Commands, party_store::PartyInfoStore};
 pub mod app;
 pub mod args;
 pub mod party_store;
+pub mod router;
 pub mod server;
 
 #[tokio::main]
@@ -18,6 +19,7 @@ async fn main() -> Result<()> {
     let cli = args::Cli::parse();
     match cli.command {
         Commands::Server(args) => run_servers(args).await,
+        Commands::Router(args) => router::run(args).await,
     }
 }
 

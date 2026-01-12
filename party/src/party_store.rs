@@ -1,24 +1,12 @@
 use anyhow::{Context, Result, bail};
 use deadpool_redis::Connection;
+use dorch_common::types::Party;
 use owo_colors::OwoColorize;
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 const EXPIRE_SECONDS: i64 = 60 * 60 * 24 * 7; // 7 days
-
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct Party {
-    pub id: Uuid,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-
-    pub leader_id: Uuid,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub members: Option<Vec<Uuid>>,
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct Invite {
@@ -83,6 +71,24 @@ impl PartyInfoStore {
             .await
             .context("Failed to remove invite from Redis")?;
         Ok(())
+    }
+
+    pub async fn list_members(&self, party_id: Uuid) -> Result<Vec<Uuid>> {
+        let members_key = keys::party::members(party_id);
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .context("Failed to get Redis connection")?;
+        let members: Vec<String> = conn
+            .smembers(&members_key)
+            .await
+            .context("Failed to get party members from Redis")?;
+        let member_uuids: Vec<Uuid> = members
+            .into_iter()
+            .filter_map(|s| Uuid::parse_str(&s).ok())
+            .collect();
+        Ok(member_uuids)
     }
 
     pub async fn create_invite(

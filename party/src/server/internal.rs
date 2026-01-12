@@ -1,6 +1,6 @@
 use crate::{
     app::App,
-    party_store::{AcceptInvite, Invite, Kick, LeaveParty, Party},
+    party_store::{AcceptInvite, Invite, Kick, LeaveParty},
 };
 use anyhow::{Context, Result, anyhow};
 use axum::{
@@ -14,9 +14,10 @@ use axum::{
 use dorch_common::{
     access_log, response,
     streams::{LeaveReason, WebsockMessageType, subjects},
+    types::Party,
 };
 use owo_colors::OwoColorize;
-use std::{net::SocketAddr, u16};
+use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -81,16 +82,12 @@ pub async fn invite(
     {
         return response::error(e.context("Failed to create invite"));
     }
-    let payload = {
-        let mut payload = Vec::with_capacity(33);
-        payload.push(WebsockMessageType::Invite.into());
-        payload.extend_from_slice(party_id.as_bytes());
-        payload.extend_from_slice(invite.sender_id.as_bytes());
-        payload.into()
-    };
     if let Err(e) = state
         .nats
-        .publish(subjects::user(invite.recipient_id), payload)
+        .publish(
+            subjects::user(invite.recipient_id),
+            WebsockMessageType::invite(party_id, invite.sender_id),
+        )
         .await
     {
         return response::error(anyhow!("Failed to publish invite over NATS: {:?}", e));
@@ -106,14 +103,14 @@ pub async fn accept_invite(
     if let Err(e) = state.store.accept_invite(party_id, req.user_id).await {
         return response::error(e.context("Failed to accept invite"));
     }
-    let payload = {
-        let mut payload = Vec::with_capacity(33);
-        payload.push(WebsockMessageType::MemberJoined.into());
-        payload.extend(party_id.as_bytes());
-        payload.extend(req.user_id.as_bytes());
-        payload.into()
-    };
-    if let Err(e) = state.nats.publish(subjects::party(party_id), payload).await {
+    if let Err(e) = state
+        .nats
+        .publish(
+            subjects::party(party_id),
+            WebsockMessageType::member_joined(party_id, req.user_id),
+        )
+        .await
+    {
         return response::error(anyhow!("Failed to publish invite over NATS: {:?}", e));
     }
     StatusCode::OK.into_response()
@@ -138,15 +135,14 @@ pub async fn leave(
     if let Err(e) = state.store.remove_member(party_id, req.user_id).await {
         return response::error(e.context("Failed to remove member from party"));
     }
-    let payload = {
-        let mut payload = Vec::with_capacity(33);
-        payload.push(WebsockMessageType::MemberLeft.into());
-        payload.extend(party_id.as_bytes());
-        payload.extend(req.user_id.as_bytes());
-        payload.push(LeaveReason::Left.into());
-        payload.into()
-    };
-    if let Err(e) = state.nats.publish(subjects::party(party_id), payload).await {
+    if let Err(e) = state
+        .nats
+        .publish(
+            subjects::party(party_id),
+            WebsockMessageType::member_left(party_id, req.user_id, LeaveReason::Left),
+        )
+        .await
+    {
         return response::error(anyhow!("Failed to publish invite over NATS: {:?}", e));
     }
     StatusCode::OK.into_response()
@@ -160,15 +156,14 @@ pub async fn kick(
     if let Err(e) = state.store.remove_member(party_id, req.user_id).await {
         return response::error(e.context("Failed to remove member from party"));
     }
-    let payload = {
-        let mut payload = Vec::with_capacity(33);
-        payload.push(WebsockMessageType::MemberLeft.into());
-        payload.extend(party_id.as_bytes());
-        payload.extend(req.user_id.as_bytes());
-        payload.push(LeaveReason::Kicked.into());
-        payload.into()
-    };
-    if let Err(e) = state.nats.publish(subjects::party(party_id), payload).await {
+    if let Err(e) = state
+        .nats
+        .publish(
+            subjects::party(party_id),
+            WebsockMessageType::member_left(party_id, req.user_id, LeaveReason::Kicked),
+        )
+        .await
+    {
         return response::error(anyhow!("Failed to publish invite over NATS: {:?}", e));
     }
     StatusCode::OK.into_response()
@@ -185,39 +180,7 @@ pub async fn put_party(
     if let Err(e) = state.store.update_info(&party).await {
         return response::error(e.context("Failed to update party info"));
     }
-    let payload = {
-        let Party {
-            id,
-            name,
-            leader_id,
-            members,
-        } = &party;
-        let mut payload = Vec::with_capacity(
-            33 + name.as_ref().map(|n| n.len()).unwrap_or_default()
-                + 2
-                + members
-                    .as_ref()
-                    .map(|m| 2 + m.len() * 16)
-                    .unwrap_or_default(),
-        );
-        payload.push(WebsockMessageType::PartyInfo.into()); // 1
-        payload.extend(id.as_bytes()); // 16
-        payload.extend(leader_id.as_bytes()); // 16
-        if let Some(name) = name {
-            let name = name.as_bytes();
-            payload.extend(&(name.len() as u16).to_be_bytes()); // name.len() as u16
-            payload.extend(&name[..name.len().min(u16::MAX as usize)]);
-        } else {
-            payload.extend(&0u16.to_be_bytes()); // zero length
-        }
-        if let Some(members) = members {
-            payload.extend(&(members.len() as u16).to_be_bytes());
-            for member in members[..members.len().min(u16::MAX as usize)].iter() {
-                payload.extend(member.as_bytes());
-            }
-        } // don't put anything if None
-        payload.into()
-    };
+    let payload = WebsockMessageType::party_info(&party);
     if let Err(e) = state.nats.publish(subjects::party(party_id), payload).await {
         return response::error(anyhow!("Failed to publish party update: {:?}", e));
     }
@@ -227,7 +190,7 @@ pub async fn put_party(
 pub async fn get_party(State(state): State<App>, Path(party_id): Path<Uuid>) -> impl IntoResponse {
     match state.store.get_party(party_id).await {
         Ok(Some(party)) => (StatusCode::OK, Json(party)).into_response(),
-        Ok(None) => StatusCode::NOT_FOUND.into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(None) => response::not_found(anyhow!("Party not found")),
+        Err(e) => response::error(e.context("Failed to get party info")),
     }
 }

@@ -13,12 +13,7 @@ path = "src/lib.rs"
 
 [dependencies]
 dorch-common = { path = "../common" }
-tokio-postgres = { workspace = true }
-postgres = { workspace = true }
-deadpool-postgres = { workspace = true }
-tempfile = { workspace = true }
 tokio = { workspace = true }
-http-body-util = { workspace = true }
 bytes = { workspace = true }
 tokio-util = { workspace = true }
 futures-util = { workspace = true }
@@ -31,7 +26,6 @@ tokio-stream = { workspace = true }
 anyhow = { workspace = true }
 axum = { workspace = true }
 uuid = { workspace = true }
-base64 = { workspace = true }
 owo-colors = { workspace = true }
 reqwest = { workspace = true }
 futures = { workspace = true }
@@ -39,6 +33,5 @@ humantime = { workspace = true }
 rustls = { workspace = true }
 tokio-rustls = { workspace = true }
 async-nats = { workspace = true }
-jsonwebtoken = { version = "10.2.0", features = ["aws_lc_rs"] }
 keycloak = { workspace = true }
 axum-keycloak-auth = { workspace = true }

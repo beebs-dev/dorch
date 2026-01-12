@@ -42,8 +42,8 @@ impl Client {
             .send()
             .await?;
         match resp.status() {
-            reqwest::StatusCode::OK => return Ok(true),
-            reqwest::StatusCode::NOT_FOUND => return Ok(false),
+            reqwest::StatusCode::OK => Ok(true),
+            reqwest::StatusCode::NOT_FOUND => Ok(false),
             status => Err(anyhow::anyhow!(
                 "Failed to check party membership: {}: {}",
                 status,

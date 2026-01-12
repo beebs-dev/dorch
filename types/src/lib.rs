@@ -29,8 +29,11 @@ pub struct GameSpec {
     pub files: Option<Vec<String>>,
     pub warp: Option<String>,
     pub skill: Option<i32>,
+
+    /// If true, the game will only be visible to the creator.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub private: Option<bool>,
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub debug_udp: Option<bool>,
 }
