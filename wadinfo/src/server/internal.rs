@@ -71,7 +71,7 @@ pub async fn upsert_wad(
 }
 
 pub async fn get_wad(State(state): State<App>, Path(wad_id): Path<Uuid>) -> impl IntoResponse {
-    // TODO: get wad by id
+    StatusCode::OK.into_response()
 }
 
 pub async fn search(
