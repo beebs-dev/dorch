@@ -1019,14 +1019,48 @@ def _signed_angle_delta_deg(target: float, current: float) -> float:
 	return float(d)
 
 
-def _turn_to_yaw(game, *, target_yaw_deg: float, max_steps: int = 80, tol_deg: float = 1.0) -> None:
+def _get_game_var_fallback(game, index: int) -> Optional[float]:
+	"""Best-effort game variable read.
+
+	Some ViZDoom builds expose variables reliably in `state.game_variables` but may
+	throw when using `get_game_variable` for the same variable.
+	"""
+	try:
+		st = game.get_state()
+		if st is None or st.game_variables is None:
+			return None
+		gv = st.game_variables
+		if len(gv) <= index:
+			return None
+		return float(gv[index])
+	except Exception:
+		return None
+
+
+def _get_yaw_deg(game) -> Optional[float]:
 	from vizdoom import GameVariable
 
+	try:
+		return _wrap_angle_deg(float(game.get_game_variable(GameVariable.ANGLE)))
+	except Exception:
+		v = _get_game_var_fallback(game, 3)
+		return _wrap_angle_deg(v) if v is not None else None
+
+
+def _get_pitch_deg(game) -> Optional[float]:
+	from vizdoom import GameVariable
+
+	try:
+		return float(game.get_game_variable(GameVariable.PITCH))
+	except Exception:
+		return _get_game_var_fallback(game, 4)
+
+
+def _turn_to_yaw(game, *, target_yaw_deg: float, max_steps: int = 80, tol_deg: float = 1.0) -> None:
 	target = _wrap_angle_deg(float(target_yaw_deg))
 	for _ in range(max_steps):
-		try:
-			cur = _wrap_angle_deg(float(game.get_game_variable(GameVariable.ANGLE)))
-		except Exception:
+		cur = _get_yaw_deg(game)
+		if cur is None:
 			return
 		d = _signed_angle_delta_deg(target, cur)
 		if abs(d) <= tol_deg:
@@ -1038,13 +1072,10 @@ def _turn_to_yaw(game, *, target_yaw_deg: float, max_steps: int = 80, tol_deg: f
 
 
 def _look_to_pitch(game, *, target_pitch_deg: float, max_steps: int = 80, tol_deg: float = 1.0) -> None:
-	from vizdoom import GameVariable
-
 	target = float(target_pitch_deg)
 	for _ in range(max_steps):
-		try:
-			cur = float(game.get_game_variable(GameVariable.PITCH))
-		except Exception:
+		cur = _get_pitch_deg(game)
+		if cur is None:
 			return
 		d = target - cur
 		if abs(d) <= tol_deg:
@@ -1227,27 +1258,58 @@ def _capture_panorama_bundle(
 	# Capture the 6 cubemap faces (front/right/back/left/up/down).
 	# We keep the existing front RGB (from the candidate selection) and capture the other faces.
 	s = int(face_size)
-	def grab(yaw_off: float, pitch: float) -> np.ndarray:
-		_turn_to_yaw(game, target_yaw_deg=float(base_yaw_deg) + float(yaw_off), tol_deg=float(turn_yaw_tol_deg))
+	# NOTE: Some ViZDoom builds can be flaky about absolute ANGLE reads. For cubemap capture,
+	# use relative TURN deltas (same mechanism used in yaw sweep) to guarantee rotation.
+	_ = base_yaw_deg
+	_ = turn_yaw_tol_deg
+
+	def settle(ticks: int = 2) -> None:
+		for _i in range(int(ticks)):
+			game.make_action([0, 0, 0, 0, 0, 0, 0.0, 0.0], 1)
+			if game.is_episode_finished():
+				return
+
+	def turn_relative(delta_yaw_deg: float) -> None:
+		remaining = float(delta_yaw_deg)
+		# TURN_LEFT_RIGHT_DELTA is capped to 20.0 by our game init.
+		for _i in range(256):
+			if game.is_episode_finished():
+				return
+			if abs(remaining) <= 0.5:
+				break
+			step = _clamp(remaining, -20.0, 20.0)
+			game.make_action([0, 0, 0, 0, 0, 0, float(step), 0.0], 1)
+			remaining -= step
+
+	def grab_current(pitch: float) -> np.ndarray:
 		_look_to_pitch(game, target_pitch_deg=float(pitch))
-		# Force a render tick to ensure get_state() is populated for this view.
-		game.make_action([0, 0, 0, 0, 0, 0, 0.0, 0.0], 1)
+		settle(2)
 		if game.is_episode_finished():
 			raise RuntimeError("Episode finished while capturing cubemap face")
 		rgb = _state_to_rgb(game)
 		if rgb is None:
 			raise RuntimeError("Failed to capture cubemap face (no state/screen_buffer)")
 		return _resize_rgb(_center_crop_square(rgb), s)
-	front = grab(0.0, 0.0)
-	right = grab(90.0, 0.0)
-	back = grab(180.0, 0.0)
-	left = grab(270.0, 0.0)
+
+	# Ensure pitch is centered before doing yaw-relative turns.
+	_look_to_pitch(game, target_pitch_deg=0.0)
+	settle(2)
+
+	front = _resize_rgb(_center_crop_square(np.array(base_front_rgb, copy=False)), s)
+
+	turn_relative(90.0)
+	right = grab_current(0.0)
+	turn_relative(90.0)
+	back = grab_current(0.0)
+	turn_relative(90.0)
+	left = grab_current(0.0)
+	turn_relative(90.0)  # restore to front
+
 	# ZDoom pitch range is usually about [-89, +89]. Use 89 to avoid clamping artifacts.
-	up = grab(0.0, 89.0)
-	down = grab(0.0, -89.0)
+	up = grab_current(89.0)
+	down = grab_current(-89.0)
 
 	# Restore to centered pitch so the rest of the pipeline stays stable.
-	_turn_to_yaw(game, target_yaw_deg=float(base_yaw_deg), tol_deg=float(turn_yaw_tol_deg))
 	_look_to_pitch(game, target_pitch_deg=0.0)
 
 	return front, right, back, left, up, down
