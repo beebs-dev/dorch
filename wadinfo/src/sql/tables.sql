@@ -1,3 +1,5 @@
+create extension if not exists pg_trgm;
+
 create table if not exists wads (
   wad_id          uuid primary key default gen_random_uuid(),
   sha1            text not null unique,
@@ -9,6 +11,10 @@ create table if not exists wads (
   byte_size       bigint,
   uploaded_at     timestamptz default now()
 );
+create index if not exists wads_filename_trgm_idx
+on wads
+using gin (filename gin_trgm_ops);
+
 create table if not exists wad_maps (
   wad_id          uuid not null references wads(wad_id) on delete cascade,
   map_name        text not null,                  -- MAP01 / E1M1
@@ -35,7 +41,7 @@ create table if not exists wad_maps (
   hmp_monsters    int not null,
   htr_monsters    int not null,
 
-  -- per-monster breakdown (counts; 0 if none)
+  -- per-monster breakdown (counts, 0 if none)
   zombieman_count        int not null default 0,
   shotgun_guy_count      int not null default 0,
   chaingun_guy_count     int not null default 0,

@@ -1,6 +1,6 @@
 use crate::{
     app::App,
-    client::{InsertWadRequest, Pagination},
+    client::{InsertWadRequest, Pagination, SearchOptions},
 };
 use anyhow::{Context, Result, anyhow};
 use axum::{
@@ -27,6 +27,7 @@ pub async fn run_server(
         .route("/readyz", get(health));
     let router = Router::new()
         .route("/upsert_wad", post(upsert_wad))
+        .route("/search", get(search))
         .route("/wad", get(list_wads))
         .route("/wad/{wad_id}", get(get_wad))
         .route("/wad/{wad_id}/{map_name}", get(get_wad_map))
@@ -93,13 +94,31 @@ pub async fn get_wad_map(
     }
 }
 
+pub async fn search(
+    State(state): State<App>,
+    Query(opts): Query<SearchOptions>,
+) -> impl IntoResponse {
+    match state
+        .db
+        .search_wads(
+            &opts.query,
+            opts.pagination.offset,
+            opts.pagination.limit.unwrap_or(10).min(100),
+        )
+        .await
+    {
+        Ok(maps) => (StatusCode::OK, Json(maps)).into_response(),
+        Err(e) => response::error(e.context("Failed to search wads")),
+    }
+}
+
 pub async fn list_wads(
     State(state): State<App>,
     Query(opts): Query<Pagination>,
 ) -> impl IntoResponse {
     match state
         .db
-        .list_wads(opts.offset, opts.limit.unwrap_or(100))
+        .list_wads(opts.offset, opts.limit.unwrap_or(10).min(100))
         .await
     {
         Ok(maps) => (StatusCode::OK, Json(maps)).into_response(),

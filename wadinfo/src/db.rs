@@ -1,4 +1,4 @@
-use crate::client::{ListWadsResponse, Wad, WadMap, WadMeta};
+use crate::client::{ListWadsResponse, SearchWadsResponse, Wad, WadMap, WadMeta, WadSearchResult};
 use anyhow::{Context, Result, anyhow};
 use uuid::Uuid;
 
@@ -11,6 +11,7 @@ mod sql {
     pub const INSERT_WAD: &str = include_str!("sql/insert_wad.sql");
     pub const INSERT_WAD_MAP: &str = include_str!("sql/insert_wad_map.sql");
     pub const LIST_WAD_MAP_NAMES: &str = include_str!("sql/list_wad_map_names.sql");
+    pub const SEARCH_WADS: &str = include_str!("sql/search_wads.sql");
 }
 
 #[derive(Clone)]
@@ -46,7 +47,53 @@ impl Database {
             .prepare(sql::LIST_WAD_MAP_NAMES)
             .await
             .context("failed to prepare LIST_WAD_MAP_NAMES")?;
+        _ = conn
+            .prepare(sql::GET_WAD_MAP)
+            .await
+            .context("failed to prepare GET_WAD_MAP")?;
+        _ = conn
+            .prepare(sql::SEARCH_WADS)
+            .await
+            .context("failed to prepare SEARCH_WADS")?;
         Ok(Self { pool })
+    }
+
+    pub async fn search_wads(
+        &self,
+        query: &str,
+        offset: i64,
+        limit: i64,
+    ) -> Result<SearchWadsResponse> {
+        let mut conn = self.pool.get().await.context("failed to get connection")?;
+        let tx = conn
+            .transaction()
+            .await
+            .context("failed to begin transaction")?;
+        let search_wads = tx
+            .prepare_cached(sql::SEARCH_WADS)
+            .await
+            .context("failed to prepare SEARCH_WADS")?;
+        let rows = tx
+            .query(&search_wads, &[&query])
+            .await
+            .context("failed to execute SEARCH_WADS")?;
+        let items = rows
+            .into_iter()
+            .map(|row| {
+                let rank: f32 = row
+                    .try_get("rank")
+                    .context("failed to get rank from SEARCH_WADS")?;
+                let meta =
+                    WadMeta::try_from(row).context("failed to parse WadMeta from SEARCH_WADS")?;
+                Ok(WadSearchResult { meta, rank })
+            })
+            .collect::<Result<Vec<WadSearchResult>>>()?;
+        tx.commit().await.context("failed to commit transaction")?;
+        Ok(SearchWadsResponse {
+            offset,
+            limit,
+            items,
+        })
     }
 
     pub async fn insert_wad(&self, meta: &WadMeta, maps: &[WadMap]) -> Result<Uuid> {

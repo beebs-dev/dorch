@@ -11,6 +11,15 @@ pub struct Pagination {
     pub limit: Option<i64>,
 }
 
+#[derive(Deserialize)]
+pub struct SearchOptions {
+    #[serde(flatten)]
+    pub pagination: Pagination,
+
+    #[serde(rename = "q")]
+    pub query: String,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct InsertWadRequest {
     #[serde(flatten)]
@@ -26,6 +35,20 @@ pub struct ListWadsResponse {
     pub full_count: i64,
     pub items: Vec<WadMeta>,
     pub truncated: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct WadSearchResult {
+    #[serde(flatten)]
+    pub meta: WadMeta,
+    pub rank: f32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SearchWadsResponse {
+    pub offset: i64,
+    pub limit: i64,
+    pub items: Vec<WadSearchResult>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
