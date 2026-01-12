@@ -1497,12 +1497,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 									face_size=pano_face_size,
 								)
 								# Save the 6 cubemap faces as square images.
-								_save_image(front, map_dir / f"{idx}_front.{ext}", fmt=args.format, quality=quality)
-								_save_image(right, map_dir / f"{idx}_right.{ext}", fmt=args.format, quality=quality)
-								_save_image(back, map_dir / f"{idx}_back.{ext}", fmt=args.format, quality=quality)
-								_save_image(left, map_dir / f"{idx}_left.{ext}", fmt=args.format, quality=quality)
-								_save_image(up, map_dir / f"{idx}_up.{ext}", fmt=args.format, quality=quality)
-								_save_image(down, map_dir / f"{idx}_down.{ext}", fmt=args.format, quality=quality)
+								#_save_image(front, map_dir / f"{idx}_front.{ext}", fmt=args.format, quality=quality)
+								#_save_image(right, map_dir / f"{idx}_right.{ext}", fmt=args.format, quality=quality)
+								#_save_image(back, map_dir / f"{idx}_back.{ext}", fmt=args.format, quality=quality)
+								#_save_image(left, map_dir / f"{idx}_left.{ext}", fmt=args.format, quality=quality)
+								#_save_image(up, map_dir / f"{idx}_up.{ext}", fmt=args.format, quality=quality)
+								#_save_image(down, map_dir / f"{idx}_down.{ext}", fmt=args.format, quality=quality)
 								pano = _cubemap_faces_to_equirect(
 									front=front,
 									right=right,

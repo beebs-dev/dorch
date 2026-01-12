@@ -9,4 +9,5 @@ python main.py \
     --output output \
     --panorama \
     --no-monsters \
+    --format webp \
     -n 6
