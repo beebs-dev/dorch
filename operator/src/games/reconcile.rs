@@ -65,9 +65,7 @@ pub async fn run(
     let shutdown = CancellationToken::new();
     let shutdown_signal = shutdown.clone();
     tokio::spawn(async move {
-        tokio::signal::ctrl_c()
-            .await
-            .expect("failed to install SIGTERM handler");
+        dorch_common::shutdown::shutdown_signal().await;
         shutdown_signal.cancel();
     });
     dorch_common::signal_ready();
