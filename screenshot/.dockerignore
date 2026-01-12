@@ -1,0 +1,4 @@
+output/
+.venv/
+_vizdoom/
+__pycache__/

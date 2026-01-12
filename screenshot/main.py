@@ -248,8 +248,10 @@ def _spread_out_points(points: Sequence[Tuple[float, float]], n: int, seed: int)
 	if not points or n <= 0:
 		return []
 	pts = np.array(points, dtype=np.float32)
-	rng = np.random.default_rng(seed)
-	start = int(rng.integers(0, len(pts)))
+
+	# Start from a point far from the centroid to better maximize spread.
+	centroid = np.mean(pts, axis=0)
+	start = int(np.argmax(np.sum((pts - centroid) ** 2, axis=1)))
 	selected_idx = [start]
 
 	# Greedy farthest-point sampling in XY.
@@ -352,6 +354,8 @@ def _init_game(
 			game.set_screen_resolution(presets[best])
 
 	game.set_window_visible(visible)
+	# Keep console disabled; many commands are unavailable in this build and enabling it
+	# is noisy. We navigate to targets using player controls instead.
 	game.set_mode(Mode.PLAYER)
 	game.set_seed(seed)
 	game.set_episode_timeout(episode_timeout)
@@ -565,41 +569,6 @@ def _score_images_batch(rgb_images: np.ndarray, *, prefer_gpu: bool) -> np.ndarr
 	return (2.2 * edge_density + 1.1 * lum_std).astype(np.float32)
 
 
-def _teleport_to(game, x: float, y: float) -> bool:
-	"""Best-effort teleport. Returns True if position changes noticeably."""
-	try:
-		from vizdoom import GameVariable
-
-		before_x = float(game.get_game_variable(GameVariable.POSITION_X))
-		before_y = float(game.get_game_variable(GameVariable.POSITION_Y))
-	except Exception:
-		before_x, before_y = 0.0, 0.0
-
-	# Try common ZDoom-style console commands.
-	try:
-		game.send_game_command(f"setpos {x:.0f} {y:.0f} 0")
-	except Exception:
-		try:
-			game.send_game_command(f"setpos {x:.0f} {y:.0f}")
-		except Exception:
-			return False
-
-	# Let engine apply command.
-	try:
-		game.advance_action(1)
-	except Exception:
-		pass
-
-	try:
-		from vizdoom import GameVariable
-
-		after_x = float(game.get_game_variable(GameVariable.POSITION_X))
-		after_y = float(game.get_game_variable(GameVariable.POSITION_Y))
-		return math.hypot(after_x - before_x, after_y - before_y) > 8.0
-	except Exception:
-		return True
-
-
 def _center_pitch(game) -> None:
 	from vizdoom import GameVariable
 
@@ -615,10 +584,110 @@ def _center_pitch(game) -> None:
 			break
 
 
+def _teleport_to(game, *, x: float, y: float) -> bool:
+	"""Teleport the player to (x,y) using ZDoom's `warp` console command.
+
+	This ViZDoom/ZDoom build does not support `setpos`, but does support `warp`.
+	"""
+	from vizdoom import GameVariable
+
+	try:
+		before_x = float(game.get_game_variable(GameVariable.POSITION_X))
+		before_y = float(game.get_game_variable(GameVariable.POSITION_Y))
+	except Exception:
+		before_x, before_y = 0.0, 0.0
+
+	# ZDoom expects integers here.
+	ix = int(round(float(x)))
+	iy = int(round(float(y)))
+	game.send_game_command(f"warp {ix} {iy}")
+	# Advance one tic so the command applies.
+	game.make_action([0, 0, 0, 0, 0, 0, 0.0, 0.0], 1)
+
+	try:
+		after_x = float(game.get_game_variable(GameVariable.POSITION_X))
+		after_y = float(game.get_game_variable(GameVariable.POSITION_Y))
+	except Exception:
+		return False
+
+	# Consider it successful if we actually moved substantially and landed near target.
+	moved = math.hypot(after_x - before_x, after_y - before_y)
+	near = math.hypot(after_x - float(x), after_y - float(y))
+	return moved > 8.0 and near < 128.0
+
+
+def _walk_to(
+	game,
+	*,
+	target_x: float,
+	target_y: float,
+	max_steps: int,
+	frame_skip: int,
+	reach_dist: float = 72.0,
+) -> bool:
+	"""Autopilot: walk/run toward (target_x,target_y)."""
+	from vizdoom import GameVariable
+
+	stuck = 0
+	prev_dist: Optional[float] = None
+
+	for t in range(max_steps):
+		if game.is_episode_finished():
+			return False
+		try:
+			px = float(game.get_game_variable(GameVariable.POSITION_X))
+			py = float(game.get_game_variable(GameVariable.POSITION_Y))
+			angle = float(game.get_game_variable(GameVariable.ANGLE))
+			pitch = float(game.get_game_variable(GameVariable.PITCH))
+		except Exception:
+			return False
+
+		dx = target_x - px
+		dy = target_y - py
+		dist = math.hypot(dx, dy)
+		if dist <= reach_dist:
+			return True
+
+		# Desired yaw towards target.
+		desired = math.degrees(math.atan2(dy, dx))
+		delta = ((desired - angle + 540.0) % 360.0) - 180.0
+		turn = _clamp(delta * 0.55, -20.0, 20.0)
+		look = _clamp((-pitch) * 0.9, -12.0, 12.0)
+
+		# Stuck detection: if not getting closer, try use/strafe/turn.
+		if prev_dist is not None and dist >= prev_dist - 1.0:
+			stuck += 1
+		else:
+			stuck = 0
+		prev_dist = dist
+
+		use = 1 if (t % 25 == 0 or stuck >= 18) else 0
+		speed = 1
+
+		# Default: run forward.
+		move_forward = 1
+		move_backward = 0
+		move_left = 0
+		move_right = 0
+		if stuck >= 18:
+			# Wiggle out.
+			move_left = 1 if (t % 2 == 0) else 0
+			move_right = 1 if (t % 2 == 1) else 0
+			turn = 20.0 if (t % 2 == 0) else -20.0
+			move_forward = 0
+			move_backward = 1
+
+		action = [move_forward, move_backward, move_left, move_right, use, speed, float(turn), float(look)]
+		game.make_action(action, frame_skip)
+
+	return False
+
+
 def _best_direction_at_location(
 	game,
 	*,
 	prefer_gpu: bool,
+	base_angle_deg: float,
 	steps: int = 18,
 	turn_step: float = 20.0,
 ) -> Optional[Candidate]:
@@ -629,15 +698,25 @@ def _best_direction_at_location(
 
 	# Ensure we start from a centered pitch.
 	_center_pitch(game)
+	# In this ViZDoom build, console commands like setangle/setpos are unavailable,
+	# so we rely on turn deltas.
+	using_setangle = False
 
-	# Capture at current angle then rotate through the circle.
-	for _ in range(steps):
+	# Capture at multiple angles around the circle.
+	actual_steps = 0
+	for k in range(steps):
 		cand = _state_to_candidate(game)
 		cands.append(cand)
 		frames.append(cand.screen if cand is not None else np.zeros((1, 1, 3), dtype=np.uint8))
-		game.make_action([0, 0, 0, 0, 0, 0, float(turn_step), 0.0], 1)
 		if game.is_episode_finished():
 			break
+		actual_steps += 1
+		if using_setangle:
+			# Evenly spaced sweep around base angle.
+			ang = base_angle_deg + (360.0 * (k + 1) / float(steps))
+			_ = ang
+		else:
+			game.make_action([0, 0, 0, 0, 0, 0, float(turn_step), 0.0], 1)
 
 	# If we didn't get enough frames, bail out.
 	valid_idx = [i for i, c in enumerate(cands) if c is not None]
@@ -648,11 +727,21 @@ def _best_direction_at_location(
 	scores = _score_images_batch(batch, prefer_gpu=prefer_gpu)
 	best_local = int(valid_idx[int(np.argmax(scores))])
 
-	# After steps turns, we're back at (roughly) the start; turn to best.
-	for _ in range(best_local):
-		game.make_action([0, 0, 0, 0, 0, 0, float(turn_step), 0.0], 1)
-		if game.is_episode_finished():
-			break
+	# Move view to the chosen best angle.
+	if using_setangle:
+		best_ang = base_angle_deg + (360.0 * best_local / float(steps))
+		_ = best_ang
+	else:
+		# Restore yaw back to the original pose.
+		for _ in range(actual_steps):
+			game.make_action([0, 0, 0, 0, 0, 0, float(-turn_step), 0.0], 1)
+			if game.is_episode_finished():
+				break
+		# Turn to the best offset.
+		for _ in range(best_local):
+			game.make_action([0, 0, 0, 0, 0, 0, float(turn_step), 0.0], 1)
+			if game.is_episode_finished():
+				break
 
 	best = _state_to_candidate(game)
 	return best
@@ -977,7 +1066,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
 		# New approach: choose globally-distributed pickup points as start locations.
 		pickup_points = _pickup_points_for_map(iwad, files, map_name)
-		starts = _spread_out_points(pickup_points, n=int(args.num), seed=map_seed)
+		# Use an oversized, spread-out candidate set so we can skip failed teleports
+		# (some points can be unreachable/invalid due to Z or blocking).
+		starts = _spread_out_points(pickup_points, n=int(args.num) * 6, seed=map_seed)
 
 		game = _init_game(
 			iwad=iwad,
@@ -989,7 +1080,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 			visible=bool(args.visible),
 			no_monsters=bool(args.no_monsters),
 			skill=int(args.skill),
-			episode_timeout=int(args.episode_timeout),
+			episode_timeout=max(int(args.episode_timeout), int(args.max_steps) * int(args.frame_skip) + 1000),
 		)
 		try:
 			ext = "jpg" if args.format == "jpg" else "png"
@@ -998,16 +1089,69 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 			saved = 0
 
 			if starts:
-				for i, (sx, sy) in enumerate(starts):
+				# Teleport directly to globally-distributed pickup coordinates.
+				from vizdoom import GameVariable
+				game.new_episode()
+				try:
+					start_x = float(game.get_game_variable(GameVariable.POSITION_X))
+					start_y = float(game.get_game_variable(GameVariable.POSITION_Y))
+				except Exception:
+					start_x, start_y = 0.0, 0.0
+
+				# Visit far targets first.
+				targets = sorted(starts, key=lambda p: -math.hypot(p[0] - start_x, p[1] - start_y))
+				used_xy: List[Tuple[float, float]] = []
+				rng = np.random.default_rng(map_seed ^ 0x5F3759DF)
+				idx = 0
+				for tx, ty in targets:
+					if saved >= int(args.num):
+						break
+					if any(math.hypot(tx - ux, ty - uy) < 768.0 for ux, uy in used_xy):
+						continue
+
 					game.new_episode()
-					_teleport_to(game, sx, sy)
+					ok = _teleport_to(game, x=float(tx), y=float(ty))
 					_center_pitch(game)
-					best = _best_direction_at_location(game, prefer_gpu=bool(args.prefer_gpu))
+					if not ok:
+						continue
+					try:
+						px = float(game.get_game_variable(GameVariable.POSITION_X))
+						py = float(game.get_game_variable(GameVariable.POSITION_Y))
+					except Exception:
+						px, py = float(tx), float(ty)
+					used_xy.append((px, py))
+
+					base_angle = float(rng.uniform(0.0, 360.0))
+					best = _best_direction_at_location(
+						game,
+						prefer_gpu=bool(args.prefer_gpu),
+						base_angle_deg=base_angle,
+					)
 					if best is None:
 						continue
-					out_path = map_dir / f"{i}.{ext}"
+					out_path = map_dir / f"{idx}.{ext}"
 					_save_image(best.screen, out_path, fmt=args.format, quality=int(args.jpeg_quality))
 					saved += 1
+					idx += 1
+
+				# If some pickup teleports fail (unreachable/invalid coordinates),
+				# fill the remainder using exploration-based candidates.
+				if saved < int(args.num):
+					game.new_episode()
+					candidates = _gather_candidates(
+						game=game,
+						n=int(args.num),
+						seed=map_seed ^ 0xA53A9E21,
+						warmup_steps=int(args.warmup_steps),
+						max_steps=int(args.max_steps),
+						frame_skip=int(args.frame_skip),
+						keep_every=int(args.keep_every),
+					)
+					selected = _select_diverse(candidates, n=int(args.num) - saved)
+					for j, cand in enumerate(selected, start=idx):
+						out_path = map_dir / f"{j}.{ext}"
+						_save_image(cand.screen, out_path, fmt=args.format, quality=int(args.jpeg_quality))
+						saved += 1
 			else:
 				# Fallback to exploration if the map has no parseable pickups.
 				game.new_episode()
