@@ -1,27 +1,196 @@
+-- init.sql
+-- Schema for the merged WAD metadata + per-map stats output.
+
+begin;
+
+-- Extensions
+create extension if not exists pgcrypto;
 create extension if not exists pg_trgm;
 
+-- ----------------------------
+-- Core: one row per WAD (out_obj.meta)
+-- ----------------------------
 create table if not exists wads (
-  wad_id          uuid primary key default gen_random_uuid(),
-  sha1            text not null unique,
-  filename        text,
-  wad_type        text check (wad_type in ('IWAD','PWAD')),
-  map_count       int not null,
+  wad_id              uuid primary key default gen_random_uuid(),
 
-  -- optional: storage
-  byte_size       bigint,
-  uploaded_at     timestamptz default now()
+  -- identity
+  sha1                char(40) not null unique,
+  sha256              char(64),
+
+  -- merged "best" fields
+  title               text,
+
+  -- file.*
+  file_type           text not null,          -- IWAD/PWAD/PK3/UNKNOWN/etc (from wad_archive.type)
+  file_size_bytes     bigint,                 -- from wad_archive.size
+  file_url            text,                   -- resolved S3 URL
+  corrupt             boolean not null default false,
+  corrupt_message     text,
+
+  -- content.*
+  engines_guess       text[],                 -- from wad_archive.engines (guess)
+  iwads_guess         text[],                 -- from wad_archive.iwads   (guess)
+
+  -- sources.wad_archive.updated (string in source store parsed when possible)
+  wad_archive_updated timestamptz,
+
+  -- keep full merged meta JSON for forward-compat/debug
+  meta_json           jsonb not null,
+
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now()
 );
-create index if not exists wads_filename_trgm_idx
-on wads
-using gin (filename gin_trgm_ops);
 
+create index if not exists idx_wads_title_trgm
+  on wads using gin (title gin_trgm_ops);
+
+create index if not exists idx_wads_file_type
+  on wads (file_type);
+
+create index if not exists idx_wads_corrupt
+  on wads (corrupt);
+
+create index if not exists idx_wads_updated
+  on wads (wad_archive_updated);
+
+create index if not exists idx_wads_meta_json
+  on wads using gin (meta_json);
+
+-- ----------------------------
+-- Multi-valued merged fields: authors / descriptions / map list / text files
+-- ----------------------------
+create table if not exists wad_authors (
+  wad_id      uuid not null references wads(wad_id) on delete cascade,
+  author      text not null,
+  ord         int  not null,
+  primary key (wad_id, ord)
+);
+
+create index if not exists idx_wad_authors_author_trgm
+  on wad_authors using gin (author gin_trgm_ops);
+
+create table if not exists wad_descriptions (
+  wad_id      uuid not null references wads(wad_id) on delete cascade,
+  description text not null,
+  ord         int  not null,
+  primary key (wad_id, ord)
+);
+
+create index if not exists idx_wad_descriptions_trgm
+  on wad_descriptions using gin (description gin_trgm_ops);
+
+-- This is the merged/best list of map markers (meta.content.maps), not per-map stats.
+create table if not exists wad_map_list (
+  wad_id    uuid not null references wads(wad_id) on delete cascade,
+  map_name  text not null,   -- MAP01 / E1M1
+  ord       int  not null,
+  primary key (wad_id, ord)
+);
+
+create index if not exists idx_wad_map_list_name
+  on wad_map_list (map_name);
+
+-- meta.text_files[] (pk3 embedded text + idgames textfile)
+create table if not exists wad_text_files (
+  wad_id     uuid not null references wads(wad_id) on delete cascade,
+  source     text not null,        -- 'pk3' or 'idgames'
+  name       text,                 -- optional filename/path
+  contents   text not null,        -- normalized text
+  ord        int not null,
+  primary key (wad_id, ord)
+);
+
+create index if not exists idx_wad_text_files_source
+  on wad_text_files (source);
+
+create index if not exists idx_wad_text_files_contents_trgm
+  on wad_text_files using gin (contents gin_trgm_ops);
+
+-- ----------------------------
+-- Sources snapshots (meta.sources.*)
+-- ----------------------------
+create table if not exists wad_source_wad_archive (
+  wad_id      uuid primary key references wads(wad_id) on delete cascade,
+  updated     timestamptz,
+  hashes      jsonb                 -- {md5, sha1, sha256} etc
+);
+
+create index if not exists idx_wad_source_wad_archive_hashes
+  on wad_source_wad_archive using gin (hashes);
+
+create table if not exists wad_source_idgames (
+  wad_id      uuid primary key references wads(wad_id) on delete cascade,
+
+  idgames_id  bigint,            -- ig.id (often numeric)
+  url         text,
+  dir         text,
+  filename    text,
+  date_text   text,              -- keep as text idgames dates can be inconsistent
+  title       text,
+  author      text,
+  credits     text,
+  rating      double precision,
+  votes       int,
+
+  raw_json    jsonb
+);
+
+create index if not exists idx_wad_source_idgames_title_trgm
+  on wad_source_idgames using gin (title gin_trgm_ops);
+
+create index if not exists idx_wad_source_idgames_author_trgm
+  on wad_source_idgames using gin (author gin_trgm_ops);
+
+create index if not exists idx_wad_source_idgames_raw_json
+  on wad_source_idgames using gin (raw_json);
+
+-- compact extracted snapshot (meta.sources.extracted)
+create table if not exists wad_source_extracted (
+  wad_id      uuid primary key references wads(wad_id) on delete cascade,
+  extracted   jsonb not null
+);
+
+create index if not exists idx_wad_source_extracted
+  on wad_source_extracted using gin (extracted);
+
+-- ----------------------------
+-- WAD Archive counts (meta.content.counts)
+-- Choose ONE approach:
+--   A) wad_counts (jsonb) and/or
+--   B) wad_count_kv (normalized)
+-- ----------------------------
+
+-- A) JSONB counts
+create table if not exists wad_counts (
+  wad_id   uuid primary key references wads(wad_id) on delete cascade,
+  counts   jsonb not null
+);
+
+create index if not exists idx_wad_counts
+  on wad_counts using gin (counts);
+
+-- B) Normalized counts (string->int map)
+create table if not exists wad_count_kv (
+  wad_id      uuid not null references wads(wad_id) on delete cascade,
+  count_key   text not null,
+  count_val   int  not null,
+  primary key (wad_id, count_key)
+);
+
+create index if not exists idx_wad_count_kv_key_val
+  on wad_count_kv (count_key, count_val);
+
+-- ----------------------------
+-- Per-map stats output (out_obj.maps[])
+-- ----------------------------
 create table if not exists wad_maps (
   wad_id          uuid not null references wads(wad_id) on delete cascade,
   map_name        text not null,                  -- MAP01 / E1M1
+
   format          text not null,                  -- doom / hexen / unknown
   compatibility   text not null,                  -- vanilla_or_boom / hexen / unknown
 
-  -- core stats (fast filters)
+  -- core stats
   things          int not null,
   linedefs        int not null,
   sidedefs        int not null,
@@ -31,9 +200,10 @@ create table if not exists wad_maps (
   ssectors        int not null,
   nodes           int not null,
 
-  -- computed flags (fast filters)
+  -- mechanics
   teleports       boolean not null,
   secret_exit     boolean not null,
+  keys            text[] not null default '{}',   -- blue/yellow/red/etc
 
   -- monsters summary
   monster_total   int not null,
@@ -41,52 +211,82 @@ create table if not exists wad_maps (
   hmp_monsters    int not null,
   htr_monsters    int not null,
 
-  -- per-monster breakdown (counts, 0 if none)
-  zombieman_count        int not null default 0,
-  shotgun_guy_count      int not null default 0,
-  chaingun_guy_count     int not null default 0,
-  imp_count              int not null default 0,
-  demon_count            int not null default 0,
-  spectre_count          int not null default 0,
-  cacodemon_count        int not null default 0,
-  lost_soul_count        int not null default 0,
-  pain_elemental_count   int not null default 0,
-  revenant_count         int not null default 0,
-  mancubus_count         int not null default 0,
-  arachnotron_count      int not null default 0,
-  hell_knight_count      int not null default 0,
-  baron_count            int not null default 0,
-  archvile_count         int not null default 0,
-  cyberdemon_count       int not null default 0,
-  spider_mastermind_count int not null default 0,
+  -- items summary
+  item_total      int not null,
+  uv_items        int not null,
+  hmp_items       int not null,
+  htr_items       int not null,
 
-  -- keys: array of key types present (e.g. {'red','blue_skull'})
-  keys            text[] not null default '{}',
+  -- embedded metadata stub
+  title           text,
+  music           text,
+  metadata_source text not null,                 -- marker (current)
+  map_json        jsonb not null,                -- raw map payload for forward-compat/debug
 
-  -- keep everything for future-proofing
-  doc             jsonb not null,
-
-  primary key (wad_id, map_name),
-
-  -- sanity check (optional): total should be >= sum of known monster columns
-  check (
-    monster_total >= (
-      zombieman_count + shotgun_guy_count + chaingun_guy_count +
-      imp_count + demon_count + spectre_count +
-      cacodemon_count + lost_soul_count + pain_elemental_count +
-      revenant_count + mancubus_count + arachnotron_count +
-      hell_knight_count + baron_count + archvile_count +
-      cyberdemon_count + spider_mastermind_count
-    )
-  )
+  primary key (wad_id, map_name)
 );
 
-create index if not exists wad_maps_map_name_idx on wad_maps (map_name);
-create index if not exists wad_maps_compat_idx on wad_maps (compatibility);
-create index if not exists wad_maps_format_idx on wad_maps (format);
-create index if not exists wad_maps_monster_total_idx on wad_maps (monster_total);
-create index if not exists wad_maps_sectors_idx on wad_maps (sectors);
-create index if not exists wad_maps_linedefs_idx on wad_maps (linedefs);
-create index if not exists wad_maps_teleports_true_idx on wad_maps (wad_id, map_name) where teleports = true;
-create index if not exists wad_maps_secret_exit_true_idx on wad_maps (wad_id, map_name) where secret_exit = true;
-create index if not exists wad_maps_keys_gin on wad_maps using gin (keys);
+create index if not exists idx_wad_maps_map_name
+  on wad_maps (map_name);
+
+create index if not exists idx_wad_maps_format
+  on wad_maps (format);
+
+create index if not exists idx_wad_maps_compat
+  on wad_maps (compatibility);
+
+create index if not exists idx_wad_maps_teleports
+  on wad_maps (teleports);
+
+create index if not exists idx_wad_maps_secret_exit
+  on wad_maps (secret_exit);
+
+create index if not exists idx_wad_maps_keys_gin
+  on wad_maps using gin (keys);
+
+create index if not exists idx_wad_maps_map_json
+  on wad_maps using gin (map_json);
+
+-- Textures list (maps[].stats.textures[])
+create table if not exists wad_map_textures (
+  wad_id    uuid not null references wads(wad_id) on delete cascade,
+  map_name  text not null,
+  texture   text not null,
+  primary key (wad_id, map_name, texture),
+  foreign key (wad_id, map_name) references wad_maps(wad_id, map_name) on delete cascade
+);
+
+create index if not exists idx_wad_map_textures_texture
+  on wad_map_textures (texture);
+
+-- Monster breakdown (maps[].monsters.by_type)
+create table if not exists wad_map_monsters (
+  wad_id    uuid not null references wads(wad_id) on delete cascade,
+  map_name  text not null,
+  monster   text not null,      -- zombieman/imp/etc
+  count     int  not null,
+  primary key (wad_id, map_name, monster),
+  foreign key (wad_id, map_name) references wad_maps(wad_id, map_name) on delete cascade
+);
+
+create index if not exists idx_wad_map_monsters_monster
+  on wad_map_monsters (monster);
+
+create index if not exists idx_wad_map_monsters_count
+  on wad_map_monsters (count);
+
+-- Item breakdown (maps[].items.by_type)
+create table if not exists wad_map_items (
+  wad_id    uuid not null references wads(wad_id) on delete cascade,
+  map_name  text not null,
+  item      text not null,      -- shotgun/medikit/etc
+  count     int  not null,
+  primary key (wad_id, map_name, item),
+  foreign key (wad_id, map_name) references wad_maps(wad_id, map_name) on delete cascade
+);
+
+create index if not exists idx_wad_map_items_item
+  on wad_map_items (item);
+
+create index if not exists idx_wad_map_items_count
+  on wad_map_items (count);

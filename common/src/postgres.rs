@@ -69,3 +69,21 @@ fn parse_ca_certs(bytes: &[u8]) -> Result<Vec<CertificateDer<'static>>> {
         Ok(vec![CertificateDer::from(bytes.to_vec())])
     }
 }
+
+pub fn strip_sql_comments(input: &str) -> String {
+    let mut output = String::new();
+    for line in input.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("--") || trimmed.is_empty() {
+            continue;
+        }
+        if let Some(pos) = line.find("--") {
+            output.push_str(&line[..pos]);
+            output.push('\n');
+        } else {
+            output.push_str(line);
+            output.push('\n');
+        }
+    }
+    output
+}

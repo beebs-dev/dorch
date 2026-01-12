@@ -1,5 +1,6 @@
 use crate::client::{ListWadsResponse, SearchWadsResponse, Wad, WadMap, WadMeta, WadSearchResult};
 use anyhow::{Context, Result, anyhow};
+use dorch_common::{postgres::strip_sql_comments, types::wad::WadMergedOut};
 use uuid::Uuid;
 
 mod sql {
@@ -96,88 +97,14 @@ impl Database {
         })
     }
 
-    pub async fn insert_wad(&self, meta: &WadMeta, maps: &[WadMap]) -> Result<Uuid> {
+    pub async fn insert_wad(&self, merged: &WadMergedOut) -> Result<()> {
         let mut conn = self.pool.get().await.context("failed to get connection")?;
         let tx = conn
             .transaction()
             .await
             .context("failed to begin transaction")?;
-        let insert_wad = tx
-            .prepare_cached(sql::INSERT_WAD)
-            .await
-            .context("failed to prepare INSERT_WAD")?;
-        let insert_wad_map = tx
-            .prepare_cached(sql::INSERT_WAD_MAP)
-            .await
-            .context("failed to prepare INSERT_WAD_MAP")?;
-        let wad_id = tx
-            .query_one(
-                &insert_wad,
-                &[
-                    &meta.sha1,
-                    &meta.filename,
-                    &meta.wad_type,
-                    &meta.byte_size,
-                    &meta.map_count,
-                ],
-            )
-            .await
-            .context("failed to execute INSERT_WAD")?
-            .try_get("wad_id")
-            .context("failed to get wad_id from INSERT_WAD")?;
-        for map in maps {
-            tx.execute(
-                &insert_wad_map,
-                &[
-                    &wad_id, // use the newly generated wad_id
-                    &map.map_name,
-                    &map.format,
-                    &map.compatibility,
-                    //
-                    &map.things,
-                    &map.linedefs,
-                    &map.sidedefs,
-                    &map.vertices,
-                    &map.sectors,
-                    &map.segs,
-                    &map.ssectors,
-                    &map.nodes,
-                    //
-                    &map.teleports,
-                    &map.secret_exit,
-                    //
-                    &map.monster_total,
-                    &map.uv_monsters,
-                    &map.hmp_monsters,
-                    &map.htr_monsters,
-                    //
-                    &map.zombieman_count,
-                    &map.shotgun_guy_count,
-                    &map.chaingun_guy_count,
-                    &map.imp_count,
-                    &map.demon_count,
-                    &map.spectre_count,
-                    &map.cacodemon_count,
-                    &map.lost_soul_count,
-                    &map.pain_elemental_count,
-                    &map.revenant_count,
-                    &map.mancubus_count,
-                    &map.arachnotron_count,
-                    &map.hell_knight_count,
-                    &map.baron_count,
-                    &map.archvile_count,
-                    &map.cyberdemon_count,
-                    &map.spider_mastermind_count,
-                    //
-                    &map.keys,
-                    &map.doc,
-                ],
-            )
-            .await
-            .context("failed to execute INSERT_WAD_MAP")?;
-        }
-        tx.commit().await.context("failed to commit transaction")?;
-        Ok(wad_id)
+        // TODO
+        tx.commit().await.context("failed to commit transaction")
     }
 
     pub async fn list_wads(&self, offset: i64, limit: i64) -> Result<ListWadsResponse> {
@@ -297,7 +224,8 @@ impl Database {
 }
 
 async fn create_tables(conn: &mut deadpool_postgres::Client) {
-    let stmts = sql::TABLES.split(';');
+    let stmts = strip_sql_comments(sql::TABLES);
+    let stmts = stmts.split(';');
     let tx = conn.transaction().await.expect("begin tx");
     for stmt in stmts {
         let stmt = stmt.trim();
