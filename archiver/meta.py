@@ -28,10 +28,12 @@ from __future__ import annotations
 
 import argparse
 import gzip
+import hashlib
 import io
 import json
 import os
 import re
+import struct
 import sys
 import tempfile
 import time
@@ -42,6 +44,298 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import requests
 
 DEFAULT_S3_BASE = "https://wadarchive.nyc3.digitaloceanspaces.com"
+
+
+# -----------------------------
+# Per-map stats (ported from dump_wad_json.py)
+# -----------------------------
+
+MAP_RE = re.compile(r"^(MAP\d\d|E\dM\d)$")
+
+KEY_THING_IDS = {
+    5: "blue",
+    6: "yellow",
+    13: "red",
+    38: "red_skull",
+    39: "yellow_skull",
+    40: "blue_skull",
+}
+
+MONSTER_THING_IDS = {
+    3004: "zombieman",
+    9: "shotgun_guy",
+    65: "chaingun_guy",
+    3001: "imp",
+    3002: "demon",
+    58: "spectre",
+    3005: "cacodemon",
+    3006: "lost_soul",
+    16: "cyberdemon",
+    7: "spider_mastermind",
+    64: "archvile",
+    66: "revenant",
+    67: "mancubus",
+    68: "arachnotron",
+    69: "hell_knight",
+    71: "pain_elemental",
+    3003: "baron",
+}
+
+SECRET_EXIT_SPECIALS = {51, 124, 198}
+TELEPORT_SPECIALS = {39, 97, 125, 126, 174, 195}
+
+DOOM_THINGS_REC = 10
+DOOM_LINEDEFS_REC = 14
+DOOM_SIDEDEFS_REC = 30
+DOOM_VERTEXES_REC = 4
+DOOM_SECTORS_REC = 26
+DOOM_SEGS_REC = 12
+DOOM_SSECTORS_REC = 4
+DOOM_NODES_REC = 28
+
+HEXEN_THINGS_REC = 20
+HEXEN_LINEDEFS_REC = 16
+
+
+def _read_u32le(b: bytes, off: int) -> int:
+    return struct.unpack_from("<I", b, off)[0]
+
+
+def _read_i32le(b: bytes, off: int) -> int:
+    return struct.unpack_from("<i", b, off)[0]
+
+
+def parse_wad_directory_bytes(buf: bytes) -> Optional[Dict[str, Any]]:
+    if len(buf) < 12:
+        return None
+
+    ident = buf[0:4].decode("ascii", errors="replace")
+    lump_count = _read_i32le(buf, 4)
+    dir_offset = _read_u32le(buf, 8)
+
+    if ident not in ("IWAD", "PWAD"):
+        return None
+    if lump_count < 0 or lump_count > 200000:
+        return None
+
+    file_size = len(buf)
+    dir_size = lump_count * 16
+    if dir_offset + dir_size > file_size:
+        return None
+
+    directory = buf[dir_offset : dir_offset + dir_size]
+
+    lumps: List[Dict[str, Any]] = []
+    for i in range(lump_count):
+        base = i * 16
+        lump_off = _read_u32le(directory, base + 0)
+        lump_size = _read_u32le(directory, base + 4)
+        raw_name = directory[base + 8 : base + 16]
+        name = raw_name.split(b"\x00", 1)[0].decode("ascii", errors="replace")
+        lumps.append({"index": i, "name": name, "offset": lump_off, "size": lump_size})
+
+    return {
+        "type": ident,
+        "file_size": file_size,
+        "lumps": lumps,
+    }
+
+
+def build_map_blocks(lumps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    names = [l["name"] for l in lumps]
+    markers = [i for i, n in enumerate(names) if MAP_RE.match(n)]
+
+    blocks: List[Dict[str, Any]] = []
+    for idx, start in enumerate(markers):
+        end = markers[idx + 1] if idx + 1 < len(markers) else len(lumps)
+        block_lumps = lumps[start:end]
+        blocks.append({
+            "map": names[start],
+            "start_index": start,
+            "end_index_exclusive": end,
+            "lumps": block_lumps,
+        })
+    return blocks
+
+
+def find_lump(block: Dict[str, Any], name: str) -> Optional[Dict[str, Any]]:
+    for l in block["lumps"]:
+        if l["name"] == name:
+            return l
+    return None
+
+
+def read_lump_bytes_from_buf(buf: bytes, lump: Dict[str, Any]) -> bytes:
+    off = int(lump["offset"])
+    size = int(lump["size"])
+    if off < 0 or size <= 0 or off >= len(buf):
+        return b""
+    return buf[off : min(len(buf), off + size)]
+
+
+def safe_count(size: int, rec: int) -> int:
+    return size // rec if rec > 0 else 0
+
+
+def detect_map_format(block: Dict[str, Any]) -> str:
+    linedefs = find_lump(block, "LINEDEFS")
+    things = find_lump(block, "THINGS")
+    if not linedefs or not things:
+        return "unknown"
+
+    ls = linedefs["size"]
+    ts = things["size"]
+
+    doom_ok = (ls % DOOM_LINEDEFS_REC == 0) and (ts % DOOM_THINGS_REC == 0)
+    hex_ok = (ls % HEXEN_LINEDEFS_REC == 0) and (ts % HEXEN_THINGS_REC == 0)
+
+    if doom_ok and not hex_ok:
+        return "doom"
+    if hex_ok and not doom_ok:
+        return "hexen"
+    if doom_ok and hex_ok:
+        if find_lump(block, "BEHAVIOR") is not None:
+            return "hexen"
+        return "doom"
+
+    return "unknown"
+
+
+def parse_doom_things(things_bytes: bytes) -> List[Tuple[int, int]]:
+    out: List[Tuple[int, int]] = []
+    if len(things_bytes) % DOOM_THINGS_REC != 0:
+        return out
+    for (_x, _y, _angle, ttype, flags) in struct.iter_unpack("<hhhhh", things_bytes):
+        out.append((int(ttype), int(flags)))
+    return out
+
+
+def parse_doom_linedefs_specials(linedefs_bytes: bytes) -> List[int]:
+    out: List[int] = []
+    if len(linedefs_bytes) % DOOM_LINEDEFS_REC != 0:
+        return out
+    for (_v1, _v2, _flags, special, _tag, _right, _left) in struct.iter_unpack("<hhhhhhh", linedefs_bytes):
+        out.append(int(special))
+    return out
+
+
+def map_summary_from_wad_bytes(buf: bytes, block: Dict[str, Any]) -> Dict[str, Any]:
+    fmt = detect_map_format(block)
+
+    def lump_count(name: str, rec_size: int) -> int:
+        l = find_lump(block, name)
+        return safe_count(int(l["size"]), rec_size) if l else 0
+
+    stats = {
+        "things": lump_count("THINGS", DOOM_THINGS_REC if fmt == "doom" else HEXEN_THINGS_REC),
+        "linedefs": lump_count("LINEDEFS", DOOM_LINEDEFS_REC if fmt == "doom" else HEXEN_LINEDEFS_REC),
+        "sidedefs": lump_count("SIDEDEFS", DOOM_SIDEDEFS_REC),
+        "vertices": lump_count("VERTEXES", DOOM_VERTEXES_REC),
+        "sectors": lump_count("SECTORS", DOOM_SECTORS_REC),
+        "segs": lump_count("SEGS", DOOM_SEGS_REC),
+        "ssectors": lump_count("SSECTORS", DOOM_SSECTORS_REC),
+        "nodes": lump_count("NODES", DOOM_NODES_REC),
+    }
+
+    mechanics: Dict[str, Any] = {
+        "teleports": False,
+        "keys": [],
+        "secret_exit": False,
+    }
+
+    monsters: Dict[str, Any] = {
+        "total": 0,
+        "by_type": {},
+    }
+
+    difficulty: Dict[str, Any] = {
+        "uv_monsters": 0,
+        "hmp_monsters": 0,
+        "htr_monsters": 0,
+    }
+
+    compatibility = "unknown"
+    if fmt == "doom":
+        compatibility = "vanilla_or_boom"
+    elif fmt == "hexen":
+        compatibility = "hexen"
+
+    linedefs_lump = find_lump(block, "LINEDEFS")
+    if linedefs_lump:
+        linedefs_bytes = read_lump_bytes_from_buf(buf, linedefs_lump)
+
+        specials: List[int] = []
+        if fmt == "doom":
+            specials = parse_doom_linedefs_specials(linedefs_bytes)
+        else:
+            if len(linedefs_bytes) % HEXEN_LINEDEFS_REC == 0:
+                for rec in struct.iter_unpack("<hhhhhhhh", linedefs_bytes):
+                    specials.append(int(rec[3]))
+
+        if any(s in TELEPORT_SPECIALS for s in specials):
+            mechanics["teleports"] = True
+        if any(s in SECRET_EXIT_SPECIALS for s in specials):
+            mechanics["secret_exit"] = True
+
+    things_lump = find_lump(block, "THINGS")
+    if things_lump and fmt == "doom":
+        things_bytes = read_lump_bytes_from_buf(buf, things_lump)
+        things = parse_doom_things(things_bytes)
+
+        key_set = set()
+
+        total_monsters = 0
+        by_type: Dict[str, int] = {}
+
+        uv = 0
+        hmp = 0
+        htr = 0
+
+        for ttype, flags in things:
+            if ttype in KEY_THING_IDS:
+                key_set.add(KEY_THING_IDS[ttype])
+
+            mname = MONSTER_THING_IDS.get(ttype)
+            if mname:
+                total_monsters += 1
+                by_type[mname] = by_type.get(mname, 0) + 1
+
+                if flags & (1 << 2):
+                    uv += 1
+                if flags & (1 << 1):
+                    hmp += 1
+                if flags & (1 << 0):
+                    htr += 1
+
+        mechanics["keys"] = sorted(list(key_set))
+        monsters["total"] = total_monsters
+        monsters["by_type"] = dict(sorted(by_type.items(), key=lambda kv: (-kv[1], kv[0])))
+        difficulty["uv_monsters"] = uv
+        difficulty["hmp_monsters"] = hmp
+        difficulty["htr_monsters"] = htr
+
+    return {
+        "map": block["map"],
+        "format": fmt,
+        "stats": stats,
+        "monsters": monsters,
+        "mechanics": mechanics,
+        "difficulty": difficulty,
+        "compatibility": compatibility,
+        "metadata": {
+            "title": None,
+            "music": None,
+            "source": "marker",
+        },
+    }
+
+
+def extract_per_map_stats_from_wad_bytes(buf: bytes) -> List[Dict[str, Any]]:
+    wad_meta = parse_wad_directory_bytes(buf)
+    if not wad_meta:
+        return []
+    blocks = build_map_blocks(wad_meta["lumps"])
+    return [map_summary_from_wad_bytes(buf, b) for b in blocks]
 
 
 # -----------------------------
@@ -400,15 +694,23 @@ def resolve_s3_url(
     Try HEAD on a handful of candidates:
       {base}/{sha1}/{prefix}{sha1}.{ext}.gz
     """
-    for p in prefixes:
-        url = f"{s3_base.rstrip('/')}/{sha1}/{p}{sha1}.{ext}.gz"
-        try:
-            r = session.head(url, timeout=timeout, allow_redirects=True)
-            if r.status_code == 200:
-                return url
-        except requests.RequestException:
-            continue
-    return None
+    # NOTE: Prefix guessing is kept for backwards compatibility with earlier layouts,
+    # but the current bucket layout appears to be:
+    #   {base}/{sha1-with-leading-00-stripped}/{sha1}.{ext}.gz
+    # We keep the 'prefixes' argument in the signature since it is part of the
+    # original design, but we currently probe only this one candidate.
+    folder_sha1 = sha1.removeprefix("00")
+    if len(sha1) != 40:
+        return None
+    url = f"{s3_base.rstrip('/')}/{folder_sha1}/{sha1}.{ext}.gz"
+    try:
+        r = session.head(url, timeout=timeout, allow_redirects=True)
+        if r.status_code == 200:
+            return url
+        elif r.status_code in [404, 403]:
+            return None
+    except requests.RequestException as e:
+        return None
 
 
 def download_to_path(session: requests.Session, url: str, out_path: str) -> None:
@@ -460,10 +762,12 @@ def merge_lists(*vals: Optional[List[str]]) -> Optional[List[str]]:
 
 def build_output_object(
     sha1: str,
+    sha256: Optional[str],
     s3_url: Optional[str],
     extracted: Dict[str, Any],
     wad_archive: Dict[str, Any],
     idgames: Optional[Dict[str, Any]],
+    integrity: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     # WAD Archive fields
     wa_type = wad_archive.get("type")
@@ -477,6 +781,7 @@ def build_output_object(
     wa_updated = wad_archive.get("updated")
     wa_corrupt = wad_archive.get("corrupt")
     wa_corrupt_msg = wad_archive.get("corruptMessage")
+    wa_hashes = wad_archive.get("hashes") or {}
 
     # idGames fields (if present)
     ig = (idgames or {}).get("content") if isinstance(idgames, dict) else None
@@ -523,6 +828,7 @@ def build_output_object(
 
     out: Dict[str, Any] = {
         "sha1": sha1,
+        "sha256": sha256,
         "title": title,
         "authors": authors,
         "descriptions": descriptions,
@@ -565,8 +871,64 @@ def build_output_object(
             "votes": ig_votes,
         }
 
+    if integrity is not None:
+        ok = integrity.get("ok")
+        msg = integrity.get("message")
+        if ok is False:
+            out.setdefault("file", {})
+            out["file"]["corrupt"] = True
+            out["file"]["corruptMessage"] = msg or "Failed integrity checks"
+
     # Prune nulls for cleanliness
     return prune_nones(out)
+
+
+def compute_hashes_for_file(path: str) -> Dict[str, str]:
+    md5 = hashlib.md5()
+    sha1 = hashlib.sha1()
+    sha256 = hashlib.sha256()
+
+    with open(path, "rb") as f:
+        while True:
+            chunk = f.read(1024 * 1024)
+            if not chunk:
+                break
+            md5.update(chunk)
+            sha1.update(chunk)
+            sha256.update(chunk)
+
+    return {
+        "md5": md5.hexdigest(),
+        "sha1": sha1.hexdigest(),
+        "sha256": sha256.hexdigest(),
+    }
+
+
+def validate_expected_hashes(expected: Dict[str, Any], computed: Dict[str, str]) -> Dict[str, Any]:
+    """Return {ok: bool, message: str}.
+
+    Only validates hashes that are present in expected. Missing expected hashes are ignored.
+    """
+    mismatches: List[str] = []
+
+    for algo in ("md5", "sha1", "sha256"):
+        exp = expected.get(algo)
+        if not isinstance(exp, str) or not exp.strip():
+            continue
+        exp = exp.strip().lower()
+        got = computed.get(algo)
+        if got is None:
+            continue
+        if exp != got.lower():
+            mismatches.append(f"{algo} expected={exp} got={got}")
+
+    if mismatches:
+        return {
+            "ok": False,
+            "message": "Integrity check failed: " + "; ".join(mismatches),
+        }
+
+    return {"ok": True, "message": "ok"}
 
 
 def prune_nones(obj: Any) -> Any:
@@ -646,6 +1008,7 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=0, help="Process only N wads (0 = all)")
     ap.add_argument("--start", type=int, default=0, help="Start index into wads.json array")
     ap.add_argument("--pretty", action="store_true", help="Pretty-print JSON")
+    ap.add_argument("--stream", action="store_true", help="Emit newline-delimited JSON objects (NDJSON)")
     ap.add_argument("--sleep", type=float, default=0.0, help="Sleep seconds between items (politeness)")
     args = ap.parse_args()
 
@@ -666,6 +1029,11 @@ def main() -> None:
     start = max(0, args.start)
     end = total if args.limit <= 0 else min(total, start + args.limit)
 
+    out_items: Optional[List[Dict[str, Any]]] = [] if (args.pretty and not args.stream) else None
+    first_array_item = True
+    if not args.stream and out_items is None:
+        sys.stdout.write("[")
+
     for idx in range(start, end):
         wad_entry = wads_data[idx]
         if not isinstance(wad_entry, dict):
@@ -675,6 +1043,19 @@ def main() -> None:
         if not sha1 or not re.fullmatch(r"[0-9a-f]{40}", sha1):
             continue
 
+        expected_hashes = wad_entry.get("hashes") or {}
+        expected_sha256 = None
+        if isinstance(expected_hashes, dict):
+            v = expected_hashes.get("sha256")
+            if isinstance(v, str) and v.strip():
+                expected_sha256 = v.strip().lower()
+        smoke_test_id = "0000e0b4993f0b7130fc3b58abf996bbb4acb287"
+        if not re.fullmatch(r"[0-9a-f]{40}", sha1):
+            raise ValueError("SHA1 must be 40 hex chars")
+        if smoke_test_id is not None and smoke_test_id not in sha1:
+            #print(f"Skipping {sha1}: not the test file", file=sys.stderr)
+            continue # TEMP: process only one known-good file for testing
+        print(f"Processing {smoke_test_id}: {idx + 1}/{total}", file=sys.stderr)
         wad_type = str(wad_entry.get("type") or "UNKNOWN")
         ext = TYPE_TO_EXT.get(wad_type, None) or "wad"  # default best-guess
 
@@ -682,6 +1063,9 @@ def main() -> None:
         s3_url = resolve_s3_url(session, args.s3_base, sha1, ext, prefixes)
 
         extracted: Dict[str, Any]
+        per_map_stats: List[Dict[str, Any]] = []
+        computed_hashes: Optional[Dict[str, str]] = None
+        integrity: Optional[Dict[str, Any]] = None
         if not s3_url:
             extracted = {
                 "format": "unknown",
@@ -689,14 +1073,31 @@ def main() -> None:
                 "tried_prefixes": prefixes,
                 "expected_ext": ext,
             }
-            out = build_output_object(
+            meta_obj = build_output_object(
                 sha1=sha1,
+                sha256=expected_sha256,
                 s3_url=None,
                 extracted=extracted,
                 wad_archive=wad_entry,
                 idgames=id_lookup.get(sha1),
+                integrity=None,
             )
-            print(json.dumps(out, indent=2 if args.pretty else None, ensure_ascii=False))
+
+            out_obj = {"meta": meta_obj, "maps": per_map_stats}
+
+            if args.stream:
+                sys.stdout.write(json.dumps(out_obj, indent=2 if args.pretty else None, ensure_ascii=False))
+                sys.stdout.write("\n")
+            else:
+                if out_items is not None:
+                    out_items.append(out_obj)
+                else:
+                    if not first_array_item:
+                        sys.stdout.write(",")
+                    sys.stdout.write("\n" if not first_array_item else "\n")
+                    sys.stdout.write(json.dumps(out_obj, ensure_ascii=False))
+                    first_array_item = False
+
             if args.sleep > 0:
                 time.sleep(args.sleep)
             continue
@@ -713,27 +1114,65 @@ def main() -> None:
                     with open(file_path, "wb") as out_f:
                         shutil_copyfileobj(gz, out_f)
 
+                computed_hashes = compute_hashes_for_file(file_path)
+                if isinstance(expected_hashes, dict):
+                    integrity = validate_expected_hashes(expected_hashes, computed_hashes)
+                else:
+                    integrity = None
+
                 extracted = extract_metadata_from_file(file_path, ext)
+
+                # Per-map stats only make sense for classic WADs.
+                if ext == "wad":
+                    with open(file_path, "rb") as f:
+                        per_map_stats = extract_per_map_stats_from_wad_bytes(f.read())
 
             except Exception as ex:
                 extracted = {
                     "format": "unknown",
                     "error": f"Download/decompress/extract failed: {type(ex).__name__}: {ex}",
                 }
+                per_map_stats = []
+                computed_hashes = None
+                integrity = None
 
-            out = build_output_object(
+            meta_obj = build_output_object(
                 sha1=sha1,
+                sha256=(computed_hashes or {}).get("sha256") or expected_sha256,
                 s3_url=s3_url,
                 extracted=extracted,
                 wad_archive=wad_entry,
                 idgames=id_lookup.get(sha1),
+                integrity=integrity,
             )
-            print(json.dumps(out, indent=2 if args.pretty else None, ensure_ascii=False))
+
+            out_obj = {"meta": meta_obj, "maps": per_map_stats}
+
+            if args.stream:
+                sys.stdout.write(json.dumps(out_obj, indent=2 if args.pretty else None, ensure_ascii=False))
+                sys.stdout.write("\n")
+            else:
+                if out_items is not None:
+                    out_items.append(out_obj)
+                else:
+                    if not first_array_item:
+                        sys.stdout.write(",")
+                    sys.stdout.write("\n" if not first_array_item else "\n")
+                    sys.stdout.write(json.dumps(out_obj, ensure_ascii=False))
+                    first_array_item = False
 
         # Temp directory auto-deletes here
 
         if args.sleep > 0:
             time.sleep(args.sleep)
+
+    if not args.stream:
+        if out_items is not None:
+            sys.stdout.write(json.dumps(out_items, indent=2, ensure_ascii=False))
+            sys.stdout.write("\n")
+        else:
+            sys.stdout.write("\n\n]")
+            sys.stdout.write("\n")
 
 
 if __name__ == "__main__":
