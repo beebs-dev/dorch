@@ -1,0 +1,3 @@
+I always want the camera to be centered vertically.
+Also the screenshots from MAP02 are from MAP01.
+before taking screenshots for the map, select starting locations from random item pickups. Ensure the coordinates of each selected pickup are more or less spread out across the map. Orient the camera in the most interesting direction from there.
