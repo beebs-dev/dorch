@@ -9,8 +9,6 @@ HEADERS = {
     "Accept": "application/json",
 }
 
-# https://www.doomworld.com/idgames/api/api.php?action=get&id=20316&out=json
-
 def get_wad_info(id: int) -> dict:
     url = "https://www.doomworld.com/idgames/api/api.php"
     params = {

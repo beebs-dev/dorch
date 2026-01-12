@@ -1,4 +1,0 @@
-vizdoom
-numpy
-Pillow
-requests
