@@ -1227,12 +1227,6 @@ def _capture_panorama_bundle(
 	# Capture the 6 cubemap faces (front/right/back/left/up/down).
 	# We keep the existing front RGB (from the candidate selection) and capture the other faces.
 	s = int(face_size)
-	front = _resize_rgb(_center_crop_square(base_front_rgb), s)
-
-	# Align to base yaw + centered pitch before capturing the remaining faces.
-	_turn_to_yaw(game, target_yaw_deg=float(base_yaw_deg), tol_deg=float(turn_yaw_tol_deg))
-	_look_to_pitch(game, target_pitch_deg=0.0)
-
 	def grab(yaw_off: float, pitch: float) -> np.ndarray:
 		_turn_to_yaw(game, target_yaw_deg=float(base_yaw_deg) + float(yaw_off), tol_deg=float(turn_yaw_tol_deg))
 		_look_to_pitch(game, target_pitch_deg=float(pitch))
@@ -1244,7 +1238,7 @@ def _capture_panorama_bundle(
 		if rgb is None:
 			raise RuntimeError("Failed to capture cubemap face (no state/screen_buffer)")
 		return _resize_rgb(_center_crop_square(rgb), s)
-
+	front = grab(0.0, 0.0)
 	right = grab(90.0, 0.0)
 	back = grab(180.0, 0.0)
 	left = grab(270.0, 0.0)
