@@ -20,6 +20,18 @@ pub struct SearchOptions {
 }
 
 #[derive(Deserialize)]
+pub struct WadSearchRequest {
+    pub query: String,
+
+    #[serde(default)]
+    pub offset: i64,
+
+    #[serde(default)]
+    pub limit: Option<i64>,
+    // TODO: add filters, sorting, etc.
+}
+
+#[derive(Deserialize)]
 pub struct WadSearchResults {
     pub query: String,
     pub items: Vec<WadMeta>,
