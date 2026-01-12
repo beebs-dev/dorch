@@ -300,6 +300,14 @@ def _init_game(
 	game = DoomGame()
 	game.set_doom_game_path(str(iwad))
 
+	# Hide the first-person weapon sprite (gun) so it never appears in screenshots.
+	# Prefer the ViZDoom API when available; otherwise fall back to a ZDoom cvar.
+	try:
+		if hasattr(game, "set_render_weapon"):
+			game.set_render_weapon(False)
+	except Exception:
+		pass
+
 	game.set_screen_format(ScreenFormat.RGB24)
 
 	# Depth buffer helps reject "staring at a wall" screenshots.
@@ -407,6 +415,8 @@ def _init_game(
 	# Make exploration easier / more deterministic.
 	args.append("+freelook 1")
 	args.append("+cl_run 1")
+	# Redundant with `set_render_weapon(False)`, but helps on builds that don't expose it.
+	args.append("+r_drawplayersprites 0")
 	if no_monsters:
 		args.append("-nomonsters")
 	if files:
