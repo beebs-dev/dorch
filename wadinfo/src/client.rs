@@ -1,4 +1,4 @@
-use dorch_common::types::wad::WadMeta;
+use dorch_common::types::wad::{MapStat, WadMeta};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
@@ -27,6 +27,13 @@ pub struct ListWadsRequest {
     /// If true, sort descending. Otherwise, sort ascending.
     #[serde(rename = "d", default)]
     pub sort_desc: bool,
+}
+
+#[derive(Serialize)]
+pub struct GetWadMapResponse {
+    #[serde(flatten)]
+    pub map: MapStat,
+    pub wad_meta: WadMeta,
 }
 
 #[derive(Deserialize)]

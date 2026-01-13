@@ -1,4 +1,4 @@
-use crate::client::{WadListResults, WadSearchResults};
+use crate::client::{GetWadMapResponse, WadListResults, WadSearchResults};
 use anyhow::{Context, Result};
 use dorch_common::{
     postgres::strip_sql_comments,
@@ -155,8 +155,12 @@ impl Database {
             return Ok(None);
         };
 
+        let row_wad_id: Uuid = row.try_get("wad_id")?;
         let meta_json: serde_json::Value = row.try_get("meta_json")?;
-        let meta: WadMeta = serde_json::from_value(meta_json).context("deserialize WadMeta")?;
+        let mut meta: WadMeta = serde_json::from_value(meta_json).context("deserialize WadMeta")?;
+        if meta.id.is_nil() {
+            meta.id = row_wad_id;
+        }
 
         let get_maps = conn
             .prepare_cached(sql::GET_WAD_MAPS)
@@ -177,7 +181,11 @@ impl Database {
         Ok(Some(WadMergedOut { meta, maps }))
     }
 
-    pub async fn get_wad_map(&self, wad_id: Uuid, map_name: &str) -> Result<Option<MapStat>> {
+    pub async fn get_wad_map(
+        &self,
+        wad_id: Uuid,
+        map_name: &str,
+    ) -> Result<Option<GetWadMapResponse>> {
         let conn = self.pool.get().await.context("failed to get connection")?;
 
         let stmt = conn
@@ -227,9 +235,14 @@ impl Database {
         let items = rows
             .into_iter()
             .map(|row| {
+                let row_wad_id: Uuid = row.try_get("wad_id")?;
                 let meta_json: serde_json::Value = row.try_get("meta_json")?;
-                let meta = serde_json::from_value::<dorch_common::types::wad::WadMeta>(meta_json)
-                    .context("deserialize WadMeta from meta_json")?;
+                let mut meta =
+                    serde_json::from_value::<dorch_common::types::wad::WadMeta>(meta_json)
+                        .context("deserialize WadMeta from meta_json")?;
+                if meta.id.is_nil() {
+                    meta.id = row_wad_id;
+                }
                 Ok(meta)
             })
             .collect::<Result<Vec<dorch_common::types::wad::WadMeta>>>()?;
@@ -282,9 +295,13 @@ impl Database {
         let items = rows
             .into_iter()
             .map(|row| {
+                let row_wad_id: Uuid = row.try_get("wad_id")?;
                 let meta_json: serde_json::Value = row.try_get("meta_json")?;
-                let meta = serde_json::from_value::<WadMeta>(meta_json)
+                let mut meta = serde_json::from_value::<WadMeta>(meta_json)
                     .context("deserialize WadMeta from meta_json")?;
+                if meta.id.is_nil() {
+                    meta.id = row_wad_id;
+                }
                 Ok(meta)
             })
             .collect::<Result<Vec<WadMeta>>>()?;
@@ -330,6 +347,7 @@ impl Database {
             .query_one(
                 &insert_wad,
                 &[
+                    &merged.meta.id,
                     &sha1,
                     &sha256,
                     &title,
@@ -504,12 +522,28 @@ impl Database {
                 let map_json = serde_json::to_value(m).context("serialize map stat")?;
 
                 let things: i32 = m.stats.things.try_into().context("map things overflow")?;
-                let linedefs: i32 = m.stats.linedefs.try_into().context("map linedefs overflow")?;
-                let sidedefs: i32 = m.stats.sidedefs.try_into().context("map sidedefs overflow")?;
-                let vertices: i32 = m.stats.vertices.try_into().context("map vertices overflow")?;
+                let linedefs: i32 = m
+                    .stats
+                    .linedefs
+                    .try_into()
+                    .context("map linedefs overflow")?;
+                let sidedefs: i32 = m
+                    .stats
+                    .sidedefs
+                    .try_into()
+                    .context("map sidedefs overflow")?;
+                let vertices: i32 = m
+                    .stats
+                    .vertices
+                    .try_into()
+                    .context("map vertices overflow")?;
                 let sectors: i32 = m.stats.sectors.try_into().context("map sectors overflow")?;
                 let segs: i32 = m.stats.segs.try_into().context("map segs overflow")?;
-                let ssectors: i32 = m.stats.ssectors.try_into().context("map ssectors overflow")?;
+                let ssectors: i32 = m
+                    .stats
+                    .ssectors
+                    .try_into()
+                    .context("map ssectors overflow")?;
                 let nodes: i32 = m.stats.nodes.try_into().context("map nodes overflow")?;
 
                 let monster_total: i32 = m
@@ -533,7 +567,11 @@ impl Database {
                     .try_into()
                     .context("map htr_monsters overflow")?;
 
-                let item_total: i32 = m.items.total.try_into().context("map item_total overflow")?;
+                let item_total: i32 = m
+                    .items
+                    .total
+                    .try_into()
+                    .context("map item_total overflow")?;
                 let uv_items: i32 = m
                     .difficulty
                     .uv_items

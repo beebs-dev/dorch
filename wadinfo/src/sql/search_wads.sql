@@ -1,5 +1,6 @@
 select
   count(*) over() as full_count,
+  w.wad_id,
   w.meta_json,
   greatest(
     similarity(coalesce(w.title, ''), $1),

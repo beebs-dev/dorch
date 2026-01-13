@@ -17,6 +17,7 @@ pub struct Party {
 pub mod wad {
     use serde::{Deserialize, Serialize};
     use std::collections::BTreeMap;
+    use uuid::Uuid;
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct WadMergedOut {
@@ -26,6 +27,9 @@ pub mod wad {
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct WadMeta {
+        #[serde(default)]
+        pub id: Uuid,
+
         pub sha1: String,
         #[serde(default)]
         pub sha256: Option<String>,
