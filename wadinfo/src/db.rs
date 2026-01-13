@@ -201,9 +201,18 @@ impl Database {
             return Ok(None);
         };
 
+        let row_wad_id: Uuid = row.try_get("wad_id")?;
+        let meta_json: serde_json::Value = row.try_get("meta_json")?;
+        let mut wad_meta: WadMeta =
+            serde_json::from_value(meta_json).context("deserialize WadMeta")?;
+        if wad_meta.id.is_nil() {
+            wad_meta.id = row_wad_id;
+        }
+
         let map_json: serde_json::Value = row.try_get("map_json")?;
         let map: MapStat = serde_json::from_value(map_json).context("deserialize MapStat")?;
-        Ok(Some(map))
+
+        Ok(Some(GetWadMapResponse { map, wad_meta }))
     }
 
     pub async fn search_wads(

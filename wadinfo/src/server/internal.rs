@@ -92,7 +92,7 @@ pub async fn get_wad_map(
     Path((wad_id, map_name)): Path<(Uuid, String)>,
 ) -> impl IntoResponse {
     match state.db.get_wad_map(wad_id, &map_name).await {
-        Ok(Some(map)) => (StatusCode::OK, Json(map)).into_response(),
+        Ok(Some(resp)) => (StatusCode::OK, Json(resp)).into_response(),
         Ok(None) => response::not_found(anyhow::anyhow!("WAD map not found")),
         Err(e) => response::error(e.context("Failed to get wad map")),
     }
