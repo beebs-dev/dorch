@@ -27,9 +27,9 @@ pub async fn run_server(
         .route("/readyz", get(health));
     let router = Router::new()
         .route("/upsert_wad", post(upsert_wad))
-        .route("/wad", post(list_wads))
-        .route("/wad/{id}", post(get_wad))
-        .route("/wad/{id}/map/{map}", post(get_wad_map))
+        .route("/wad", get(list_wads))
+        .route("/wad/{id}", get(get_wad))
+        .route("/wad/{id}/map/{map}", get(get_wad_map))
         .route("/search", get(search))
         .with_state(app_state)
         .layer(middleware::from_fn(access_log::internal));

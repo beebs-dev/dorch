@@ -53,15 +53,15 @@ insert into wad_maps (
 
   $15::text[],
 
-  $16::bigint::int,
-  $17::bigint::int,
-  $18::bigint::int,
-  $19::bigint::int,
+  $16::int,
+  $17::int,
+  $18::int,
+  $19::int,
 
-  $20::bigint::int,
-  $21::bigint::int,
-  $22::bigint::int,
-  $23::bigint::int,
+  $20::int,
+  $21::int,
+  $22::int,
+  $23::int,
 
   $24::text,
   $25::text,
