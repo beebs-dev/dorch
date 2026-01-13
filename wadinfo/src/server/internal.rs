@@ -75,7 +75,6 @@ pub async fn upsert_wad(
     }
 }
 
-///
 pub async fn list_wads(
     State(state): State<App>,
     Query(req): Query<ListWadsRequest>,
