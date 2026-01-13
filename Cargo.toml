@@ -4,6 +4,7 @@ members = [
     "operator",
     "iam",
     "proxy",
+    "master",
     "types",
     "sock",
     "party",

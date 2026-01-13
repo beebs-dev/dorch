@@ -1087,6 +1087,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "dorch-master"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-nats",
+ "axum",
+ "axum-keycloak-auth",
+ "bytes",
+ "clap",
+ "deadpool-redis",
+ "dorch-common",
+ "futures",
+ "futures-util",
+ "humantime",
+ "keycloak",
+ "owo-colors",
+ "redis 0.32.7",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-rustls",
+ "tokio-stream",
+ "tokio-util",
+ "uuid",
+]
+
+[[package]]
 name = "dorch-operator"
 version = "0.1.0"
 dependencies = [

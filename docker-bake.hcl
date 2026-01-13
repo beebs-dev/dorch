@@ -11,6 +11,7 @@ group "default" {
     "sock",
     "iam",
     "wadinfo",
+    "master",
     "webrtc-auth",
     "party",
     "downloader"
@@ -28,6 +29,15 @@ target "archiver" {
   context    = "./"
   dockerfile = "archiver/Dockerfile"
   tags       = ["${REGISTRY}thavlik/dorch-archiver:latest"]
+  push       = true
+}
+
+target "master" {
+  contexts   = { base_context = "target:base" }
+  context    = "./"
+  args       = { BASE_IMAGE = "base_context" }
+  dockerfile = "master/Dockerfile"
+  tags       = ["${REGISTRY}thavlik/dorch-master:latest"]
   push       = true
 }
 
