@@ -277,40 +277,16 @@ pub async fn delete_game(State(state): State<App>, Path(game_id): Path<Uuid>) ->
         .await
         .context("Failed to delete game")
     {
-        if e.is::<kube::Error>() {
-            let ke = e.downcast_ref::<kube::Error>().unwrap();
-            if let kube::Error::Api(ae) = ke {
-                if ae.code == 404 {
-                    return response::not_found(anyhow!("Game not found"));
-                }
-            }
+        if e.is::<kube::Error>()
+            && let kube::Error::Api(ae) = e.downcast_ref::<kube::Error>().unwrap()
+            && ae.code == 404
+        {
+            return response::not_found(anyhow!("Game not found"));
         }
         response::error(anyhow!("Failed to delete game: {:?}", e))
     } else {
         StatusCode::OK.into_response()
     }
-    //let game = match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
-    //    .get(&game_id.to_string())
-    //    .await
-    //{
-    //    Ok(game) => game,
-    //    Err(e) => {
-    //        return match e {
-    //            kube::Error::Api(ae) if ae.code == 404 => {
-    //                response::not_found(anyhow!("Game not found"))
-    //            }
-    //            _ => response::error(anyhow!("Failed to get game: {:?}", e)),
-    //        };
-    //    }
-    //};
-    //game
-    //    .metadata
-    //    .annotations
-    //    .as_ref()
-    //    .and_then(|m| m.get(CREATOR_USER_ID_ANNOTATION))
-    //    .map(|s| s.parse::<Uuid>())
-    //    .transpose().unwrap()
-    //    .and_then(|s| s != user_id)
 }
 
 pub async fn get_game(State(state): State<App>, Path(game_id): Path<Uuid>) -> impl IntoResponse {
