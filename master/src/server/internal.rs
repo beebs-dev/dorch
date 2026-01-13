@@ -161,7 +161,11 @@ pub async fn update_game_info(
     if args.is_empty() {
         return response::bad_request(anyhow!("No fields to update"));
     }
-    if let Err(e) = state.store.update_game_info(game_id, &args).await {
+    if let Err(e) = state
+        .store
+        .update_game_info(game_id.to_string().as_str(), &args)
+        .await
+    {
         return response::error(anyhow!("Failed to update game info: {:?}", e));
     }
     println!(
@@ -221,7 +225,7 @@ pub async fn new_game(
 }
 
 pub async fn try_get_info(state: &App, game: &Game) -> Option<GameInfo> {
-    let game_id = match Uuid::parse_str(game.spec.game_id.as_str()) {
+    let game_id = match Uuid::parse_str(&game.spec.game_id) {
         Ok(id) => id,
         Err(_) => return None,
     };
@@ -229,19 +233,19 @@ pub async fn try_get_info(state: &App, game: &Game) -> Option<GameInfo> {
 }
 
 pub async fn list_games_inner(state: App) -> Result<ListGamesResponse> {
-    let games = Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
+    let list = Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
         .list(&Default::default())
         .await
         .context("Failed to list games")?;
-    let mut infos = Vec::with_capacity(games.items.len());
-    for game in games.items {
+    let mut games = Vec::with_capacity(list.items.len());
+    for game in list.items {
         let info = try_get_info(&state, &game).await;
         match game_to_summary(game, info) {
-            Ok(summary) => infos.push(summary),
+            Ok(summary) => games.push(summary),
             Err(_) => continue,
         }
     }
-    Ok(ListGamesResponse { games: infos })
+    Ok(ListGamesResponse { games })
 }
 
 pub async fn list_games(State(state): State<App>) -> impl IntoResponse {

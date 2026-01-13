@@ -20,7 +20,7 @@ impl GameInfoStore {
     }
 
     pub async fn get_game_info(&self, game_id: Uuid) -> Result<Option<GameInfo>> {
-        let key = key_game_info(game_id);
+        let key = key_game_info(game_id.to_string().as_str());
         let mut conn = self
             .pool
             .get()
@@ -163,7 +163,7 @@ impl GameInfoStore {
         }))
     }
 
-    pub async fn update_game_info<T>(&self, game_id: Uuid, values: &[(&str, T)]) -> Result<()>
+    pub async fn update_game_info<T>(&self, game_id: &str, values: &[(&str, T)]) -> Result<()>
     where
         T: redis::ToRedisArgs,
     {
@@ -192,6 +192,6 @@ impl GameInfoStore {
     }
 }
 
-fn key_game_info(game_id: Uuid) -> String {
+fn key_game_info(game_id: &str) -> String {
     format!("gi:{}", game_id)
 }

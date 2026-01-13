@@ -3,7 +3,9 @@ use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GameInfo {
+    #[serde(default, skip_serializing_if = "Uuid::is_nil")]
     pub game_id: Uuid,
+
     pub name: String,
     pub max_players: i32,
     pub player_count: i32,
