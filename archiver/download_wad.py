@@ -135,7 +135,7 @@ def mark_done(done_path: str, zip_path: str):
     with open(done_path, 'w') as f:
         f.write('1')
     print(f"Marked done: {done_path}")
-    os.remove(zip_path)
+    shutil.rmtree(zip_path)
 
 
 def cleanup(zip_path: str, extract_dir: str):
@@ -176,7 +176,10 @@ def process_zip(i: int, out_dir: str):
     cleanup(zip_path, extract_dir)
 
 def download_wad_archive(out_dir: str):
-    for i in range(256):
+    start_range = int(os.getenv("START_RANGE", "0"))
+    end_range = int(os.getenv("END_RANGE", "256"))
+    print(f"Processing WAD archive from {start_range} to {end_range}")
+    for i in range(start_range, end_range):
         process_zip(i, out_dir)
 
 
