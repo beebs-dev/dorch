@@ -1,26 +1,46 @@
 use crate::{args, keycloak::Keycloak};
-use anyhow::Error;
+use anyhow::{Error, Result};
 use async_nats::ConnectOptions;
 use axum::Extension;
 use axum::RequestPartsExt;
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use axum_keycloak_auth::decode::KeycloakToken;
+use bytes::Bytes;
 use deadpool_redis::Pool;
+use dorch_common::redis::listen_for_work;
 use dorch_common::response;
 use owo_colors::OwoColorize;
+use std::sync::Arc;
 use tokio::join;
+use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-#[derive(Clone)]
-pub struct AppState {
+pub struct AppStateInner {
+    cancel: CancellationToken,
     pub redis: Pool,
     pub nats: async_nats::Client,
     pub kc: Keycloak,
+    pub handle: Arc<Mutex<Option<tokio::task::JoinHandle<Result<()>>>>>,
+    pub master_tx: tokio::sync::broadcast::Sender<Bytes>,
+}
+
+#[derive(Clone)]
+pub struct AppState {
+    inner: Arc<AppStateInner>,
+}
+
+impl std::ops::Deref for AppState {
+    type Target = AppStateInner;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl AppState {
-    pub async fn new(cli: args::Cli) -> AppState {
+    pub async fn new(cancel: CancellationToken, cli: args::Cli) -> AppState {
         let (redis, nats) = join!(dorch_common::redis::init_redis(&cli.redis), async move {
             println!(
                 "{} {}",
@@ -34,11 +54,37 @@ impl AppState {
             .await
             .expect("Failed to connect to NATS")
         });
+        let cancel_clone = cancel.clone();
+        let redis_args = cli.redis.clone();
+        let (tx, _rx) = tokio::sync::broadcast::channel(64);
+        let handle = tokio::spawn(listen_for_work(
+            cancel_clone,
+            redis_args,
+            tx.clone(),
+            dorch_common::MASTER_TOPIC,
+        ));
         let kc = Keycloak {
             args: cli.kc,
             client: reqwest::Client::new(),
         };
-        AppState { redis, nats, kc }
+        AppState {
+            inner: Arc::new(AppStateInner {
+                cancel,
+                redis,
+                nats,
+                kc,
+                handle: Arc::new(Mutex::new(Some(handle))),
+                master_tx: tx,
+            }),
+        }
+    }
+
+    pub async fn shutdown(&self) -> Result<()> {
+        self.cancel.cancel();
+        if let Some(handle) = self.handle.lock().await.take() {
+            handle.abort();
+        }
+        Ok(())
     }
 }
 

@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use uuid::Uuid;
 
-use crate::types::Party;
+use crate::types::{GameInfo, Party};
 
 pub enum LeaveReason {
     Left,
@@ -37,9 +37,26 @@ pub enum WebsockMessageType {
     MemberLeft,
     PartyInfo,
     Invite,
+    GameInfo,
 }
 
 impl WebsockMessageType {
+    pub fn game_info(info: &GameInfo) -> Bytes {
+        let mut payload = Vec::with_capacity(16);
+        payload.push(WebsockMessageType::GameInfo.into());
+        payload.extend_from_slice(info.game_id.as_bytes());
+        let name = info.name.as_bytes();
+        payload.extend_from_slice((name.len() as u16).to_le_bytes().as_slice());
+        payload.extend(&name[..name.len().min(u16::MAX as usize)]);
+        payload.extend_from_slice((info.player_count as u8).to_le_bytes().as_slice());
+        payload.extend_from_slice((info.player_count as u8).to_le_bytes().as_slice());
+        payload.extend_from_slice((info.skill as u8).to_le_bytes().as_slice());
+        let current_map = info.current_map.as_bytes();
+        payload.extend_from_slice((current_map.len() as u16).to_le_bytes().as_slice());
+        payload.extend(&current_map[..current_map.len().min(u16::MAX as usize)]);
+        payload.into()
+    }
+
     pub fn invite(party_id: Uuid, sender_id: Uuid) -> Bytes {
         let mut payload = Vec::with_capacity(33);
         payload.push(WebsockMessageType::Invite.into());
@@ -85,13 +102,13 @@ impl WebsockMessageType {
         payload.extend(leader_id.as_bytes()); // 16
         if let Some(name) = name {
             let name = name.as_bytes();
-            payload.extend(&(name.len() as u16).to_be_bytes()); // name.len() as u16
+            payload.extend(&(name.len() as u16).to_le_bytes()); // name.len() as u16
             payload.extend(&name[..name.len().min(u16::MAX as usize)]);
         } else {
-            payload.extend(&0u16.to_be_bytes()); // zero length
+            payload.extend(&0u16.to_le_bytes()); // zero length
         }
         if let Some(members) = members {
-            payload.extend(&(members.len() as u16).to_be_bytes());
+            payload.extend(&(members.len() as u16).to_le_bytes());
             for member in members[..members.len().min(u16::MAX as usize)].iter() {
                 payload.extend(member.as_bytes());
             }
@@ -112,6 +129,7 @@ impl TryFrom<&u8> for WebsockMessageType {
             4 => Ok(WebsockMessageType::MemberLeft),
             5 => Ok(WebsockMessageType::PartyInfo),
             6 => Ok(WebsockMessageType::Invite),
+            7 => Ok(WebsockMessageType::GameInfo),
             _ => Err(anyhow::anyhow!(
                 "Invalid WebsockMessageType value: {}",
                 value
@@ -130,12 +148,15 @@ impl From<WebsockMessageType> for u8 {
             WebsockMessageType::MemberLeft => 4,
             WebsockMessageType::PartyInfo => 5,
             WebsockMessageType::Invite => 6,
+            WebsockMessageType::GameInfo => 7,
         }
     }
 }
 
 pub mod subjects {
     use std::fmt::Display;
+
+    pub const MASTER: &str = "dorch.master";
 
     pub fn user<T>(user_id: T) -> String
     where

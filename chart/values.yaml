@@ -106,6 +106,17 @@ wadinfo:
     limits:
       memory: "64Mi"
 
+master:
+  image: thavlik/dorch-master:latest
+  imagePullPolicy: Always
+  replicas: 1
+  logLevel: debug
+  resources:
+    requests: 
+      memory: "32Mi"
+    limits:
+      memory: "64Mi"
+
 party:
   image: thavlik/dorch-party:latest
   imagePullPolicy: Always

@@ -52,7 +52,7 @@ async fn start_transient_subscriber(state: &AppState, user_id: Uuid) -> Result<S
         .nats
         .subscribe(subjects::user(user_id))
         .await
-        .context("subscribe to user DL transients")
+        .context("subscribe to user subject")
 }
 
 async fn handle_ws(
@@ -62,7 +62,7 @@ async fn handle_ws(
     device_id: Uuid,
     conn_id: Uuid,
 ) {
-    // Transient sub is probably cheaper to try first?
+    let master = state.master_tx.subscribe();
     let transients = match start_transient_subscriber(&state, user_id).await {
         Ok(s) => s,
         Err(e) => {
@@ -82,7 +82,7 @@ async fn handle_ws(
         }
     };
     if let Err(e) = ConnWrapper::new(user_id, device_id, conn_id, state.nats.clone())
-        .run(socket, transients)
+        .run(socket, transients, master)
         .await
         .close()
         .await
@@ -133,6 +133,7 @@ impl ConnWrapper {
         cancel: CancellationToken,
         conn: ws::WebSocket,
         transients: Subscriber,
+        master: tokio::sync::broadcast::Receiver<Bytes>,
     ) -> Result<()> {
         let (send_tx, send_rx) = mpsc::channel(100);
         let (msg_rx, ws_join) =
@@ -144,6 +145,7 @@ impl ConnWrapper {
         let nats_join = tokio::spawn(proxy_messages(
             self.user_id,
             transients,
+            master,
             cancel_clone,
             send_tx_clone,
             self.enable_self_transients.clone(),
@@ -211,7 +213,12 @@ impl ConnWrapper {
         }
     }
 
-    async fn run(mut self, conn: ws::WebSocket, transients: Subscriber) -> Self {
+    async fn run(
+        mut self,
+        conn: ws::WebSocket,
+        transients: Subscriber,
+        master: tokio::sync::broadcast::Receiver<Bytes>,
+    ) -> Self {
         let cancel_token = CancellationToken::new();
         let user_id = self.user_id;
         let device_id = self.device_id;
@@ -233,7 +240,7 @@ impl ConnWrapper {
             self.conn_id.to_string().cyan().dimmed()
         );
         if let Err(e) = self
-            .process_messages(cancel_token.clone(), conn, transients)
+            .process_messages(cancel_token.clone(), conn, transients, master)
             .await
         {
             eprintln!(
@@ -517,17 +524,24 @@ async fn send_websocket(
 async fn proxy_messages(
     user_id: Uuid,
     mut transients: Subscriber,
+    mut master: tokio::sync::broadcast::Receiver<Bytes>,
     cancel: CancellationToken,
     send_tx: mpsc::Sender<Bytes>,
     enable_self_transients: Arc<AtomicBool>,
 ) -> Result<()> {
     loop {
         select! {
-            _ = cancel.cancelled() => {
-                return Ok(());
+            _ = cancel.cancelled() => bail!("Connection cancelled"),
+            result = master.recv() => match result {
+                Ok(payload) => {
+                    if send_websocket(&cancel, &send_tx, payload).await? {
+                        return Ok(());
+                    }
+                }
+                Err(e) => bail!("Master subscriber error: {:?}", e),
             },
             msg = transients.next() => match msg {
-                None => continue,
+                None => bail!("Transient subscriber closed"),
                 Some(msg) => {
                     // Peak the transient message, gating the user's own typing notifications.
                     let ty = msg.payload.first().ok_or_else(|| anyhow!("Received empty message payload from transient subscriber"))?;

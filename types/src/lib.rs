@@ -24,9 +24,9 @@ pub struct GameSpec {
     pub game_id: String,
     pub s3_secret_name: String,
     pub iwad: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub players: Option<i32>,
+    pub max_players: i32,
     pub files: Option<Vec<String>>,
+    pub name: String,
     pub warp: Option<String>,
     pub skill: Option<i32>,
 

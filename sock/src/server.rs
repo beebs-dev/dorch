@@ -8,14 +8,20 @@ use axum_keycloak_auth::{
     instance::{KeycloakAuthInstance, KeycloakConfig},
     layer::KeycloakAuthLayer,
 };
-use dorch_common::{access_log, args::KeycloakArgs, cors, shutdown::shutdown_signal};
+use dorch_common::{access_log, args::KeycloakArgs, cors};
 use owo_colors::OwoColorize;
 use reqwest::Url;
 use std::net::SocketAddr;
+use tokio_util::sync::CancellationToken;
 
 use crate::common::AppState;
 
-pub async fn run(port: u16, app_state: AppState, kc: KeycloakArgs) -> Result<()> {
+pub async fn run(
+    cancel: CancellationToken,
+    port: u16,
+    app_state: AppState,
+    kc: KeycloakArgs,
+) -> Result<()> {
     dorch_common::metrics::maybe_spawn_metrics_server();
     println!("Using Keycloak endpoint: {}", kc.endpoint);
     println!("Expecting Keycloak audience: {}", kc.client_id);
@@ -55,7 +61,7 @@ pub async fn run(port: u16, app_state: AppState, kc: KeycloakArgs) -> Result<()>
     let router = auth_router.merge(ws_router).layer(cors::dev());
     let start = std::time::Instant::now();
     axum::serve(listener, router.merge(health_router))
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(async move { cancel.cancelled().await })
         .await
         .context("Failed to serve internal router")?;
     println!(

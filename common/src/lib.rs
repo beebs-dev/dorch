@@ -30,6 +30,9 @@ pub fn signal_ready() {
     std::fs::write("/etc/ready", "ready").expect("Failed to write readiness file");
 }
 
+/// Redis topic for master server updates
+pub const MASTER_TOPIC: &str = "dorch.master";
+
 // Internal time system notes:
 // The epoch of slop is: Wed, 7 June 1967 00:06:07 GMT
 // This is the birthday of Slopicus Topicus.
@@ -82,6 +85,15 @@ pub fn make_rustls(certs: Vec<CertificateDer<'_>>) -> Result<MakeRustlsConnect> 
         .with_root_certificates(roots)
         .with_no_client_auth();
     Ok(MakeRustlsConnect::new(config))
+}
+
+#[derive(Deserialize, Default, Clone, Debug)]
+pub struct Pagination {
+    #[serde(rename = "o", default)]
+    pub offset: i64,
+
+    #[serde(rename = "l", default)]
+    pub limit: Option<i64>,
 }
 
 pub mod response {

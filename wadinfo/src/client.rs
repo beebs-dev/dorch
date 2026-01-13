@@ -1,14 +1,8 @@
-use dorch_common::types::wad::{MapStat, WadMeta};
+use dorch_common::{
+    Pagination,
+    types::wad::{MapStat, WadMeta},
+};
 use serde::{Deserialize, Serialize};
-
-#[derive(Deserialize)]
-pub struct Pagination {
-    #[serde(rename = "o", default)]
-    pub offset: i64,
-
-    #[serde(rename = "l", default)]
-    pub limit: Option<i64>,
-}
 
 #[derive(Deserialize)]
 pub struct SearchOptions {

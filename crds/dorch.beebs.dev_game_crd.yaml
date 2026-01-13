@@ -38,10 +38,11 @@ spec:
                 type: string
               iwad:
                 type: string
-              players:
+              max_players:
                 format: int32
-                nullable: true
                 type: integer
+              name:
+                type: string
               private:
                 description: If true, the game will only be visible to the creator.
                 nullable: true
@@ -58,6 +59,8 @@ spec:
             required:
             - game_id
             - iwad
+            - max_players
+            - name
             - s3_secret_name
             type: object
           status:

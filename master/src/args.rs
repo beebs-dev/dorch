@@ -29,4 +29,7 @@ pub struct ServerArgs {
 
     #[command(flatten)]
     pub kc: KeycloakArgs,
+
+    #[arg(long, env = "NAMESPACE", default_value = "default")]
+    pub namespace: String,
 }

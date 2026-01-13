@@ -1,6 +1,16 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct GameInfo {
+    pub game_id: Uuid,
+    pub name: String,
+    pub max_players: i32,
+    pub player_count: i32,
+    pub skill: i32,
+    pub current_map: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct Party {
     pub id: Uuid,

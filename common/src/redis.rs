@@ -1,6 +1,7 @@
 use crate::args::RedisArgs;
 use anyhow::{Context, Result, bail};
 use async_redis_lock::{Lock, Locker};
+use bytes::Bytes;
 use deadpool_redis::{Config as RedisPoolConfig, Pool};
 use owo_colors::OwoColorize;
 use redis::{AsyncCommands, Client, aio::PubSub};
@@ -36,7 +37,7 @@ pub async fn init_pubsub(args: &crate::args::RedisArgs) -> PubSub {
 pub async fn listen_for_work(
     cancel: CancellationToken,
     redis_args: RedisArgs,
-    tx: tokio::sync::mpsc::Sender<()>,
+    tx: tokio::sync::broadcast::Sender<Bytes>,
     topic: &str,
 ) -> Result<()> {
     loop {
@@ -51,18 +52,16 @@ pub async fn listen_for_work(
         let mut messages = pubsub.on_message();
         loop {
             tokio::select! {
-                _ = cancel.cancelled() => {
-                    bail!("Context cancelled");
-                }
+                _ = cancel.cancelled() => bail!("Context cancelled"),
                 value = messages.next() => match value {
                     None => break,
-                    Some(_) => {
-                        tx.try_send(()).ok();
+                    Some(msg) => {
+                        let value = msg.get_payload::<Vec<u8>>()?.into();
+                        tx.send(value).ok();
                     }
                 }
             }
         }
-        tx.try_send(()).ok();
     }
 }
 

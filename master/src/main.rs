@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use async_nats::ConnectOptions;
 use clap::Parser;
 use dorch_common::shutdown::shutdown_signal;
+use kube::client::Client;
 use owo_colors::OwoColorize;
 use tokio_util::sync::CancellationToken;
 
@@ -9,7 +10,9 @@ use crate::{app::App, args::Commands};
 
 pub mod app;
 pub mod args;
+pub mod client;
 pub mod server;
+pub mod store;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -22,7 +25,11 @@ async fn main() -> Result<()> {
 }
 
 async fn run_servers(args: args::ServerArgs) -> Result<()> {
+    let client: Client = Client::try_default()
+        .await
+        .expect("Expected a valid KUBECONFIG environment variable.");
     let pool = dorch_common::redis::init_redis(&args.redis).await;
+    let store = store::GameInfoStore::new(pool);
     let nats = async_nats::connect_with_options(
         &args.nats.nats_url,
         ConnectOptions::new()
@@ -39,7 +46,7 @@ async fn run_servers(args: args::ServerArgs) -> Result<()> {
     let cancel_clone = cancel.clone();
     let args_clone = args.clone();
     let args_clone2 = args.clone();
-    let app_state = App::new(cancel.clone(), nats);
+    let app_state = App::new(cancel.clone(), nats, client, args.namespace, store);
     let app_state_clone = app_state.clone();
     let mut internal_join = Box::pin(tokio::spawn(async move {
         server::internal::run_server(cancel_clone, args_clone2, app_state_clone).await
