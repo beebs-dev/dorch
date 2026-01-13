@@ -1,8 +1,11 @@
+use crate::keys::user_record_key;
 use crate::protocol::{ClientMsg, ServerMsg};
 use crate::srp::ServerSession;
+use crate::user_record_store::UserRecordStore;
 use anyhow::{Context, Result, bail};
 use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 use rand::RngCore;
+use redis::AsyncCommands;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -23,8 +26,16 @@ pub struct UserRecord {
     pub disabled: bool,
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct UserRecordJson {
+    pub username: String,
+    pub salt_b64: String,
+    pub verifier_b64: String,
+    #[serde(default)]
+    pub disabled: bool,
+}
+
 struct SessionState {
-    session_id: String,
     username: String,
     srp: ServerSession,
     created_at_unix: u64,
@@ -32,7 +43,7 @@ struct SessionState {
 
 pub async fn run_listener(
     listener: TcpListener,
-    pool: RedisPool,
+    store: UserRecordStore,
     cancel: CancellationToken,
 ) -> Result<()> {
     loop {
@@ -40,10 +51,10 @@ pub async fn run_listener(
             _ = cancel.cancelled() => return Ok(()),
             accept_res = listener.accept() => {
                 let (sock, addr) = accept_res.context("accept failed")?;
-                let pool = pool.clone();
+                let store = store.clone();
                 let cancel = cancel.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = handle_conn(sock, pool, cancel).await {
+                    if let Err(e) = handle_conn(sock, store, cancel).await {
                         eprintln!("auth conn {} error: {:#}", addr, e);
                     }
                 });
@@ -52,7 +63,11 @@ pub async fn run_listener(
     }
 }
 
-async fn handle_conn(sock: TcpStream, pool: RedisPool, cancel: CancellationToken) -> Result<()> {
+async fn handle_conn(
+    sock: TcpStream,
+    store: UserRecordStore,
+    cancel: CancellationToken,
+) -> Result<()> {
     let (read_half, mut write_half) = sock.into_split();
     let mut reader = BufReader::new(read_half);
 
@@ -92,7 +107,7 @@ async fn handle_conn(sock: TcpStream, pool: RedisPool, cancel: CancellationToken
 
                 match (msg, state.take()) {
                     (ClientMsg::Start { username, a_b64, .. }, None) => {
-                        let user = get_user_record(&pool, &username).await
+                        let user = store.get(&username).await
                             .with_context(|| format!("unknown user {username}"))?;
 
                         if user.disabled {
@@ -124,7 +139,6 @@ async fn handle_conn(sock: TcpStream, pool: RedisPool, cancel: CancellationToken
                         write_msg(&mut write_half, &resp).await?;
 
                         state = Some(SessionState {
-                            session_id,
                             username,
                             srp,
                             created_at_unix,
@@ -204,25 +218,108 @@ fn now_unix() -> u64 {
 
 fn mint_token(username: &str) -> (String, u64) {
     let mut rnd = [0u8; 32];
-    rand::thread_rng().fill_bytes(&mut rnd);
+    rand::rng().fill_bytes(&mut rnd);
     let token = format!("u:{}:{}", username, B64.encode(rnd));
     (token, 600)
 }
 
-// -------------------- Redis stubs --------------------
+async fn get_user_record(pool: &RedisPool, username: &str) -> Result<UserRecord> {
+    // Be deliberately tolerant of formats; we'll try a few common shapes.
+    // 1) JSON blob at `auth:user:{username}`
+    // 2) Redis hash at `auth:user:{username}` with fields `salt_b64`, `verifier_b64`, `disabled`, `username`
+    //    (also accepts `salt` / `verifier` as aliases)
 
-async fn get_user_record(_pool: &RedisPool, username: &str) -> Result<UserRecord> {
-    bail!(
-        "get_user_record() not implemented for username={}",
-        username
-    );
+    let key = user_record_key(username);
+
+    let mut conn = pool.get().await.context("redis get conn")?;
+
+    if let Ok(Some(blob)) = conn.get::<_, Option<String>>(&key).await {
+        let parsed: UserRecordJson = serde_json::from_str(&blob).context("parse user json")?;
+        return decode_user_record(parsed, username);
+    }
+
+    let map: std::collections::HashMap<String, String> =
+        conn.hgetall(&key).await.unwrap_or_default();
+
+    if !map.is_empty() {
+        let parsed = UserRecordJson {
+            username: map
+                .get("username")
+                .cloned()
+                .unwrap_or_else(|| username.to_string()),
+            salt_b64: map
+                .get("salt_b64")
+                .cloned()
+                .or_else(|| map.get("salt").cloned())
+                .context("missing salt_b64")?,
+            verifier_b64: map
+                .get("verifier_b64")
+                .cloned()
+                .or_else(|| map.get("verifier").cloned())
+                .context("missing verifier_b64")?,
+            disabled: map
+                .get("disabled")
+                .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+                .unwrap_or(false),
+        };
+        return decode_user_record(parsed, username);
+    }
+
+    bail!("user not found")
 }
 
 async fn store_session_token(
-    _pool: &RedisPool,
-    _token: &str,
-    _username: &str,
-    _ttl_secs: u64,
+    pool: &RedisPool,
+    token: &str,
+    username: &str,
+    ttl_secs: u64,
 ) -> Result<()> {
+    if token.is_empty() {
+        bail!("empty token")
+    }
+    if username.is_empty() {
+        bail!("empty username")
+    }
+    if ttl_secs == 0 {
+        bail!("ttl_secs must be > 0")
+    }
+
+    let mut conn = pool.get().await.context("redis get conn")?;
+    let key = session_token_key(token);
+    conn.set_ex::<_, _, ()>(key, username, ttl_secs)
+        .await
+        .context("redis set_ex session token")?;
     Ok(())
+}
+
+fn session_token_key(token: &str) -> String {
+    format!("auth:token:{}", token)
+}
+
+fn decode_user_record(parsed: UserRecordJson, requested_username: &str) -> Result<UserRecord> {
+    let username = if parsed.username.is_empty() {
+        requested_username.to_string()
+    } else {
+        parsed.username
+    };
+
+    let salt = B64.decode(parsed.salt_b64).context("decode salt")?;
+    let verifier = B64.decode(parsed.verifier_b64).context("decode verifier")?;
+
+    if username.is_empty() {
+        bail!("empty username in record")
+    }
+    if salt.is_empty() {
+        bail!("empty salt")
+    }
+    if verifier.is_empty() {
+        bail!("empty verifier")
+    }
+
+    Ok(UserRecord {
+        username,
+        salt,
+        verifier,
+        disabled: parsed.disabled,
+    })
 }

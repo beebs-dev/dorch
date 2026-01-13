@@ -229,6 +229,13 @@ pub mod access_log {
         request("INTERNAL", req, next, false).await
     }
 
+    pub async fn admin(
+        req: axum::extract::Request,
+        next: axum::middleware::Next,
+    ) -> axum::response::Response {
+        request("ADMIN", req, next, false).await
+    }
+
     pub async fn internal_errors_only(
         req: axum::extract::Request,
         next: axum::middleware::Next,
