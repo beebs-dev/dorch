@@ -45,6 +45,7 @@ import requests
 
 DEFAULT_S3_BASE = "https://wadarchive.nyc3.digitaloceanspaces.com"
 
+WADINFO_BASE_URL = "http://localhost:8000"
 
 # -----------------------------
 # Per-map stats (ported from dump_wad_json.py)
@@ -1359,6 +1360,12 @@ def build_idgames_lookup(
     return lookup
 
 
+def post_to_wadinfo(obj):
+    url = f"{WADINFO_BASE_URL}/upsert_wad"
+    response = requests.post(url, json=obj)
+    response.raise_for_status()
+    print(f"Posted to wadinfo: {response.status_code} {response.text}")
+
 def extract_metadata_from_file(path: str, ext: str) -> Dict[str, Any]:
     """
     ext is the *decompressed* file extension (wad/pk3/etc).
@@ -1554,6 +1561,9 @@ def main() -> None:
             )
 
             out_obj = {"meta": meta_obj, "maps": per_map_stats}
+
+            # TODO: post it to the wadinfo endpoint
+            post_to_wadinfo(out_obj)
 
             if args.stream:
                 sys.stdout.write(json.dumps(out_obj, indent=2 if args.pretty else None, ensure_ascii=False))
