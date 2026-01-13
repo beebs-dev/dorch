@@ -17,6 +17,7 @@ use axum_keycloak_auth::{
     instance::{KeycloakAuthInstance, KeycloakConfig},
     layer::KeycloakAuthLayer,
 };
+use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 use dorch_auth::client::UserRecordJson;
 use dorch_common::{access_log, args::KeycloakArgs, cors, rbac::UserId, response};
 use kube::Api;
@@ -99,13 +100,28 @@ pub async fn join_game(
     UserId(user_id): UserId,
     Path(game_id): Path<Uuid>,
 ) -> impl IntoResponse {
-    let username = format!("user-{}", user_id);
+    let info = match state.store.get_game_info(game_id).await {
+        Ok(Some(info)) => info,
+        Ok(None) => return response::not_found(anyhow!("Game not found")),
+        Err(e) => return response::error(e.context("Failed to get game info")),
+    };
+    if info.player_count >= info.max_players {
+        return response::forbidden(anyhow!("Game is full"));
+    }
+    let username = user_id.to_string();
     let password = Uuid::new_v4().to_string();
+    let secrets =
+        match dorch_auth::zandronum_srp_sha256::generate_user_secrets(&username, &password) {
+            Ok(v) => v,
+            Err(e) => {
+                return response::error(e.context("Failed to generate SRP secrets"));
+            }
+        };
     let record = UserRecordJson {
         disabled: false,
         username: username.clone(),
-        salt_b64: "".to_string(),
-        verifier_b64: "".to_string(),
+        salt_b64: B64.encode(&secrets.salt),
+        verifier_b64: B64.encode(&secrets.verifier),
     };
     if let Err(e) = state.auth.post_user_record(&record).await {
         response::error(e.context("Failed to post user record"))

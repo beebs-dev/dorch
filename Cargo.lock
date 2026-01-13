@@ -1133,6 +1133,7 @@ dependencies = [
  "async-nats",
  "axum",
  "axum-keycloak-auth",
+ "base64 0.22.1",
  "bytes",
  "clap",
  "deadpool-redis",

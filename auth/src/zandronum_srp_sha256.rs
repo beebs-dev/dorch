@@ -126,6 +126,65 @@ pub struct SrpServerSession {
     b_pub: Option<BigUint>,
 }
 
+/// Generate a fresh SRP salt + verifier pair for the given username/password.
+///
+/// Zandronum uses libsrp with SRP_SHA256 + SRP_NG_2048, which matches the
+/// RFC 5054 formula:
+/// - x = H(s || H(I ":" P))
+/// - v = g^x mod N
+pub fn generate_user_secrets(username: &str, password: &str) -> Result<UserSecrets> {
+    if username.is_empty() {
+        bail!("empty username")
+    }
+    if password.is_empty() {
+        bail!("empty password")
+    }
+
+    // Keep it small (Zandronum negotiate encodes salt length in a u8).
+    let mut salt = [0u8; 16];
+    rand::rng().fill_bytes(&mut salt);
+    generate_user_secrets_with_salt(username, password, &salt)
+}
+
+pub fn generate_user_secrets_with_salt(
+    username: &str,
+    password: &str,
+    salt: &[u8],
+) -> Result<UserSecrets> {
+    if username.is_empty() {
+        bail!("empty username")
+    }
+    if password.is_empty() {
+        bail!("empty password")
+    }
+    if salt.is_empty() {
+        bail!("empty salt")
+    }
+    if salt.len() > 255 {
+        bail!("salt too long")
+    }
+
+    let n_bn = n();
+    let g_bn = g();
+
+    let up = format!("{username}:{password}");
+    let up_hash = sha256(up.as_bytes());
+    let x_hash = sha256(&[salt, &up_hash].concat());
+    let x_bn = from_be(&x_hash);
+    if x_bn.is_zero() {
+        bail!("x is zero")
+    }
+
+    let v_bn = modexp(&g_bn, &x_bn, &n_bn);
+    let verifier = pad_to(&to_be(&v_bn), 256);
+
+    Ok(UserSecrets {
+        username: username.to_string(),
+        salt: salt.to_vec(),
+        verifier,
+    })
+}
+
 impl SrpServerSession {
     pub fn new(secrets: UserSecrets) -> Result<Self> {
         if secrets.username.is_empty() {
