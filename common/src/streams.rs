@@ -1,7 +1,6 @@
+use crate::types::Party;
 use bytes::Bytes;
 use uuid::Uuid;
-
-use crate::types::{GameInfo, Party};
 
 pub enum LeaveReason {
     Left,
@@ -41,19 +40,10 @@ pub enum WebsockMessageType {
 }
 
 impl WebsockMessageType {
-    pub fn game_info(info: &GameInfo) -> Bytes {
-        let mut payload = Vec::with_capacity(16);
+    pub fn game_info(value: &[u8]) -> Bytes {
+        let mut payload = Vec::with_capacity(value.len() + 1);
         payload.push(WebsockMessageType::GameInfo.into());
-        payload.extend_from_slice(info.game_id.as_bytes());
-        let name = info.name.as_bytes();
-        payload.extend_from_slice((name.len() as u16).to_le_bytes().as_slice());
-        payload.extend(&name[..name.len().min(u16::MAX as usize)]);
-        payload.extend_from_slice((info.player_count as u8).to_le_bytes().as_slice());
-        payload.extend_from_slice((info.player_count as u8).to_le_bytes().as_slice());
-        payload.extend_from_slice((info.skill as u8).to_le_bytes().as_slice());
-        let current_map = info.current_map.as_bytes();
-        payload.extend_from_slice((current_map.len() as u16).to_le_bytes().as_slice());
-        payload.extend(&current_map[..current_map.len().min(u16::MAX as usize)]);
+        payload.extend(value);
         payload.into()
     }
 

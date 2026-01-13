@@ -50,6 +50,50 @@ pub struct GameInfoUpdate {
     pub monster_kill_count: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub monster_count: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub motd: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_cheats: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_allowchat: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_allowvoicechat: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_fastmonsters: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_monsters: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_nomonsters: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_itemsrespawn: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_itemrespawntime: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_coop_damagefactor: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_nojump: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_nocrouch: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_nofreelook: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_respawnonexit: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_timelimit: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_fraglimit: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_scorelimit: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_duellimit: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_roundlimit: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_allowrun: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sv_allowfreelook: Option<bool>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]

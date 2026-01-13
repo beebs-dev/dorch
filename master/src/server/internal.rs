@@ -95,6 +95,69 @@ pub async fn update_game_info(
     if let Some(monster_count) = info.monster_count {
         args.push(("monster_count", monster_count.to_string()));
     }
+    if let Some(motd) = info.motd {
+        args.push(("motd", motd));
+    }
+    if let Some(v) = info.sv_cheats {
+        args.push(("sv_cheats", (v as u8).to_string()));
+    }
+    if let Some(v) = info.sv_allowchat {
+        args.push(("sv_allowchat", (v as u8).to_string()));
+    }
+    if let Some(v) = info.sv_allowvoicechat {
+        args.push(("sv_allowvoicechat", (v as u8).to_string()));
+    }
+    if let Some(v) = info.sv_fastmonsters {
+        args.push(("sv_fastmonsters", (v as u8).to_string()));
+    }
+    if let Some(v) = info.sv_monsters {
+        args.push(("sv_monsters", (v as u8).to_string()));
+    }
+    if let Some(v) = info.sv_nomonsters {
+        args.push(("sv_nomonsters", (v as u8).to_string()));
+    }
+    if let Some(v) = info.sv_itemsrespawn {
+        args.push(("sv_itemsrespawn", (v as u8).to_string()));
+    }
+    if let Some(v) = info.sv_itemrespawntime {
+        args.push(("sv_itemrespawntime", v.to_string()));
+    }
+    if let Some(v) = info.sv_coop_damagefactor {
+        args.push(("sv_coop_damagefactor", v.to_string()));
+    }
+    if let Some(v) = info.sv_nojump {
+        args.push(("sv_nojump", (v as u8).to_string()));
+    }
+    if let Some(v) = info.sv_nocrouch {
+        args.push(("sv_nocrouch", (v as u8).to_string()));
+    }
+    if let Some(v) = info.sv_nofreelook {
+        args.push(("sv_nofreelook", (v as u8).to_string()));
+    }
+    if let Some(v) = info.sv_respawnonexit {
+        args.push(("sv_respawnonexit", (v as u8).to_string()));
+    }
+    if let Some(v) = info.sv_timelimit {
+        args.push(("sv_timelimit", v.to_string()));
+    }
+    if let Some(v) = info.sv_fraglimit {
+        args.push(("sv_fraglimit", v.to_string()));
+    }
+    if let Some(v) = info.sv_scorelimit {
+        args.push(("sv_scorelimit", v.to_string()));
+    }
+    if let Some(v) = info.sv_duellimit {
+        args.push(("sv_duellimit", v.to_string()));
+    }
+    if let Some(v) = info.sv_roundlimit {
+        args.push(("sv_roundlimit", v.to_string()));
+    }
+    if let Some(v) = info.sv_allowrun {
+        args.push(("sv_allowrun", (v as u8).to_string()));
+    }
+    if let Some(v) = info.sv_allowfreelook {
+        args.push(("sv_allowfreelook", (v as u8).to_string()));
+    }
     if args.is_empty() {
         return response::bad_request(anyhow!("No fields to update"));
     }

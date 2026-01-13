@@ -534,6 +534,7 @@ async fn proxy_messages(
             _ = cancel.cancelled() => bail!("Connection cancelled"),
             result = master.recv() => match result {
                 Ok(payload) => {
+                    let payload = WebsockMessageType::game_info(&payload);
                     if send_websocket(&cancel, &send_tx, payload).await? {
                         return Ok(());
                     }
