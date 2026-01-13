@@ -9,12 +9,15 @@ pub struct NewGameRequest {
 
     pub name: String,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub motd: Option<String>,
+
     pub user_ids: Vec<Uuid>,
 
     pub iwad: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub private: Option<bool>,
+    #[serde(default)]
+    pub private: bool,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub warp: Option<String>,

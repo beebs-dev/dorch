@@ -1,8 +1,12 @@
-use crate::{app::App, client::NewGameRequest, server::internal};
-use anyhow::{Context, Result};
+use crate::{
+    app::App,
+    client::NewGameRequest,
+    server::internal::{self, CREATOR_USER_ID_ANNOTATION},
+};
+use anyhow::{Context, Result, anyhow};
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{Path, State},
     middleware,
     response::IntoResponse,
     routing::{get, post},
@@ -12,11 +16,13 @@ use axum_keycloak_auth::{
     instance::{KeycloakAuthInstance, KeycloakConfig},
     layer::KeycloakAuthLayer,
 };
-use dorch_common::{access_log, cors, rbac::UserId};
+use dorch_common::{access_log, cors, rbac::UserId, response};
+use kube::Api;
 use owo_colors::OwoColorize;
 use reqwest::Url;
 use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
 
 pub async fn run_server(
     cancel: CancellationToken,
@@ -43,7 +49,10 @@ pub async fn run_server(
         .layer(cors::dev());
     let router = Router::new()
         .route("/game", get(internal::list_games))
-        .route("/game/{game_id}", get(internal::get_game))
+        .route(
+            "/game/{game_id}",
+            get(internal::get_game).delete(delete_game),
+        )
         .with_state(app_state)
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::dev());
@@ -82,4 +91,43 @@ pub async fn new_game(
 ) -> impl IntoResponse {
     req.creator_id = user_id;
     internal::new_game(State(state), Json(req)).await
+}
+
+pub async fn delete_game(
+    State(state): State<App>,
+    UserId(user_id): UserId,
+    Path(game_id): Path<Uuid>,
+) -> impl IntoResponse {
+    let game = match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
+        .get(&game_id.to_string())
+        .await
+    {
+        Ok(game) => game,
+        Err(e) => {
+            return match e {
+                kube::Error::Api(ae) if ae.code == 404 => {
+                    response::not_found(anyhow!("Game not found"))
+                }
+                _ => response::error(anyhow!("Failed to get game: {:?}", e)),
+            };
+        }
+    };
+    if game
+        .metadata
+        .annotations
+        .as_ref()
+        .and_then(|m| m.get(CREATOR_USER_ID_ANNOTATION))
+        .map(|s| s.parse::<Uuid>())
+        .transpose()
+        .ok()
+        .flatten()
+        .is_some_and(|s| s == user_id)
+    {
+        // TODO: allow admins to delete any game
+        internal::delete_game(State(state), Path(game_id))
+            .await
+            .into_response()
+    } else {
+        response::forbidden(anyhow!("Only the creator can delete the game"))
+    }
 }

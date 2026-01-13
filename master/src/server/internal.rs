@@ -22,6 +22,8 @@ use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
+pub const CREATOR_USER_ID_ANNOTATION: &str = "dorch.io/creator-user-id";
+
 pub async fn run_server(
     cancel: CancellationToken,
     args: crate::args::ServerArgs,
@@ -32,7 +34,7 @@ pub async fn run_server(
         .route("/readyz", get(health));
     let router = Router::new()
         .route("/game", get(list_games).post(new_game))
-        .route("/game/{game_id}", get(get_game))
+        .route("/game/{game_id}", get(get_game).delete(delete_game))
         .route("/game/{game_id}/info", post(update_game_info))
         .with_state(app_state)
         .layer(middleware::from_fn(access_log::internal));
@@ -164,11 +166,7 @@ pub async fn update_game_info(
     if args.is_empty() {
         return response::bad_request(anyhow!("No fields to update"));
     }
-    if let Err(e) = state
-        .store
-        .update_game_info(game_id.to_string().as_str(), &args)
-        .await
-    {
+    if let Err(e) = state.store.update_game_info(game_id, &args).await {
         return response::error(anyhow!("Failed to update game info: {:?}", e));
     }
     println!(
@@ -195,7 +193,7 @@ pub async fn new_game(
                     "dorch-master".to_string(),
                 ),
                 (
-                    "dorch.io/creator-user-id".to_string(),
+                    CREATOR_USER_ID_ANNOTATION.to_string(),
                     req.creator_id.to_string(),
                 ),
             ])),
@@ -204,9 +202,9 @@ pub async fn new_game(
         spec: dorch_types::GameSpec {
             game_id: game_id_str,
             files: req.files,
-            private: req.private,
+            private: Some(req.private),
             skill: req.skill,
-            warp: req.warp,
+            warp: req.warp.clone(),
             max_players: 64,
             iwad: req.iwad,
             ..Default::default()
@@ -243,7 +241,9 @@ pub async fn list_games_inner(state: App) -> Result<ListGamesResponse> {
     let mut games = Vec::with_capacity(list.items.len());
     for game in list.items {
         let info = try_get_info(&state, &game).await;
-        if info.as_ref().is_some_and(|info| info.private) {
+        if info.as_ref().is_some_and(|info| info.private)
+            || (info.is_none() && game.spec.private.unwrap_or(false))
+        {
             // Omit private servers from the public listing.
             continue;
         }
@@ -269,6 +269,48 @@ fn game_to_summary(g: dorch_types::Game, info: Option<GameInfo>) -> Result<GameS
         files: g.spec.files,
         info,
     })
+}
+
+pub async fn delete_game(State(state): State<App>, Path(game_id): Path<Uuid>) -> impl IntoResponse {
+    if let Err(e) = Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
+        .delete(&game_id.to_string(), &Default::default())
+        .await
+        .context("Failed to delete game")
+    {
+        if e.is::<kube::Error>() {
+            let ke = e.downcast_ref::<kube::Error>().unwrap();
+            if let kube::Error::Api(ae) = ke {
+                if ae.code == 404 {
+                    return response::not_found(anyhow!("Game not found"));
+                }
+            }
+        }
+        response::error(anyhow!("Failed to delete game: {:?}", e))
+    } else {
+        StatusCode::OK.into_response()
+    }
+    //let game = match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
+    //    .get(&game_id.to_string())
+    //    .await
+    //{
+    //    Ok(game) => game,
+    //    Err(e) => {
+    //        return match e {
+    //            kube::Error::Api(ae) if ae.code == 404 => {
+    //                response::not_found(anyhow!("Game not found"))
+    //            }
+    //            _ => response::error(anyhow!("Failed to get game: {:?}", e)),
+    //        };
+    //    }
+    //};
+    //game
+    //    .metadata
+    //    .annotations
+    //    .as_ref()
+    //    .and_then(|m| m.get(CREATOR_USER_ID_ANNOTATION))
+    //    .map(|s| s.parse::<Uuid>())
+    //    .transpose().unwrap()
+    //    .and_then(|s| s != user_id)
 }
 
 pub async fn get_game(State(state): State<App>, Path(game_id): Path<Uuid>) -> impl IntoResponse {

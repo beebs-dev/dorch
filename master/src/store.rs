@@ -165,11 +165,12 @@ impl GameInfoStore {
         }))
     }
 
-    pub async fn update_game_info<T>(&self, game_id: &str, values: &[(&str, T)]) -> Result<()>
+    pub async fn update_game_info<T>(&self, game_id: Uuid, values: &[(&str, T)]) -> Result<()>
     where
         T: redis::ToRedisArgs,
     {
-        let key = key_game_info(game_id);
+        let game_id = game_id.to_string();
+        let key = key_game_info(&game_id);
         let script = redis::Script::new(scripts::SET_GAME_INFO_FIELDS);
         // Build invocation: KEYS[1] = key, ARGV = field/value pairs..., game_id, channel, ttl
         let mut inv = script.key(key);
@@ -178,7 +179,7 @@ impl GameInfoStore {
             inv = inv.arg(*field).arg(value);
         }
         inv = inv
-            .arg(game_id.to_string())
+            .arg(game_id)
             .arg(dorch_common::MASTER_TOPIC)
             .arg(TTL_SECONDS);
         let mut conn = self
