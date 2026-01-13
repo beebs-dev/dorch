@@ -9,9 +9,12 @@ use axum::{
     http::StatusCode,
     middleware,
     response::IntoResponse,
-    routing::{get, put},
+    routing::{get, post},
 };
-use dorch_common::{access_log, response, streams::subjects, types::GameInfo};
+use dorch_common::{
+    access_log, response,
+    types::{GameInfo, GameInfoUpdate},
+};
 use dorch_types::Game;
 use kube::{Api, api::ObjectMeta};
 use owo_colors::OwoColorize;
@@ -28,9 +31,9 @@ pub async fn run_server(
         .route("/healthz", get(health))
         .route("/readyz", get(health));
     let router = Router::new()
-        .route("/info/{game_id}", put(update_game_info))
         .route("/game", get(list_games).post(new_game))
         .route("/game/{game_id}", get(get_game))
+        .route("/game/{game_id}/info", post(update_game_info))
         .with_state(app_state)
         .layer(middleware::from_fn(access_log::internal));
     let port = args.internal_port;
@@ -68,9 +71,34 @@ async fn health() -> impl IntoResponse {
 pub async fn update_game_info(
     State(state): State<App>,
     Path(game_id): Path<Uuid>,
-    Json(info): Json<GameInfo>,
+    Json(info): Json<GameInfoUpdate>,
 ) -> impl IntoResponse {
-    if let Err(e) = state.store.set_game_info(game_id, &info).await {
+    let mut args = Vec::new();
+    if let Some(name) = info.name {
+        args.push(("name", name));
+    }
+    if let Some(current_map) = info.current_map {
+        args.push(("current_map", current_map));
+    }
+    if let Some(max_players) = info.max_players {
+        args.push(("max_players", max_players.to_string()));
+    }
+    if let Some(player_count) = info.player_count {
+        args.push(("player_count", player_count.to_string()));
+    }
+    if let Some(skill) = info.skill {
+        args.push(("skill", skill.to_string()));
+    }
+    if let Some(monster_kill_count) = info.monster_kill_count {
+        args.push(("monster_kill_count", monster_kill_count.to_string()));
+    }
+    if let Some(monster_count) = info.monster_count {
+        args.push(("monster_count", monster_count.to_string()));
+    }
+    if args.is_empty() {
+        return response::bad_request(anyhow!("No fields to update"));
+    }
+    if let Err(e) = state.store.update_game_info(game_id, &args).await {
         return response::error(anyhow!("Failed to update game info: {:?}", e));
     }
     println!(
@@ -192,32 +220,33 @@ pub async fn get_game(State(state): State<App>, Path(game_id): Path<Uuid>) -> im
 }
 
 pub async fn update_game(
-    State(state): State<App>,
-    Path(game_id): Path<Uuid>,
-    Json(req): Json<UpdateGameRequest>,
+    State(_state): State<App>,
+    Path(_game_id): Path<Uuid>,
+    Json(_req): Json<UpdateGameRequest>,
 ) -> impl IntoResponse {
-    let mut patch = serde_json::json!({
-        "spec": {}
-    });
-    if let Some(name) = req.name {
-        patch["spec"]["name"] = serde_json::json!(name);
-    } else {
-        return response::error(anyhow!("No fields to update"));
-    }
-    match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
-        .patch(
-            &game_id.to_string(),
-            &kube::api::PatchParams::apply("dorch-master"),
-            &kube::api::Patch::Merge(&patch),
-        )
-        .await
-    {
-        Ok(_) => StatusCode::OK.into_response(),
-        Err(e) => match e {
-            kube::Error::Api(ae) if ae.code == 404 => {
-                response::not_found(anyhow!("Game not found"))
-            }
-            _ => response::error(anyhow!("Failed to update game: {:?}", e)),
-        },
-    }
+    StatusCode::NOT_IMPLEMENTED.into_response()
+    // let mut patch = serde_json::json!({
+    //     "spec": {}
+    // });
+    // if let Some(name) = req.name {
+    //     patch["spec"]["name"] = serde_json::json!(name);
+    // } else {
+    //     return response::error(anyhow!("No fields to update"));
+    // }
+    // match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
+    //     .patch(
+    //         &game_id.to_string(),
+    //         &kube::api::PatchParams::apply("dorch-master"),
+    //         &kube::api::Patch::Merge(&patch),
+    //     )
+    //     .await
+    // {
+    //     Ok(_) => StatusCode::OK.into_response(),
+    //     Err(e) => match e {
+    //         kube::Error::Api(ae) if ae.code == 404 => {
+    //             response::not_found(anyhow!("Game not found"))
+    //         }
+    //         _ => response::error(anyhow!("Failed to update game: {:?}", e)),
+    //     },
+    // }
 }

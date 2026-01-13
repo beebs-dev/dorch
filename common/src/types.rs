@@ -9,6 +9,47 @@ pub struct GameInfo {
     pub player_count: i32,
     pub skill: i32,
     pub current_map: String,
+    pub monster_kill_count: i32,
+    pub monster_count: i32,
+    pub motd: Option<String>,
+    pub sv_cheats: bool,
+    pub sv_allowchat: bool,
+    pub sv_allowvoicechat: bool,
+    pub sv_fastmonsters: bool,
+    pub sv_monsters: bool,
+    pub sv_nomonsters: bool,
+    pub sv_itemsrespawn: bool,
+    pub sv_itemrespawntime: Option<i32>,
+    pub sv_coop_damagefactor: Option<f32>,
+    pub sv_nojump: bool,
+    pub sv_nocrouch: bool,
+    pub sv_nofreelook: bool,
+    pub sv_respawnonexit: bool,
+    pub sv_timelimit: Option<i32>,
+    pub sv_fraglimit: Option<i32>,
+    pub sv_scorelimit: Option<i32>,
+    pub sv_duellimit: Option<i32>,
+    pub sv_roundlimit: Option<i32>,
+    pub sv_allowrun: bool,
+    pub sv_allowfreelook: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct GameInfoUpdate {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_players: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub player_count: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_map: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub monster_kill_count: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub monster_count: Option<i32>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
