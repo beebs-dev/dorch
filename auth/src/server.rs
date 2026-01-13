@@ -1,11 +1,10 @@
-use crate::keys::user_record_key;
 use crate::protocol::{ClientMsg, ServerMsg};
 use crate::srp::ServerSession;
 use crate::user_record_store::UserRecordStore;
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
+use dorch_auth::client::UserRecordJson;
 use rand::RngCore;
-use redis::AsyncCommands;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -13,9 +12,6 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
-
-// NOTE: use your real Redis pool type from dorch_common.
-type RedisPool = deadpool_redis::Pool;
 
 /// Stored per-user in Redis.
 #[derive(Clone, Debug)]
@@ -26,13 +22,32 @@ pub struct UserRecord {
     pub disabled: bool,
 }
 
-#[derive(Debug, serde::Deserialize)]
-pub struct UserRecordJson {
-    pub username: String,
-    pub salt_b64: String,
-    pub verifier_b64: String,
-    #[serde(default)]
-    pub disabled: bool,
+impl From<UserRecord> for UserRecordJson {
+    fn from(rec: UserRecord) -> Self {
+        Self {
+            username: rec.username,
+            salt_b64: B64.encode(&rec.salt),
+            verifier_b64: B64.encode(&rec.verifier),
+            disabled: rec.disabled,
+        }
+    }
+}
+
+impl TryFrom<UserRecordJson> for UserRecord {
+    type Error = anyhow::Error;
+
+    fn try_from(json: UserRecordJson) -> Result<Self> {
+        let salt = B64.decode(&json.salt_b64).context("decode salt_b64")?;
+        let verifier = B64
+            .decode(&json.verifier_b64)
+            .context("decode verifier_b64")?;
+        Ok(Self {
+            username: json.username,
+            salt,
+            verifier,
+            disabled: json.disabled,
+        })
+    }
 }
 
 struct SessionState {
@@ -107,7 +122,10 @@ async fn handle_conn(
 
                 match (msg, state.take()) {
                     (ClientMsg::Start { username, a_b64, .. }, None) => {
-                        let user = store.get(&username).await
+                        let user = store
+                            .get(&username)
+                            .await
+                            .with_context(|| format!("failed to fetch user {username}"))?
                             .with_context(|| format!("unknown user {username}"))?;
 
                         if user.disabled {
@@ -163,7 +181,8 @@ async fn handle_conn(
 
                         let (token, ttl_secs) = mint_token(&st.username);
 
-                        store_session_token(&pool, &token, &st.username, ttl_secs)
+                        store
+                            .store_session_token(&token, &st.username, ttl_secs)
                             .await
                             .context("failed to store session token")?;
 
@@ -221,105 +240,4 @@ fn mint_token(username: &str) -> (String, u64) {
     rand::rng().fill_bytes(&mut rnd);
     let token = format!("u:{}:{}", username, B64.encode(rnd));
     (token, 600)
-}
-
-async fn get_user_record(pool: &RedisPool, username: &str) -> Result<UserRecord> {
-    // Be deliberately tolerant of formats; we'll try a few common shapes.
-    // 1) JSON blob at `auth:user:{username}`
-    // 2) Redis hash at `auth:user:{username}` with fields `salt_b64`, `verifier_b64`, `disabled`, `username`
-    //    (also accepts `salt` / `verifier` as aliases)
-
-    let key = user_record_key(username);
-
-    let mut conn = pool.get().await.context("redis get conn")?;
-
-    if let Ok(Some(blob)) = conn.get::<_, Option<String>>(&key).await {
-        let parsed: UserRecordJson = serde_json::from_str(&blob).context("parse user json")?;
-        return decode_user_record(parsed, username);
-    }
-
-    let map: std::collections::HashMap<String, String> =
-        conn.hgetall(&key).await.unwrap_or_default();
-
-    if !map.is_empty() {
-        let parsed = UserRecordJson {
-            username: map
-                .get("username")
-                .cloned()
-                .unwrap_or_else(|| username.to_string()),
-            salt_b64: map
-                .get("salt_b64")
-                .cloned()
-                .or_else(|| map.get("salt").cloned())
-                .context("missing salt_b64")?,
-            verifier_b64: map
-                .get("verifier_b64")
-                .cloned()
-                .or_else(|| map.get("verifier").cloned())
-                .context("missing verifier_b64")?,
-            disabled: map
-                .get("disabled")
-                .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-                .unwrap_or(false),
-        };
-        return decode_user_record(parsed, username);
-    }
-
-    bail!("user not found")
-}
-
-async fn store_session_token(
-    pool: &RedisPool,
-    token: &str,
-    username: &str,
-    ttl_secs: u64,
-) -> Result<()> {
-    if token.is_empty() {
-        bail!("empty token")
-    }
-    if username.is_empty() {
-        bail!("empty username")
-    }
-    if ttl_secs == 0 {
-        bail!("ttl_secs must be > 0")
-    }
-
-    let mut conn = pool.get().await.context("redis get conn")?;
-    let key = session_token_key(token);
-    conn.set_ex::<_, _, ()>(key, username, ttl_secs)
-        .await
-        .context("redis set_ex session token")?;
-    Ok(())
-}
-
-fn session_token_key(token: &str) -> String {
-    format!("auth:token:{}", token)
-}
-
-fn decode_user_record(parsed: UserRecordJson, requested_username: &str) -> Result<UserRecord> {
-    let username = if parsed.username.is_empty() {
-        requested_username.to_string()
-    } else {
-        parsed.username
-    };
-
-    let salt = B64.decode(parsed.salt_b64).context("decode salt")?;
-    let verifier = B64.decode(parsed.verifier_b64).context("decode verifier")?;
-
-    if username.is_empty() {
-        bail!("empty username in record")
-    }
-    if salt.is_empty() {
-        bail!("empty salt")
-    }
-    if verifier.is_empty() {
-        bail!("empty verifier")
-    }
-
-    Ok(UserRecord {
-        username,
-        salt,
-        verifier,
-        disabled: parsed.disabled,
-    })
 }

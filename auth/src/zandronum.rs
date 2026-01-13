@@ -1,14 +1,12 @@
 use anyhow::{Context, Result, bail};
-use base64::Engine as _;
-use deadpool_redis::Pool as RedisPool;
 use rand::RngCore;
-use redis::AsyncCommands;
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::net::UdpSocket;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
+use crate::user_record_store::UserRecordStore;
 use crate::zandronum_srp_sha256::{SrpServerSession, UserSecrets};
 
 const AUTH_PROTOCOL_VERSION: u8 = 2;
@@ -35,14 +33,6 @@ const SESSION_AUTH_FAILED: u8 = 3;
 const MAX_PACKET: usize = 2048;
 const SESSION_TTL: Duration = Duration::from_secs(30);
 
-#[derive(Clone, Debug)]
-struct UserRecord {
-    username: String,
-    salt: Vec<u8>,
-    verifier: Vec<u8>,
-    disabled: bool,
-}
-
 #[derive(Debug)]
 struct Session {
     created_at_unix: u64,
@@ -51,7 +41,11 @@ struct Session {
     srp: SrpServerSession,
 }
 
-pub async fn run_udp(bind_addr: &str, pool: RedisPool, cancel: CancellationToken) -> Result<()> {
+pub async fn run_udp(
+    bind_addr: &str,
+    store: UserRecordStore,
+    cancel: CancellationToken,
+) -> Result<()> {
     let sock = UdpSocket::bind(bind_addr)
         .await
         .with_context(|| format!("bind udp {bind_addr}"))?;
@@ -66,7 +60,7 @@ pub async fn run_udp(bind_addr: &str, pool: RedisPool, cancel: CancellationToken
             recv = sock.recv_from(&mut buf) => {
                 let (n, peer) = recv.context("udp recv_from")?;
                 let pkt = &buf[..n];
-                if let Err(e) = handle_packet(&sock, &pool, &sessions, pkt, peer).await {
+                if let Err(e) = handle_packet(&sock, &store, &sessions, pkt, peer).await {
                     // Intentionally don't spam; Zandronum can be chatty.
                     eprintln!("zandronum auth: packet from {peer} failed: {e:#}");
                 }
@@ -77,7 +71,7 @@ pub async fn run_udp(bind_addr: &str, pool: RedisPool, cancel: CancellationToken
 
 async fn handle_packet(
     sock: &UdpSocket,
-    pool: &RedisPool,
+    store: &UserRecordStore,
     sessions: &Mutex<HashMap<i32, Session>>,
     pkt: &[u8],
     peer: std::net::SocketAddr,
@@ -104,9 +98,9 @@ async fn handle_packet(
                 return Ok(());
             }
 
-            let user = match get_user_record(pool, &username).await {
-                Ok(u) => u,
-                Err(_) => {
+            let user = match store.get(&username).await {
+                Ok(Some(u)) => u,
+                Ok(None) | Err(_) => {
                     send_user_error(sock, peer, USER_NO_EXIST, client_session_id).await?;
                     return Ok(());
                 }
@@ -270,85 +264,6 @@ async fn send_session_error(
         .await
         .context("udp send session error")?;
     Ok(())
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct UserRecordJson {
-    username: String,
-    salt_b64: String,
-    verifier_b64: String,
-    #[serde(default)]
-    disabled: bool,
-}
-
-async fn get_user_record(pool: &RedisPool, username: &str) -> Result<UserRecord> {
-    // Be deliberately tolerant of formats; we'll try a few common shapes.
-    // 1) JSON blob at `dorch:zandronum:user:{username}`
-    // 2) Redis hash at `dorch:zandronum:user:{username}` with fields `salt_b64`, `verifier_b64`, `disabled`, `username`
-
-    let key = format!("dorch:zandronum:user:{username}");
-
-    let mut conn = pool.get().await.context("redis get conn")?;
-
-    if let Ok(Some(blob)) = conn.get::<_, Option<String>>(&key).await {
-        let parsed: UserRecordJson = serde_json::from_str(&blob).context("parse user json")?;
-        return decode_user_record(parsed);
-    }
-
-    let map: std::collections::HashMap<String, String> =
-        conn.hgetall(&key).await.unwrap_or_default();
-
-    if !map.is_empty() {
-        let parsed = UserRecordJson {
-            username: map
-                .get("username")
-                .cloned()
-                .unwrap_or_else(|| username.to_string()),
-            salt_b64: map
-                .get("salt_b64")
-                .cloned()
-                .or_else(|| map.get("salt").cloned())
-                .context("missing salt_b64")?,
-            verifier_b64: map
-                .get("verifier_b64")
-                .cloned()
-                .or_else(|| map.get("verifier").cloned())
-                .context("missing verifier_b64")?,
-            disabled: map
-                .get("disabled")
-                .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-                .unwrap_or(false),
-        };
-        return decode_user_record(parsed);
-    }
-
-    bail!("user not found")
-}
-
-fn decode_user_record(parsed: UserRecordJson) -> Result<UserRecord> {
-    let salt = base64::engine::general_purpose::STANDARD
-        .decode(parsed.salt_b64)
-        .context("decode salt")?;
-    let verifier = base64::engine::general_purpose::STANDARD
-        .decode(parsed.verifier_b64)
-        .context("decode verifier")?;
-
-    if parsed.username.is_empty() {
-        bail!("empty username in record")
-    }
-    if salt.is_empty() {
-        bail!("empty salt")
-    }
-    if verifier.is_empty() {
-        bail!("empty verifier")
-    }
-
-    Ok(UserRecord {
-        username: parsed.username,
-        salt,
-        verifier,
-        disabled: parsed.disabled,
-    })
 }
 
 fn now_unix() -> u64 {

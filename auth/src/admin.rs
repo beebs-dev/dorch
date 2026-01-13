@@ -2,20 +2,26 @@ use std::net::SocketAddr;
 
 use anyhow::{Context, Result};
 use axum::{
-    Json, Router, extract::State, http::StatusCode, middleware, response::IntoResponse,
-    routing::get,
+    Json, Router,
+    extract::State,
+    http::StatusCode,
+    middleware,
+    response::IntoResponse,
+    routing::{get, post},
 };
+use dorch_auth::client::UserRecordJson;
 use dorch_common::access_log;
 use owo_colors::OwoColorize;
 use tokio_util::sync::CancellationToken;
 
-use crate::{server::UserRecordJson, user_record_store::UserRecordStore};
+use crate::user_record_store::UserRecordStore;
 
 pub async fn run(store: UserRecordStore, port: u16, cancel: CancellationToken) -> Result<()> {
     let health_router = Router::new()
         .route("/healthz", get(health))
         .route("/readyz", get(health));
     let router = Router::new()
+        .route("/admin/user", post(post_user_record))
         .with_state(store)
         .layer(middleware::from_fn(access_log::admin));
     let addr: SocketAddr = format!("0.0.0.0:{}", port)
@@ -49,9 +55,15 @@ async fn health() -> impl IntoResponse {
     StatusCode::OK.into_response()
 }
 
-async fn put_user_record(
-    State(pool): State<deadpool_redis::Pool>,
+async fn post_user_record(
+    State(store): State<UserRecordStore>,
     Json(req): Json<UserRecordJson>,
 ) -> impl IntoResponse {
-    StatusCode::OK.into_response()
+    match store.set_json(req).await {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(e) => {
+            eprintln!("admin POST /admin/user failed: {e:#}");
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
 }

@@ -45,10 +45,10 @@ async fn run(args: args::ServerArgs) -> Result<()> {
         udp_bind.green().dimmed(),
     );
     tokio::spawn({
-        let pool = pool.clone();
+        let store = store.clone();
         let cancel = cancel.clone();
         async move {
-            if let Err(e) = zandronum::run_udp(&udp_bind, pool, cancel).await {
+            if let Err(e) = zandronum::run_udp(&udp_bind, store, cancel).await {
                 panic!("zandronum udp server error: {:?}", e);
             }
         }

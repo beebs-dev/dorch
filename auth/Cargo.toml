@@ -7,6 +7,10 @@ edition = "2024"
 name = "dorch-auth"
 path = "src/main.rs"
 
+[lib]
+name = "dorch_auth"
+path = "src/lib.rs"
+
 [dependencies]
 dorch-common = { path = "../common" }
 dorch-types = { path = "../types" }
