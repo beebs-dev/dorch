@@ -10,6 +10,7 @@ path = "src/main.rs"
 [dependencies]
 dorch-common = { path = "../common" }
 dorch-types = { path = "../types" }
+dorch-auth = { path = "../auth" }
 tokio = { workspace = true }
 bytes = { workspace = true }
 tokio-util = { workspace = true }

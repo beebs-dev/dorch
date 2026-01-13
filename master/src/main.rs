@@ -1,12 +1,12 @@
+use crate::{app::App, args::Commands};
 use anyhow::{Context, Result};
 use async_nats::ConnectOptions;
 use clap::Parser;
+use dorch_auth::client::Client as AuthClient;
 use dorch_common::shutdown::shutdown_signal;
 use kube::client::Client;
 use owo_colors::OwoColorize;
 use tokio_util::sync::CancellationToken;
-
-use crate::{app::App, args::Commands};
 
 pub mod app;
 pub mod args;
@@ -28,33 +28,35 @@ async fn run_servers(args: args::ServerArgs) -> Result<()> {
     let client: Client = Client::try_default()
         .await
         .expect("Expected a valid KUBECONFIG environment variable.");
+    let auth = AuthClient::new(args.auth_endpoint);
     let pool = dorch_common::redis::init_redis(&args.redis).await;
     let store = store::GameInfoStore::new(pool);
     let nats = async_nats::connect_with_options(
         &args.nats.nats_url,
-        ConnectOptions::new()
-            .user_and_password(args.nats.nats_user.clone(), args.nats.nats_password.clone()),
+        ConnectOptions::new().user_and_password(args.nats.nats_user, args.nats.nats_password),
     )
     .await
     .context("Failed to connect to NATS")?;
     let cancel = CancellationToken::new();
-    let cancel_clone = cancel.clone();
-    tokio::spawn(async move {
-        shutdown_signal().await;
-        cancel_clone.cancel();
+    let state = App::new(cancel.clone(), nats, client, args.namespace, store, auth);
+    tokio::spawn({
+        let cancel = cancel.clone();
+        async move {
+            shutdown_signal().await;
+            cancel.cancel();
+        }
     });
-    let cancel_clone = cancel.clone();
-    let args_clone = args.clone();
-    let args_clone2 = args.clone();
-    let app_state = App::new(cancel.clone(), nats, client, args.namespace, store);
-    let app_state_clone = app_state.clone();
-    let mut internal_join = Box::pin(tokio::spawn(async move {
-        server::internal::run_server(cancel_clone, args_clone2, app_state_clone).await
+    let mut internal_join = Box::pin(tokio::spawn({
+        let cancel = cancel.clone();
+        let port = args.internal_port;
+        let state = state.clone();
+        async move { server::internal::run_server(cancel, port, state).await }
     }));
-    let cancel_clone = cancel.clone();
-    let app_state_clone = app_state.clone();
-    let mut pub_join = Box::pin(tokio::spawn(async move {
-        server::public::run_server(cancel_clone, args_clone, app_state_clone).await
+    let mut pub_join = Box::pin(tokio::spawn({
+        let cancel = cancel.clone();
+        let port = args.public_port;
+        let kc = args.kc;
+        async move { server::public::run_server(cancel, port, kc, state).await }
     }));
     tokio::select! {
         res = &mut internal_join => {

@@ -34,6 +34,13 @@ pub struct NewGameResponse {
     pub game_id: Uuid,
 }
 
+#[derive(Serialize)]
+pub struct JoinGameResponse {
+    pub game_id: Uuid,
+    pub username: String,
+    pub password: String,
+}
+
 #[derive(Deserialize, Default)]
 pub struct SearchGamesRequest {
     #[serde(rename = "q")]

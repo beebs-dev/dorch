@@ -1,8 +1,8 @@
+use crate::store::GameInfoStore;
+use dorch_auth::client::Client as AuthClient;
 use kube::client::Client;
 use std::{ops::Deref, sync::Arc};
 use tokio_util::sync::CancellationToken;
-
-use crate::store::GameInfoStore;
 
 pub struct AppInner {
     pub cancel: CancellationToken,
@@ -10,6 +10,7 @@ pub struct AppInner {
     pub client: Client,
     pub namespace: String,
     pub store: GameInfoStore,
+    pub auth: AuthClient,
 }
 
 #[derive(Clone)]
@@ -32,6 +33,7 @@ impl App {
         client: Client,
         namespace: String,
         store: GameInfoStore,
+        auth: AuthClient,
     ) -> Self {
         Self {
             inner: Arc::new(AppInner {
@@ -40,6 +42,7 @@ impl App {
                 client,
                 namespace,
                 store,
+                auth,
             }),
         }
     }

@@ -1136,6 +1136,7 @@ dependencies = [
  "bytes",
  "clap",
  "deadpool-redis",
+ "dorch-auth",
  "dorch-common",
  "dorch-types",
  "futures",

@@ -32,4 +32,7 @@ pub struct ServerArgs {
 
     #[arg(long, env = "NAMESPACE", default_value = "default")]
     pub namespace: String,
+
+    #[arg(long, env = "AUTH_ENDPOINT", required = true)]
+    pub auth_endpoint: String,
 }

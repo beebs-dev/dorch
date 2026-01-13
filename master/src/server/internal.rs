@@ -24,11 +24,7 @@ use uuid::Uuid;
 
 pub const CREATOR_USER_ID_ANNOTATION: &str = "dorch.io/creator-user-id";
 
-pub async fn run_server(
-    cancel: CancellationToken,
-    args: crate::args::ServerArgs,
-    app_state: App,
-) -> Result<()> {
+pub async fn run_server(cancel: CancellationToken, port: u16, app_state: App) -> Result<()> {
     let health_router = Router::new()
         .route("/healthz", get(health))
         .route("/readyz", get(health));
@@ -38,7 +34,6 @@ pub async fn run_server(
         .route("/game/{game_id}/info", post(update_game_info))
         .with_state(app_state)
         .layer(middleware::from_fn(access_log::internal));
-    let port = args.internal_port;
     let addr: SocketAddr = format!("0.0.0.0:{}", port)
         .parse()
         .expect("Invalid address");
