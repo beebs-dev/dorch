@@ -9,7 +9,7 @@ use axum::{
     extract::{Path, State},
     middleware,
     response::IntoResponse,
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use axum_keycloak_auth::{
     PassthroughMode,
@@ -43,16 +43,14 @@ pub async fn run_server(
         .build();
     let protected_router = Router::new()
         .route("/game", post(new_game))
+        .route("/game/{game_id}", delete(delete_game))
         .with_state(app_state.clone())
         .layer(keycloak_layer)
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::dev());
     let router = Router::new()
         .route("/game", get(internal::list_games))
-        .route(
-            "/game/{game_id}",
-            get(internal::get_game).delete(delete_game),
-        )
+        .route("/game/{game_id}", get(internal::get_game))
         .with_state(app_state)
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::dev());
@@ -112,7 +110,7 @@ pub async fn delete_game(
             };
         }
     };
-    if game
+    let is_creator = game
         .metadata
         .annotations
         .as_ref()
@@ -121,8 +119,8 @@ pub async fn delete_game(
         .transpose()
         .ok()
         .flatten()
-        .is_some_and(|s| s == user_id)
-    {
+        .is_some_and(|s| s == user_id);
+    if is_creator {
         // TODO: allow admins to delete any game
         internal::delete_game(State(state), Path(game_id))
             .await

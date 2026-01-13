@@ -241,16 +241,16 @@ pub async fn list_games_inner(state: App) -> Result<ListGamesResponse> {
     let mut games = Vec::with_capacity(list.items.len());
     for game in list.items {
         let info = try_get_info(&state, &game).await;
-        if info.as_ref().is_some_and(|info| info.private)
-            || (info.is_none() && game.spec.private.unwrap_or(false))
-        {
+        let private = info.as_ref().is_some_and(|info| info.private)
+            || (info.is_none() && game.spec.private.unwrap_or(false));
+        if private {
             // Omit private servers from the public listing.
             continue;
         }
-        match game_to_summary(game, info) {
-            Ok(summary) => games.push(summary),
-            Err(_) => continue,
-        }
+        let Ok(summary) = game_to_summary(game, info) else {
+            continue;
+        };
+        games.push(summary);
     }
     Ok(ListGamesResponse { games })
 }
@@ -273,17 +273,15 @@ fn game_to_summary(g: dorch_types::Game, info: Option<GameInfo>) -> Result<GameS
 
 pub async fn delete_game(State(state): State<App>, Path(game_id): Path<Uuid>) -> impl IntoResponse {
     if let Err(e) = Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
-        .delete(&game_id.to_string(), &Default::default())
+        .delete(game_id.to_string().as_str(), &Default::default())
         .await
-        .context("Failed to delete game")
     {
-        if e.is::<kube::Error>()
-            && let kube::Error::Api(ae) = e.downcast_ref::<kube::Error>().unwrap()
-            && ae.code == 404
-        {
-            return response::not_found(anyhow!("Game not found"));
+        match e {
+            kube::Error::Api(ae) if ae.code == 404 => {
+                response::not_found(anyhow!("Game not found"))
+            }
+            e => response::error(anyhow!("Failed to delete game: {:?}", e)),
         }
-        response::error(anyhow!("Failed to delete game: {:?}", e))
     } else {
         StatusCode::OK.into_response()
     }
@@ -291,7 +289,7 @@ pub async fn delete_game(State(state): State<App>, Path(game_id): Path<Uuid>) ->
 
 pub async fn get_game(State(state): State<App>, Path(game_id): Path<Uuid>) -> impl IntoResponse {
     let game = match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
-        .get(&game_id.to_string())
+        .get(game_id.to_string().as_str())
         .await
     {
         Ok(game) => game,
