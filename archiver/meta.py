@@ -43,9 +43,8 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import requests
 
-DEFAULT_S3_BASE = "https://wadarchive.nyc3.digitaloceanspaces.com"
-
-WADINFO_BASE_URL = "http://localhost:8000"
+DEFAULT_WAD_URL_BASE = "https://wadarchive.nyc3.digitaloceanspaces.com"
+WADINFO_BASE_URL = os.getenv("WADINFO_BASE_URL", "http://localhost:8000")
 
 # -----------------------------
 # Per-map stats (ported from dump_wad_json.py)
@@ -1360,8 +1359,8 @@ def build_idgames_lookup(
     return lookup
 
 
-def post_to_wadinfo(obj):
-    url = f"{WADINFO_BASE_URL}/upsert_wad"
+def post_to_wadinfo(obj, wadinfo_base_url: str = WADINFO_BASE_URL) -> None:
+    url = f"{wadinfo_base_url}/upsert_wad"
     response = requests.post(url, json=obj)
     response.raise_for_status()
     print(f"Posted to wadinfo: {response.status_code} {response.text}")
@@ -1394,12 +1393,15 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--wads-json", required=True, help="Path or URL to wads.json")
     ap.add_argument("--idgames-json", required=True, help="Path or URL to idgames.json")
-    ap.add_argument("--s3-base", default=DEFAULT_S3_BASE, help="Base URL for public S3 bucket")
+    ap.add_argument("--wad-url-base", default=DEFAULT_WAD_URL_BASE, help="Base URL for public WADs bucket")
     ap.add_argument("--limit", type=int, default=0, help="Process only N wads (0 = all)")
     ap.add_argument("--start", type=int, default=0, help="Start index into wads.json array")
     ap.add_argument("--pretty", action="store_true", help="Pretty-print JSON")
     ap.add_argument("--stream", action="store_true", help="Emit newline-delimited JSON objects (NDJSON)")
     ap.add_argument("--sleep", type=float, default=0.0, help="Sleep seconds between items (politeness)")
+    ap.add_argument("--post-to-wadinfo", action="store_true", help="POST results to wadinfo service")
+    ap.add_argument("--wadinfo-base-url", default=WADINFO_BASE_URL, help="Base URL for wadinfo service")
+    ap.add_argument("--smoke-test-id", default=None, help="SHA1 hash of a single WAD to process for smoke testing")
     args = ap.parse_args()
 
     if is_http_url(args.wads_json):
@@ -1455,18 +1457,15 @@ def main() -> None:
             v = expected_hashes.get("sha256")
             if isinstance(v, str) and v.strip():
                 expected_sha256 = v.strip().lower()
-        smoke_test_id = "0000e0b4993f0b7130fc3b58abf996bbb4acb287"
         if not re.fullmatch(r"[0-9a-f]{40}", sha1):
             raise ValueError("SHA1 must be 40 hex chars")
-        if smoke_test_id is not None and smoke_test_id not in sha1:
-            #print(f"Skipping {sha1}: not the test file", file=sys.stderr)
-            continue # TEMP: process only one known-good file for testing
-        print(f"Processing {smoke_test_id}: {idx + 1}/{total}", file=sys.stderr)
+        if args.smoke_test_id is not None and args.smoke_test_id not in sha1:
+            continue
         wad_type = str(wad_entry.get("type") or "UNKNOWN")
         ext = TYPE_TO_EXT.get(wad_type, None) or "wad"  # default best-guess
 
         prefixes = candidate_prefixes(wad_entry)
-        s3_url = resolve_s3_url(session, args.s3_base, sha1, ext, prefixes)
+        s3_url = resolve_s3_url(session, args.wad_url_base, sha1, ext, prefixes)
 
         extracted: Dict[str, Any]
         per_map_stats: List[Dict[str, Any]] = []
@@ -1561,10 +1560,7 @@ def main() -> None:
             )
 
             out_obj = {"meta": meta_obj, "maps": per_map_stats}
-
-            # TODO: post it to the wadinfo endpoint
-            post_to_wadinfo(out_obj)
-
+            
             if args.stream:
                 sys.stdout.write(json.dumps(out_obj, indent=2 if args.pretty else None, ensure_ascii=False))
                 sys.stdout.write("\n")
@@ -1577,6 +1573,9 @@ def main() -> None:
                     sys.stdout.write("\n" if not first_array_item else "\n")
                     sys.stdout.write(json.dumps(out_obj, ensure_ascii=False))
                     first_array_item = False
+
+            if args.post_to_wadinfo:
+                post_to_wadinfo(out_obj, wadinfo_base_url=args.wadinfo_base_url)
 
         # Temp directory auto-deletes here
 
