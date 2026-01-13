@@ -77,6 +77,9 @@ pub async fn update_game_info(
     if let Some(name) = info.name {
         args.push(("name", name));
     }
+    if let Some(private) = info.private {
+        args.push(("private", (private as u8).to_string()));
+    }
     if let Some(current_map) = info.current_map {
         args.push(("current_map", current_map));
     }
