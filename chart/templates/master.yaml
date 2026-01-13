@@ -46,6 +46,7 @@ spec:
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 10 }}
     {{- end }}
+      serviceAccountName: {{ .Release.Name }}-master
       containers:
       - name: master
         imagePullPolicy: {{ .Values.master.imagePullPolicy }}

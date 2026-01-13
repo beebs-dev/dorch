@@ -3,8 +3,8 @@ ARG BASE_IMAGE=thavlik/dorch-base:latest
 
 FROM ${BASE_IMAGE} AS builder
 COPY common/src common/src
-COPY master/src master/src
 COPY types/src types/src
+COPY master/src master/src
 WORKDIR /app/master
 RUN cargo build --release --bin dorch-master
 
