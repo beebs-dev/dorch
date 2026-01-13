@@ -135,7 +135,7 @@ def mark_done(done_path: str, zip_path: str):
     with open(done_path, 'w') as f:
         f.write('1')
     print(f"Marked done: {done_path}")
-    shutil.rmtree(zip_path)
+    os.remove(zip_path)
 
 
 def cleanup(zip_path: str, extract_dir: str):
