@@ -276,15 +276,23 @@ pub async fn delete_game(State(state): State<App>, Path(game_id): Path<Uuid>) ->
         .delete(game_id.to_string().as_str(), &Default::default())
         .await
     {
-        match e {
+        return match e {
             kube::Error::Api(ae) if ae.code == 404 => {
                 response::not_found(anyhow!("Game not found"))
             }
             e => response::error(anyhow!("Failed to delete game: {:?}", e)),
-        }
-    } else {
-        StatusCode::OK.into_response()
+        };
     }
+    if let Err(e) = state.store.delete_game_info(game_id).await {
+        eprintln!(
+            "{}{}{}{}",
+            "⚠️  Failed to delete game info • game_id=".yellow(),
+            game_id.yellow().dimmed(),
+            " • error=".yellow(),
+            format!(": {:?}", e).yellow().dimmed()
+        );
+    }
+    StatusCode::OK.into_response()
 }
 
 pub async fn get_game(State(state): State<App>, Path(game_id): Path<Uuid>) -> impl IntoResponse {

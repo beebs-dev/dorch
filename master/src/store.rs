@@ -19,6 +19,21 @@ impl GameInfoStore {
         Self { pool }
     }
 
+    pub async fn delete_game_info(&self, game_id: Uuid) -> Result<()> {
+        let key = key_game_info(game_id.to_string().as_str());
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .context("Failed to get Redis connection")?;
+        let _: () = redis::cmd("DEL")
+            .arg(&key)
+            .query_async(&mut conn)
+            .await
+            .context("Failed to delete game info from Redis")?;
+        Ok(())
+    }
+
     pub async fn get_game_info(&self, game_id: Uuid) -> Result<Option<GameInfo>> {
         let key = key_game_info(game_id.to_string().as_str());
         let mut conn = self
