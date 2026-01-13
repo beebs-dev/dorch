@@ -80,7 +80,7 @@ pub async fn list_wads(
     Query(req): Query<ListWadsRequest>,
 ) -> impl IntoResponse {
     let offset = req.pagination.offset.max(0);
-    let limit = req.pagination.limit.unwrap_or(10).max(1).min(100);
+    let limit = req.pagination.limit.unwrap_or(10).clamp(1, 100);
     match state.db.list_wads(offset, limit, req.sort_desc).await {
         Ok(wads) => (StatusCode::OK, Json(wads)).into_response(),
         Err(e) => response::error(e.context("Failed to list wads")),
