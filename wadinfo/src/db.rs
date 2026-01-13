@@ -503,6 +503,53 @@ impl Database {
             for m in &merged.maps {
                 let map_json = serde_json::to_value(m).context("serialize map stat")?;
 
+                let things: i32 = m.stats.things.try_into().context("map things overflow")?;
+                let linedefs: i32 = m.stats.linedefs.try_into().context("map linedefs overflow")?;
+                let sidedefs: i32 = m.stats.sidedefs.try_into().context("map sidedefs overflow")?;
+                let vertices: i32 = m.stats.vertices.try_into().context("map vertices overflow")?;
+                let sectors: i32 = m.stats.sectors.try_into().context("map sectors overflow")?;
+                let segs: i32 = m.stats.segs.try_into().context("map segs overflow")?;
+                let ssectors: i32 = m.stats.ssectors.try_into().context("map ssectors overflow")?;
+                let nodes: i32 = m.stats.nodes.try_into().context("map nodes overflow")?;
+
+                let monster_total: i32 = m
+                    .monsters
+                    .total
+                    .try_into()
+                    .context("map monster_total overflow")?;
+                let uv_monsters: i32 = m
+                    .difficulty
+                    .uv_monsters
+                    .try_into()
+                    .context("map uv_monsters overflow")?;
+                let hmp_monsters: i32 = m
+                    .difficulty
+                    .hmp_monsters
+                    .try_into()
+                    .context("map hmp_monsters overflow")?;
+                let htr_monsters: i32 = m
+                    .difficulty
+                    .htr_monsters
+                    .try_into()
+                    .context("map htr_monsters overflow")?;
+
+                let item_total: i32 = m.items.total.try_into().context("map item_total overflow")?;
+                let uv_items: i32 = m
+                    .difficulty
+                    .uv_items
+                    .try_into()
+                    .context("map uv_items overflow")?;
+                let hmp_items: i32 = m
+                    .difficulty
+                    .hmp_items
+                    .try_into()
+                    .context("map hmp_items overflow")?;
+                let htr_items: i32 = m
+                    .difficulty
+                    .htr_items
+                    .try_into()
+                    .context("map htr_items overflow")?;
+
                 tx.execute(
                     &insert_map,
                     &[
@@ -510,25 +557,25 @@ impl Database {
                         &m.map,
                         &m.format,
                         &m.compatibility,
-                        &m.stats.things,
-                        &m.stats.linedefs,
-                        &m.stats.sidedefs,
-                        &m.stats.vertices,
-                        &m.stats.sectors,
-                        &m.stats.segs,
-                        &m.stats.ssectors,
-                        &m.stats.nodes,
+                        &things,
+                        &linedefs,
+                        &sidedefs,
+                        &vertices,
+                        &sectors,
+                        &segs,
+                        &ssectors,
+                        &nodes,
                         &m.mechanics.teleports,
                         &m.mechanics.secret_exit,
                         &m.mechanics.keys,
-                        &m.monsters.total,
-                        &m.difficulty.uv_monsters,
-                        &m.difficulty.hmp_monsters,
-                        &m.difficulty.htr_monsters,
-                        &m.items.total,
-                        &m.difficulty.uv_items,
-                        &m.difficulty.hmp_items,
-                        &m.difficulty.htr_items,
+                        &monster_total,
+                        &uv_monsters,
+                        &hmp_monsters,
+                        &htr_monsters,
+                        &item_total,
+                        &uv_items,
+                        &hmp_items,
+                        &htr_items,
                         &m.metadata.title,
                         &m.metadata.music,
                         &m.metadata.source,
@@ -549,13 +596,19 @@ impl Database {
                 }
 
                 for (monster, cnt) in &m.monsters.by_type {
-                    tx.execute(&insert_mon, &[&wad_id, &m.map, &monster, cnt])
+                    let cnt: i32 = (*cnt)
+                        .try_into()
+                        .with_context(|| format!("monster count overflow {} {}", m.map, monster))?;
+                    tx.execute(&insert_mon, &[&wad_id, &m.map, &monster, &cnt])
                         .await
                         .with_context(|| format!("insert monster {} {}", m.map, monster))?;
                 }
 
                 for (item, cnt) in &m.items.by_type {
-                    tx.execute(&insert_item, &[&wad_id, &m.map, &item, cnt])
+                    let cnt: i32 = (*cnt)
+                        .try_into()
+                        .with_context(|| format!("item count overflow {} {}", m.map, item))?;
+                    tx.execute(&insert_item, &[&wad_id, &m.map, &item, &cnt])
                         .await
                         .with_context(|| format!("insert item {} {}", m.map, item))?;
                 }
