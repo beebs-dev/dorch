@@ -5,7 +5,7 @@ use uuid::Uuid;
 pub struct GameInfo {
     #[serde(default, skip_serializing_if = "Uuid::is_nil")]
     pub game_id: Uuid,
-
+    pub private: bool,
     pub name: String,
     pub max_players: i32,
     pub player_count: i32,
@@ -38,6 +38,8 @@ pub struct GameInfo {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GameInfoUpdate {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

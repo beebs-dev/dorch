@@ -108,6 +108,7 @@ impl GameInfoStore {
             .context("Invalid 'monster_count' in game info hash")?;
 
         let motd = hash.get("motd").cloned();
+        let private = parse_bool(&hash, "private", false)?;
 
         // Defaults are chosen to be broadly compatible with typical server configs.
         let sv_cheats = parse_bool(&hash, "sv_cheats", false)?;
@@ -132,6 +133,7 @@ impl GameInfoStore {
         let sv_allowfreelook = parse_bool(&hash, "sv_allowfreelook", true)?;
         Ok(Some(GameInfo {
             game_id,
+            private,
             name,
             max_players,
             player_count,

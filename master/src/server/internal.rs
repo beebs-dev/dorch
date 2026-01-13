@@ -1,6 +1,6 @@
 use crate::{
     app::App,
-    client::{GameSummary, ListGamesResponse, NewGameRequest, NewGameResponse, UpdateGameRequest},
+    client::{GameSummary, ListGamesResponse, NewGameRequest, NewGameResponse},
 };
 use anyhow::{Context, Result, anyhow};
 use axum::{
@@ -240,6 +240,10 @@ pub async fn list_games_inner(state: App) -> Result<ListGamesResponse> {
     let mut games = Vec::with_capacity(list.items.len());
     for game in list.items {
         let info = try_get_info(&state, &game).await;
+        if info.as_ref().is_some_and(|info| info.private) {
+            // Omit private servers from the public listing.
+            continue;
+        }
         match game_to_summary(game, info) {
             Ok(summary) => games.push(summary),
             Err(_) => continue,
@@ -284,36 +288,4 @@ pub async fn get_game(State(state): State<App>, Path(game_id): Path<Uuid>) -> im
         Ok(summary) => (StatusCode::OK, Json(summary)).into_response(),
         Err(e) => response::error(anyhow!("Failed to parse game: {:?}", e)),
     }
-}
-
-pub async fn update_game(
-    State(_state): State<App>,
-    Path(_game_id): Path<Uuid>,
-    Json(_req): Json<UpdateGameRequest>,
-) -> impl IntoResponse {
-    StatusCode::NOT_IMPLEMENTED.into_response()
-    // let mut patch = serde_json::json!({
-    //     "spec": {}
-    // });
-    // if let Some(name) = req.name {
-    //     patch["spec"]["name"] = serde_json::json!(name);
-    // } else {
-    //     return response::error(anyhow!("No fields to update"));
-    // }
-    // match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
-    //     .patch(
-    //         &game_id.to_string(),
-    //         &kube::api::PatchParams::apply("dorch-master"),
-    //         &kube::api::Patch::Merge(&patch),
-    //     )
-    //     .await
-    // {
-    //     Ok(_) => StatusCode::OK.into_response(),
-    //     Err(e) => match e {
-    //         kube::Error::Api(ae) if ae.code == 404 => {
-    //             response::not_found(anyhow!("Game not found"))
-    //         }
-    //         _ => response::error(anyhow!("Failed to update game: {:?}", e)),
-    //     },
-    // }
 }
