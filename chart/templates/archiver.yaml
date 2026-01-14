@@ -23,6 +23,8 @@ spec:
         imagePullPolicy: {{ .Values.archiver.init.imagePullPolicy }}
         env:
 {{ include "dorch.redis-env" . | indent 8 }}
+        - name: IWADS_DIR
+          value: /data/iwads
         - name: IWAD_BUCKET
           value: {{ .Values.archiver.init.s3.bucket }}
         - name: AWS_ACCESS_KEY_ID
