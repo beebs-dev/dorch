@@ -599,6 +599,31 @@ def _center_pitch(game) -> None:
 			break
 
 
+def _enable_invulnerability(game) -> None:
+	"""Best-effort: enable invulnerability via ZDoom cheat commands.
+
+	ViZDoom runs a ZDoom-derived engine; in typical single-player configs, the
+	console command `god` enables god mode (invulnerability). We keep this
+	best-effort (no hard failure) because some mods/builds can restrict cheats.
+	"""
+	try:
+		game.send_game_command("god")
+	except Exception:
+		return
+
+	# Advance one tic so the command applies.
+	try:
+		game.make_action([0, 0, 0, 0, 0, 0, 0.0, 0.0], 1)
+	except Exception:
+		pass
+
+
+def _new_episode(game, *, invulnerable: bool) -> None:
+	game.new_episode()
+	if invulnerable:
+		_enable_invulnerability(game)
+
+
 def _teleport_to(game, *, x: float, y: float) -> bool:
 	"""Teleport the player to (x,y) using ZDoom's `warp` console command.
 
@@ -819,6 +844,7 @@ def _gather_candidates(
 	max_steps: int,
 	frame_skip: int,
 	keep_every: int,
+	invulnerable: bool = False,
 ) -> List[Candidate]:
 	from vizdoom import GameVariable
 
@@ -847,7 +873,7 @@ def _gather_candidates(
 		action[7] = float(look)
 		game.make_action(action, frame_skip)
 		if game.is_episode_finished():
-			game.new_episode()
+			_new_episode(game, invulnerable=invulnerable)
 
 	candidates: List[Candidate] = []
 	seen = set()
@@ -933,7 +959,7 @@ def _gather_candidates(
 
 		game.make_action(action, frame_skip)
 		if game.is_episode_finished():
-			game.new_episode()
+			_new_episode(game, invulnerable=invulnerable)
 			continue
 
 		# Detect pickup events and capture a candidate at that location.
@@ -1339,6 +1365,7 @@ class RenderConfig:
 	panorama_height: int = 0
 	visible: bool = False
 	no_monsters: bool = False
+	invulnerable: bool = False
 	skill: int = 3
 	episode_timeout: int = 6000
 	warmup_steps: int = 40
@@ -1414,7 +1441,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 			if starts:
 				# Teleport directly to globally-distributed pickup coordinates.
 				from vizdoom import GameVariable
-				game.new_episode()
+				_new_episode(game, invulnerable=bool(config.invulnerable))
 				try:
 					start_x = float(game.get_game_variable(GameVariable.POSITION_X))
 					start_y = float(game.get_game_variable(GameVariable.POSITION_Y))
@@ -1432,7 +1459,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 					if any(math.hypot(tx - ux, ty - uy) < 768.0 for ux, uy in used_xy):
 						continue
 
-					game.new_episode()
+					_new_episode(game, invulnerable=bool(config.invulnerable))
 					ok = _teleport_to(game, x=float(tx), y=float(ty))
 					_center_pitch(game)
 					if not ok:
@@ -1485,7 +1512,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 				# If some pickup teleports fail (unreachable/invalid coordinates),
 				# fill the remainder using exploration-based candidates.
 				if saved < int(config.num):
-					game.new_episode()
+					_new_episode(game, invulnerable=bool(config.invulnerable))
 					candidates = _gather_candidates(
 						game=game,
 						n=int(config.num),
@@ -1494,6 +1521,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 						max_steps=int(config.max_steps),
 						frame_skip=int(config.frame_skip),
 						keep_every=int(config.keep_every),
+						invulnerable=bool(config.invulnerable),
 					)
 					selected = _select_diverse(candidates, n=int(config.num) - saved)
 					for j, cand in enumerate(selected, start=idx):
@@ -1534,7 +1562,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 						saved += 1
 			else:
 				# Fallback to exploration if the map has no parseable pickups.
-				game.new_episode()
+				_new_episode(game, invulnerable=bool(config.invulnerable))
 				candidates = _gather_candidates(
 					game=game,
 					n=int(config.num),
@@ -1543,6 +1571,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 					max_steps=int(config.max_steps),
 					frame_skip=int(config.frame_skip),
 					keep_every=int(config.keep_every),
+					invulnerable=bool(config.invulnerable),
 				)
 				selected = _select_diverse(candidates, n=int(config.num))
 				for i, cand in enumerate(selected):
@@ -1645,6 +1674,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 	)
 	parser.add_argument("--visible", action="store_true", help="Show the VizDoom window")
 	parser.add_argument("--no-monsters", action="store_true", help="Pass -nomonsters")
+	parser.add_argument(
+		"--invulnerable",
+		action="store_true",
+		help="Enable ZDoom god mode (invulnerability) after each episode start",
+	)
 	parser.add_argument("--skill", type=int, default=3, help="Doom skill 1-5")
 	parser.add_argument("--episode-timeout", type=int, default=6000)
 	parser.add_argument("--warmup-steps", type=int, default=40)
@@ -1699,6 +1733,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 		panorama_height=int(args.panorama_height),
 		visible=bool(args.visible),
 		no_monsters=bool(args.no_monsters),
+		invulnerable=bool(args.invulnerable),
 		skill=int(args.skill),
 		episode_timeout=int(args.episode_timeout),
 		warmup_steps=int(args.warmup_steps),
