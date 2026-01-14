@@ -8,3 +8,4 @@ target
 /*/**/*.pyc
 /*/**/_vizdoom
 /*/**/output
+/*/**/.buildx-cache
