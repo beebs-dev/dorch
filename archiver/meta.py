@@ -1517,6 +1517,7 @@ def main() -> None:
         with tempfile.TemporaryDirectory(prefix="wadmerge_") as td:
             gz_path = os.path.join(td, f"{sha1}.{ext}.gz")
             file_path = os.path.join(td, f"{sha1}.{ext}")
+            output_path = os.path.join(td, f"output_screenshots")
 
             try:
                 download_to_path(session, s3_url, gz_path)
@@ -1547,6 +1548,19 @@ def main() -> None:
                         map_lists.append(extract_per_map_stats_from_wad_bytes(wbuf))
                     per_map_stats = merge_per_map_stats(map_lists)
 
+                iwad = "" # TODO
+                # Screenshot rendering
+                os.makedirs(output_path, exist_ok=True)
+                config = RenderConfig(
+                    iwad=Path(iwad),
+                    files=[Path(file_path)],
+                    output=Path(output_path),
+                    width=args.screenshot_width,
+                    height=args.screenshot_height,
+                    panorama=args.panorama,
+                )
+                render_screenshots(config)
+
             except Exception as ex:
                 extracted = {
                     "format": "unknown",
@@ -1555,7 +1569,17 @@ def main() -> None:
                 per_map_stats = []
                 computed_hashes = None
                 integrity = None
-
+            finally:
+                if args.delete_wads:
+                    try:
+                        os.remove(file_path)
+                    except Exception:
+                        pass
+                    try:
+                        os.remove(gz_path)
+                    except Exception:
+                        pass
+     
             meta_obj = build_output_object(
                 sha1=sha1,
                 sha256=(computed_hashes or {}).get("sha256") or expected_sha256,
@@ -1583,17 +1607,7 @@ def main() -> None:
 
             if args.post_to_wadinfo:
                 post_to_wadinfo(out_obj, wadinfo_base_url=args.wadinfo_base_url)
-                output_path = Path("/tmp/output_screenshots")
-                config = RenderConfig(
-                    iwad=Path(""),
-                    files=[],
-                    output=output_path,
-                    num=16,
-                    seed=0,
-                    width=args.screenshot_width,
-                    height=args.screenshot_height,
-                    panorama=args.panorama,
-                )
+                
 
         # Temp directory auto-deletes here
 
