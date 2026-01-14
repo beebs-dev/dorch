@@ -1,8 +1,5 @@
 FROM amazon/aws-cli:2.15.32
 # TODO: install redis-cli
-# TODO: get files from redis, use s3 as a fallback, cache into redis (if necessary)
-# s3://$IWAD_BUCKET should be downloaded locally to $IWADS_DIR 
-
 COPY archiver/download-iwads.sh /download-iwads.sh
 RUN chmod +x /download-iwads.sh
 CMD ["/download-iwads.sh"]
