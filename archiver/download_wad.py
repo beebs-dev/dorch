@@ -35,7 +35,8 @@ def _fmt_eta(seconds: float) -> str:
 
 
 def download_zip(i: int, out_dir: str) -> str:
-    filename = f"{i:02x}.zip"
+    prefix = f"{i:02x}"
+    filename = f"{prefix}.zip"
     final_path = os.path.join(out_dir, filename)
     url = f"{BASE_URL}/{filename}"
 
@@ -119,15 +120,16 @@ def download_zip(i: int, out_dir: str) -> str:
 
 
 def upload_files(dir: str,
-                 bucket: str = "wadarchive",
+                 id: str,
+                 bucket: str = "wadarchive2",
                  endpoint: str = "https://nyc3.digitaloceanspaces.com"):
-    print(f"Uploading files from {dir} to s3://{bucket}")
+    print(f"Uploading files from {dir} to s3://{bucket}/{id}/")
     subprocess.run(
-        ["aws", "s3", "sync", dir, f"s3://{bucket}",
+        ["aws", "s3", "sync", dir, f"s3://{bucket}/{id}/",
             "--endpoint", endpoint, "--acl", "public-read"],
         check=True,
     )
-    print(f"Synced files from {dir} to s3://{bucket}")
+    print(f"Synced files from {dir} to s3://{bucket}/{id}/")
 
 
 def mark_done(done_path: str, zip_path: str):
@@ -158,7 +160,7 @@ def process_zip(i: int, out_dir: str):
         cleanup(zip_path, extract_dir)
         return
     if os.path.exists(extract_dir):
-        upload_files(os.path.join(extract_dir, id))
+        upload_files(os.path.join(extract_dir, id), id=id)
         return mark_done(done_path, zip_path)
     tmp_dir = f"{extract_dir}_tmp"
     if os.path.exists(tmp_dir):
@@ -171,7 +173,7 @@ def process_zip(i: int, out_dir: str):
     )
     os.rename(tmp_dir, extract_dir)
     print(f"Unzipped {zip_path} to {extract_dir}")
-    upload_files(os.path.join(extract_dir, id))
+    upload_files(os.path.join(extract_dir, id), id=id)
     mark_done(done_path, zip_path)
     cleanup(zip_path, extract_dir)
 

@@ -30,10 +30,12 @@ import gzip
 import hashlib
 import io
 import json
+import mimetypes
 import os
 from pathlib import Path
 import re
 import struct
+import subprocess
 import sys
 import tempfile
 import time
@@ -79,7 +81,8 @@ def _extract_map_markers_from_extracted(extracted: Dict[str, Any]) -> List[str]:
             if not isinstance(w, dict):
                 continue
             maps = w.get("maps")
-            maps_list = [m for m in maps if isinstance(m, str) and m.strip()] if isinstance(maps, list) else []
+            maps_list = [m for m in maps if isinstance(
+                m, str) and m.strip()] if isinstance(maps, list) else []
             p = str(w.get("path") or "").replace("\\", "/").lower()
             under_maps = 1 if (p.startswith("maps/") or "/maps/" in p) else 0
             score = (len(maps_list), under_maps)
@@ -120,7 +123,8 @@ def deduce_iwad_path_from_meta(wad_entry: Dict[str, Any], extracted: Dict[str, A
     )
 
     tnt = _first_existing(assets / "TNT.WAD", assets / "tnt.wad")
-    plutonia = _first_existing(assets / "PLUTONIA.WAD", assets / "plutonia.wad")
+    plutonia = _first_existing(
+        assets / "PLUTONIA.WAD", assets / "plutonia.wad")
 
     heretic = _first_existing(assets / "heretic.wad", assets / "HERETIC.WAD")
     hexen = _first_existing(assets / "hexen.wad", assets / "HEXEN.WAD")
@@ -130,17 +134,23 @@ def deduce_iwad_path_from_meta(wad_entry: Dict[str, Any], extracted: Dict[str, A
     iwads_guess = wad_entry.get("iwads")
     normalized: List[str] = []
     if isinstance(iwads_guess, list):
-        normalized = [_normalize_iwad_guess(v) for v in iwads_guess if isinstance(v, str)]
+        normalized = [_normalize_iwad_guess(
+            v) for v in iwads_guess if isinstance(v, str)]
     elif isinstance(iwads_guess, str):
         normalized = [_normalize_iwad_guess(iwads_guess)]
     normalized = [v for v in normalized if v]
 
     # Canonicalize common names into a minimal set we can satisfy.
-    doom1_names = {"doom", "doom1", "doomu", "ultimate", "ultimate_doom", "freedoom1", "freedoom_phase1", "phase1"}
-    doom2_names = {"doom2", "doom2bfg", "doom2_bfg", "freedoom2", "freedoom_phase2", "phase2", "freedoom", "freedm"}
-    tnt_names = {"tnt", "tnt.wad", "tnt_wad", "finaldoom_tnt", "final_doom_tnt"}
-    plutonia_names = {"plutonia", "plutonia.wad", "plutonia_wad", "finaldoom_plutonia", "final_doom_plutonia"}
-    heretic_names = {"heretic", "heretic.wad", "heretic1", "shadow_of_the_serpent_riders"}
+    doom1_names = {"doom", "doom1", "doomu", "ultimate",
+                   "ultimate_doom", "freedoom1", "freedoom_phase1", "phase1"}
+    doom2_names = {"doom2", "doom2bfg", "doom2_bfg", "freedoom2",
+                   "freedoom_phase2", "phase2", "freedoom", "freedm"}
+    tnt_names = {"tnt", "tnt.wad", "tnt_wad",
+                 "finaldoom_tnt", "final_doom_tnt"}
+    plutonia_names = {"plutonia", "plutonia.wad", "plutonia_wad",
+                      "finaldoom_plutonia", "final_doom_plutonia"}
+    heretic_names = {"heretic", "heretic.wad",
+                     "heretic1", "shadow_of_the_serpent_riders"}
     hexen_names = {"hexen", "hexen.wad"}
     strife_names = {"strife", "strife1", "strife1.wad", "strife.wad"}
 
@@ -148,7 +158,8 @@ def deduce_iwad_path_from_meta(wad_entry: Dict[str, Any], extracted: Dict[str, A
     engines_guess = wad_entry.get("engines")
     engines_norm: List[str] = []
     if isinstance(engines_guess, list):
-        engines_norm = [str(v).strip().lower() for v in engines_guess if isinstance(v, (str, int, float))]
+        engines_norm = [str(v).strip().lower()
+                        for v in engines_guess if isinstance(v, (str, int, float))]
     elif isinstance(engines_guess, str):
         engines_norm = [engines_guess.strip().lower()]
 
@@ -200,6 +211,7 @@ def deduce_iwad_path_from_meta(wad_entry: Dict[str, Any], extracted: Dict[str, A
         "No IWADs found under assets dir: "
         f"{assets} (looked for doom/doom2/tnt/plutonia/heretic/hexen/strife)"
     )
+
 
 DEFAULT_WAD_URL_BASE = "https://wadarchive.nyc3.digitaloceanspaces.com"
 WADINFO_BASE_URL = os.getenv("WADINFO_BASE_URL", "http://localhost:8000")
@@ -323,16 +335,17 @@ def parse_wad_directory_bytes(buf: bytes) -> Optional[Dict[str, Any]]:
     if dir_offset + dir_size > file_size:
         return None
 
-    directory = buf[dir_offset : dir_offset + dir_size]
+    directory = buf[dir_offset: dir_offset + dir_size]
 
     lumps: List[Dict[str, Any]] = []
     for i in range(lump_count):
         base = i * 16
         lump_off = _read_u32le(directory, base + 0)
         lump_size = _read_u32le(directory, base + 4)
-        raw_name = directory[base + 8 : base + 16]
+        raw_name = directory[base + 8: base + 16]
         name = raw_name.split(b"\x00", 1)[0].decode("ascii", errors="replace")
-        lumps.append({"index": i, "name": name, "offset": lump_off, "size": lump_size})
+        lumps.append({"index": i, "name": name,
+                     "offset": lump_off, "size": lump_size})
 
     return {
         "type": ident,
@@ -370,7 +383,7 @@ def read_lump_bytes_from_buf(buf: bytes, lump: Dict[str, Any]) -> bytes:
     size = int(lump["size"])
     if off < 0 or size <= 0 or off >= len(buf):
         return b""
-    return buf[off : min(len(buf), off + size)]
+    return buf[off: min(len(buf), off + size)]
 
 
 def safe_count(size: int, rec: int) -> int:
@@ -588,13 +601,15 @@ def map_summary_from_wad_bytes(buf: bytes, block: Dict[str, Any]) -> Dict[str, A
 
         mechanics["keys"] = sorted(list(key_set))
         monsters["total"] = total_monsters
-        monsters["by_type"] = dict(sorted(by_type.items(), key=lambda kv: (-kv[1], kv[0])))
+        monsters["by_type"] = dict(
+            sorted(by_type.items(), key=lambda kv: (-kv[1], kv[0])))
         difficulty["uv_monsters"] = uv
         difficulty["hmp_monsters"] = hmp
         difficulty["htr_monsters"] = htr
 
         items["total"] = total_items
-        items["by_type"] = dict(sorted(items_by_type.items(), key=lambda kv: (-kv[1], kv[0])))
+        items["by_type"] = dict(
+            sorted(items_by_type.items(), key=lambda kv: (-kv[1], kv[0])))
         difficulty["uv_items"] = uv_items
         difficulty["hmp_items"] = hmp_items
         difficulty["htr_items"] = htr_items
@@ -641,7 +656,8 @@ def download_url_to_file(url: str, dest_path: str, *, timeout_s: float = 60.0) -
     parent = os.path.dirname(dest_path) or "."
     os.makedirs(parent, exist_ok=True)
 
-    fd, tmp_path = tempfile.mkstemp(prefix=os.path.basename(dest_path) + ".", dir=parent)
+    fd, tmp_path = tempfile.mkstemp(
+        prefix=os.path.basename(dest_path) + ".", dir=parent)
     try:
         with os.fdopen(fd, "wb") as f:
             with requests.get(url, stream=True, timeout=timeout_s) as r:
@@ -662,7 +678,8 @@ def download_url_to_file(url: str, dest_path: str, *, timeout_s: float = 60.0) -
 def read_json_file(path: str) -> Any:
     with open(path, "r", encoding="utf-8") as f:
         lines = f.readlines()
-        items = [normalize_extended_json_numbers(json.loads(line)) for line in lines if line.strip()]
+        items = [normalize_extended_json_numbers(
+            json.loads(line)) for line in lines if line.strip()]
         return items
 
 
@@ -778,7 +795,8 @@ def parse_wad_lumps(buf: bytes) -> Optional[List[WadLump]]:
         # bounds check
         if filepos + size > len(buf):
             # Still return partial listing; extraction will be best-effort.
-            lumps.append(WadLump(name=name, offset=filepos, size=max(0, len(buf) - filepos)))
+            lumps.append(WadLump(name=name, offset=filepos,
+                         size=max(0, len(buf) - filepos)))
         else:
             lumps.append(WadLump(name=name, offset=filepos, size=size))
     return lumps
@@ -881,7 +899,8 @@ def extract_from_wad_bytes(buf: bytes) -> Dict[str, Any]:
 
     maps = detect_maps_from_lumps(lumps)
     text_lumps = extract_text_lumps(buf, lumps)
-    names, authors, descs = guess_names_authors_descriptions_from_text(text_lumps)
+    names, authors, descs = guess_names_authors_descriptions_from_text(
+        text_lumps)
 
     return {
         "format": "wad",
@@ -1045,7 +1064,8 @@ def find_primary_wad_in_zip_path(zip_path: str) -> Optional[Tuple[str, bytes]]:
                 if wad_meta.get("format") != "wad":
                     continue
 
-                score = _score_embedded_wad_candidate(fname, wad_meta, int(getattr(info, "file_size", 0) or 0))
+                score = _score_embedded_wad_candidate(
+                    fname, wad_meta, int(getattr(info, "file_size", 0) or 0))
                 cand = (score, fname, wbuf)
                 if best is None or cand[0] > best[0]:
                     best = cand
@@ -1295,14 +1315,17 @@ def build_output_object(
                         continue
                     if not isinstance(name, str) or not name.strip():
                         # Best effort; still include contents.
-                        out_files.append({"source": "pk3", "contents": contents})
+                        out_files.append(
+                            {"source": "pk3", "contents": contents})
                     else:
-                        out_files.append({"source": "pk3", "name": name, "contents": contents})
+                        out_files.append(
+                            {"source": "pk3", "name": name, "contents": contents})
 
         # idgames TXT (stored in idgames.json as latin-1-ish strings)
         if isinstance(ig_textfile_val, str) and ig_textfile_val.strip():
             ig_text = normalize_whitespace(
-                safe_text_decode(ig_textfile_val.encode("latin-1", errors="replace"))
+                safe_text_decode(ig_textfile_val.encode(
+                    "latin-1", errors="replace"))
             )
             if ig_text:
                 out_files.append({"source": "idgames", "contents": ig_text})
@@ -1344,8 +1367,10 @@ def build_output_object(
 
     # Coherent, non-redundant top-level picks (precedence: extracted > wads.json > idgames)
     title = pick_first(
-        (ex_names or [None])[0] if isinstance(ex_names, list) and ex_names else None,
-        (wa_names or [None])[0] if isinstance(wa_names, list) and wa_names else None,
+        (ex_names or [None])[0] if isinstance(
+            ex_names, list) and ex_names else None,
+        (wa_names or [None])[0] if isinstance(
+            wa_names, list) and wa_names else None,
         ig_title,
     )
 
@@ -1359,11 +1384,13 @@ def build_output_object(
     descriptions = merge_lists(
         ex_descs,
         wa_descs,
-        [normalize_whitespace(safe_text_decode(ig_desc.encode("latin-1", errors="replace")))] if isinstance(ig_desc, str) else None,
+        [normalize_whitespace(safe_text_decode(ig_desc.encode(
+            "latin-1", errors="replace")))] if isinstance(ig_desc, str) else None,
     )
 
     # Maps: prefer extracted maps, else WAD Archive maps
-    ex_maps = extracted.get("maps") if isinstance(extracted.get("maps"), list) else None
+    ex_maps = extracted.get("maps") if isinstance(
+        extracted.get("maps"), list) else None
     maps = ex_maps or wa_maps
 
     out: Dict[str, Any] = {
@@ -1485,7 +1512,8 @@ def prune_nones(obj: Any) -> Any:
         return out
     if isinstance(obj, list):
         out = [prune_nones(v) for v in obj]
-        out = [v for v in out if v is not None and not (isinstance(v, (dict, list)) and len(v) == 0)]
+        out = [v for v in out if v is not None and not (
+            isinstance(v, (dict, list)) and len(v) == 0)]
         return out
     return obj
 
@@ -1509,7 +1537,8 @@ def build_idgames_lookup(
         hashes = entry.get("hashes") or []
         if not isinstance(hashes, list) or not hashes:
             continue
-        linked = [h.lower() for h in hashes if isinstance(h, str) and h.lower() in wad_sha1s]
+        linked = [h.lower() for h in hashes if isinstance(
+            h, str) and h.lower() in wad_sha1s]
         if not linked:
             continue
         for h in linked:
@@ -1522,6 +1551,7 @@ def post_to_wadinfo(obj, wadinfo_base_url: str = WADINFO_BASE_URL) -> None:
     response = requests.post(url, json=obj)
     response.raise_for_status()
     print(f"Posted to wadinfo: {response.status_code} {response.text}")
+
 
 def extract_metadata_from_file(path: str, ext: str) -> Dict[str, Any]:
     """
@@ -1546,30 +1576,89 @@ def extract_metadata_from_file(path: str, ext: str) -> Dict[str, Any]:
         "size": len(buf),
     }
 
-def upload_screenshots(sha1: str, path: str, bucket: str, endpoint: str):
+
+def upload_screenshots(sha1: str, path: str, bucket: str, region: Optional[str] = None, endpoint: Optional[str] = None) -> None:
     # TODO: Upload {path}/ to s3://{bucket}/{sha1}/ preserving directory structure.
     # Overwrite existing files.
-    pass
+    if not isinstance(sha1, str) or not re.fullmatch(r"[0-9a-f]{40}", sha1.lower()):
+        raise ValueError("sha1 must be 40 hex chars")
+    if not isinstance(bucket, str) or not bucket.strip():
+        raise ValueError("bucket must be a non-empty string")
+
+    root = Path(path).expanduser().resolve()
+    if not root.exists():
+        raise FileNotFoundError(f"Screenshots path does not exist: {root}")
+    if not root.is_dir():
+        raise NotADirectoryError(
+            f"Screenshots path is not a directory: {root}")
+
+    # Implementation uses the AWS CLI (awscli is a declared dependency in requirements.txt).
+    # Credentials/region are expected to come from environment variables or instance metadata.
+    dest = f"s3://{bucket}/{sha1.lower()}/"
+    cmd: List[str] = ["aws", "s3", "cp", str(
+        root), dest, "--recursive", "--only-show-errors"]
+
+    endpoint_url = endpoint or os.getenv("AWS_ENDPOINT_URL")
+    if endpoint_url:
+        cmd.extend(["--endpoint-url", endpoint_url])
+
+    region_name = region or os.getenv(
+        "AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+    if region_name:
+        cmd.extend(["--region", region_name])
+
+    # Fast pre-check for empty directories to avoid running aws for nothing.
+    has_any = False
+    for _dirpath, _dirnames, filenames in os.walk(str(root)):
+        if filenames:
+            has_any = True
+            break
+    if not has_any:
+        eprint(f"upload_screenshots: no files found under {root}")
+        return
+
+    try:
+        subprocess.run(cmd, check=True)
+    except FileNotFoundError as ex:
+        raise RuntimeError(
+            "AWS CLI not found (expected 'aws' on PATH). Install awscli or ensure it's available.") from ex
+    print(f"Uploaded screenshots to {dest}", file=sys.stderr)
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--wads-json", required=True, help="Path or URL to wads.json")
-    ap.add_argument("--idgames-json", required=True, help="Path or URL to idgames.json")
-    ap.add_argument("--wad-url-base", default=DEFAULT_WAD_URL_BASE, help="Base URL for public WADs bucket")
-    ap.add_argument("--limit", type=int, default=0, help="Process only N wads (0 = all)")
-    ap.add_argument("--start", type=int, default=0, help="Start index into wads.json array")
+    ap.add_argument("--wads-json", required=True,
+                    help="Path or URL to wads.json")
+    ap.add_argument("--idgames-json", required=True,
+                    help="Path or URL to idgames.json")
+    ap.add_argument("--wad-url-base", default=DEFAULT_WAD_URL_BASE,
+                    help="Base URL for public WADs bucket")
+    ap.add_argument("--limit", type=int, default=0,
+                    help="Process only N wads (0 = all)")
+    ap.add_argument("--start", type=int, default=0,
+                    help="Start index into wads.json array")
     ap.add_argument("--pretty", action="store_true", help="Pretty-print JSON")
-    ap.add_argument("--stream", action="store_true", help="Emit newline-delimited JSON objects (NDJSON)")
-    ap.add_argument("--sleep", type=float, default=0.0, help="Sleep seconds between items (politeness)")
-    ap.add_argument("--post-to-wadinfo", action="store_true", help="POST results to wadinfo service")
-    ap.add_argument("--wadinfo-base-url", default=WADINFO_BASE_URL, help="Base URL for wadinfo service")
-    ap.add_argument("--smoke-test-id", default=None, help="SHA1 hash of a single WAD to process for smoke testing")
-    ap.add_argument("--screenshot-width", type=int, default=800, help="Width of screenshots to render")
-    ap.add_argument("--screenshot-height", type=int, default=600, help="Height of screenshots to render")
-    ap.add_argument("--screenshot-count", type=int, default=1, help="Number of screenshots to render (per map)")
-    ap.add_argument("--panorama", action="store_true", help="Render panorama screenshots")
-    ap.add_argument("--s3-bucket", default="wadimages", help="S3 bucket to upload screenshots to")
-    ap.add_argument("--s3-endpoint", default="https://nyc3.digitaloceanspaces.com", help="S3 endpoint URL")
+    ap.add_argument("--stream", action="store_true",
+                    help="Emit newline-delimited JSON objects (NDJSON)")
+    ap.add_argument("--sleep", type=float, default=0.0,
+                    help="Sleep seconds between items (politeness)")
+    ap.add_argument("--post-to-wadinfo", action="store_true",
+                    help="POST results to wadinfo service")
+    ap.add_argument("--wadinfo-base-url", default=WADINFO_BASE_URL,
+                    help="Base URL for wadinfo service")
+    ap.add_argument("--smoke-test-id", default=None,
+                    help="SHA1 hash of a single WAD to process for smoke testing")
+    ap.add_argument("--screenshot-width", type=int, default=800,
+                    help="Width of screenshots to render")
+    ap.add_argument("--screenshot-height", type=int, default=600,
+                    help="Height of screenshots to render")
+    ap.add_argument("--screenshot-count", type=int, default=1,
+                    help="Number of screenshots to render (per map)")
+    ap.add_argument("--panorama", action="store_true",
+                    help="Render panorama screenshots")
+    ap.add_argument("--s3-bucket", default="wadimages",
+                    help="S3 bucket to upload screenshots to")
+    ap.add_argument(
+        "--s3-endpoint", default="https://nyc3.digitaloceanspaces.com", help="S3 endpoint URL")
     args = ap.parse_args()
 
     if is_http_url(args.wads_json):
@@ -1581,7 +1670,8 @@ def main() -> None:
         args.wads_json = "/tmp/wads.json"
 
     if is_http_url(args.idgames_json):
-        eprint(f"Downloading idgames.json: {args.idgames_json} -> /tmp/idgames.json")
+        eprint(
+            f"Downloading idgames.json: {args.idgames_json} -> /tmp/idgames.json")
         try:
             download_url_to_file(args.idgames_json, "/tmp/idgames.json")
         except Exception as ex:
@@ -1594,9 +1684,11 @@ def main() -> None:
     if not isinstance(wads_data, list):
         raise SystemExit("wads.json must be a JSON array of WAD entries")
     if not isinstance(idgames_data, list):
-        raise SystemExit("idgames.json must be a JSON array of idGames entries")
+        raise SystemExit(
+            "idgames.json must be a JSON array of idGames entries")
 
-    wad_sha1s = {str(w.get("_id", "")).lower() for w in wads_data if isinstance(w, dict) and w.get("_id")}
+    wad_sha1s = {str(w.get("_id", "")).lower()
+                 for w in wads_data if isinstance(w, dict) and w.get("_id")}
     id_lookup = build_idgames_lookup(idgames_data, wad_sha1s)
 
     session = requests.Session()
@@ -1605,7 +1697,8 @@ def main() -> None:
     start = max(0, args.start)
     end = total if args.limit <= 0 else min(total, start + args.limit)
 
-    out_items: Optional[List[Dict[str, Any]]] = [] if (args.pretty and not args.stream) else None
+    out_items: Optional[List[Dict[str, Any]]] = [] if (
+        args.pretty and not args.stream) else None
     first_array_item = True
     if not args.stream and out_items is None:
         sys.stdout.write("[")
@@ -1633,7 +1726,8 @@ def main() -> None:
         ext = TYPE_TO_EXT.get(wad_type, None) or "wad"  # default best-guess
 
         prefixes = candidate_prefixes(wad_entry)
-        s3_url = resolve_s3_url(session, args.wad_url_base, sha1, ext, prefixes)
+        s3_url = resolve_s3_url(
+            session, args.wad_url_base, sha1, ext, prefixes)
 
         extracted: Dict[str, Any]
         per_map_stats: List[Dict[str, Any]] = []
@@ -1659,7 +1753,8 @@ def main() -> None:
             out_obj = {"meta": meta_obj, "maps": per_map_stats}
 
             if args.stream:
-                sys.stdout.write(json.dumps(out_obj, indent=2 if args.pretty else None, ensure_ascii=False))
+                sys.stdout.write(json.dumps(
+                    out_obj, indent=2 if args.pretty else None, ensure_ascii=False))
                 sys.stdout.write("\n")
             else:
                 if out_items is not None:
@@ -1690,7 +1785,8 @@ def main() -> None:
 
                 computed_hashes = compute_hashes_for_file(file_path)
                 if isinstance(expected_hashes, dict):
-                    integrity = validate_expected_hashes(expected_hashes, computed_hashes)
+                    integrity = validate_expected_hashes(
+                        expected_hashes, computed_hashes)
                 else:
                     integrity = None
 
@@ -1701,12 +1797,14 @@ def main() -> None:
                 # - For PK3-like zips, analyze all embedded WADs in load order and merge maps
                 if ext == "wad":
                     with open(file_path, "rb") as f:
-                        per_map_stats = extract_per_map_stats_from_wad_bytes(f.read())
+                        per_map_stats = extract_per_map_stats_from_wad_bytes(
+                            f.read())
                 elif ext in {"pk3", "pk7", "pkz", "epk", "pke"}:
                     embedded = find_all_wads_in_zip_path(file_path)
                     map_lists: List[List[Dict[str, Any]]] = []
                     for (_wad_path, wbuf) in embedded:
-                        map_lists.append(extract_per_map_stats_from_wad_bytes(wbuf))
+                        map_lists.append(
+                            extract_per_map_stats_from_wad_bytes(wbuf))
                     per_map_stats = merge_per_map_stats(map_lists)
 
                 # Deduce IWAD for rendering screenshots.
@@ -1717,21 +1815,28 @@ def main() -> None:
                     iwad_path = Path(file_path)
                     files_for_render: List[Path] = []
                 else:
-                    iwad_path = deduce_iwad_path_from_meta(wad_entry, extracted)
+                    iwad_path = deduce_iwad_path_from_meta(
+                        wad_entry, extracted)
                     files_for_render = [Path(file_path)]
 
-                # Screenshot rendering
-                os.makedirs(output_path, exist_ok=True)
-                config = RenderConfig(
-                    iwad=iwad_path,
-                    files=files_for_render,
-                    output=Path(output_path),
-                    width=args.screenshot_width,
-                    height=args.screenshot_height,
-                    panorama=args.panorama,
-                )
-                render_screenshots(config)
-
+                try:
+                    # Screenshot rendering
+                    os.makedirs(output_path, exist_ok=True)
+                    config = RenderConfig(
+                        iwad=iwad_path,
+                        files=files_for_render,
+                        output=Path(output_path),
+                        width=args.screenshot_width,
+                        height=args.screenshot_height,
+                        panorama=args.panorama,
+                    )
+                    render_screenshots(config)
+                    upload_screenshots(sha1=sha1,
+                                    path=output_path,
+                                    bucket=args.s3_bucket,
+                                    endpoint=args.s3_endpoint)
+                except Exception as ex:
+                    eprint(f"Screenshot rendering/upload failed for {sha1}: {ex}")
             except Exception as ex:
                 extracted = {
                     "format": "unknown",
@@ -1740,10 +1845,11 @@ def main() -> None:
                 per_map_stats = []
                 computed_hashes = None
                 integrity = None
-     
+
             meta_obj = build_output_object(
                 sha1=sha1,
-                sha256=(computed_hashes or {}).get("sha256") or expected_sha256,
+                sha256=(computed_hashes or {}).get(
+                    "sha256") or expected_sha256,
                 s3_url=s3_url,
                 extracted=extracted,
                 wad_archive=wad_entry,
@@ -1752,9 +1858,10 @@ def main() -> None:
             )
 
             out_obj = {"meta": meta_obj, "maps": per_map_stats}
-            
+
             if args.stream:
-                sys.stdout.write(json.dumps(out_obj, indent=2 if args.pretty else None, ensure_ascii=False))
+                sys.stdout.write(json.dumps(
+                    out_obj, indent=2 if args.pretty else None, ensure_ascii=False))
                 sys.stdout.write("\n")
             else:
                 if out_items is not None:
@@ -1767,8 +1874,8 @@ def main() -> None:
                     first_array_item = False
 
             if args.post_to_wadinfo:
-                post_to_wadinfo(out_obj, wadinfo_base_url=args.wadinfo_base_url)
-                
+                post_to_wadinfo(
+                    out_obj, wadinfo_base_url=args.wadinfo_base_url)
 
         # Temp directory auto-deletes here
 
@@ -1777,7 +1884,8 @@ def main() -> None:
 
     if not args.stream:
         if out_items is not None:
-            sys.stdout.write(json.dumps(out_items, indent=2, ensure_ascii=False))
+            sys.stdout.write(json.dumps(
+                out_items, indent=2, ensure_ascii=False))
             sys.stdout.write("\n")
         else:
             sys.stdout.write("\n\n]")

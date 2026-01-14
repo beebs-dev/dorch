@@ -5,4 +5,6 @@ source ../.venv/bin/activate
 python3 meta.py \
   --wads-json ../../wads.json \
   --idgames-json ../../idgames.json \
-  --pretty
+  --pretty \
+  --limit 2 \
+  --panorama
