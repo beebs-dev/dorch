@@ -1866,9 +1866,11 @@ def main() -> None:
                         iwad=iwad_path,
                         files=files_for_render,
                         output=Path(output_path),
+                        num=4,
                         width=args.screenshot_width,
                         height=args.screenshot_height,
                         panorama=args.panorama,
+                        invulnerable=True,
                     )
                     render_screenshots(config)
                     upload_screenshots(sha1=sha1,

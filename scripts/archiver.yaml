@@ -57,6 +57,16 @@ spec:
             secretKeyRef:
               name: spaces-cred
               key: secret_access_key
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 1000m
+          memory: 512Mi
+      volumeMounts:
+        - name: data
+          mountPath: /data
     - name: archiver-c
       image: thavlik/dorch-archiver:latest
       imagePullPolicy: Always
@@ -78,6 +88,13 @@ spec:
             secretKeyRef:
               name: spaces-cred
               key: secret_access_key
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 1000m
+          memory: 512Mi
       volumeMounts:
         - name: data
           mountPath: /data
