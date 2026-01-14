@@ -105,6 +105,7 @@ def analyze_one_wad(
 	sha1: str,
 	wad_entry: Dict[str, Any],
 	idgames_entry: Optional[Dict[str, Any]],
+	readmes_entry: Optional[Dict[str, Any]],
 	s3_wads,
 	wad_bucket: str,
 	post_to_wadinfo: bool,
@@ -243,6 +244,7 @@ def analyze_one_wad(
 		extracted=extracted,
 		wad_archive=wad_entry,
 		idgames=idgames_entry,
+		readmes=readmes_entry,
 		integrity=integrity,
 	)
 	out_obj = {"meta": meta_obj, "maps": per_map_stats}
@@ -372,6 +374,7 @@ async def _run(args: argparse.Namespace) -> None:
 							sha1=sha1,
 							wad_entry=job.wad_entry,
 							idgames_entry=job.idgames_entry,
+							readmes_entry=job.readmes_entry,
 							s3_wads=s3_wads,
 							wad_bucket=wad_bucket,
 							post_to_wadinfo=post_to_wadinfo,

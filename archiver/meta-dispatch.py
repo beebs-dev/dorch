@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import re
 import signal
 import sys
@@ -17,6 +18,29 @@ from natsutil import connect_nats, ensure_stream
 
 def _valid_sha1(s: str) -> bool:
 	return bool(re.fullmatch(r"[0-9a-f]{40}", (s or "").lower()))
+
+
+def _read_jsonl_lookup(*, path: str, wanted_sha1s: set[str]) -> Dict[str, Dict[str, Any]]:
+	"""Read JSONL file of objects with an _id sha1 field.
+
+	Only keeps entries whose _id exists in wanted_sha1s.
+	"""
+	lookup: Dict[str, Dict[str, Any]] = {}
+	with open(path, "r", encoding="utf-8") as f:
+		for line in f:
+			line = line.strip()
+			if not line:
+				continue
+			obj = json.loads(line)
+			if not isinstance(obj, dict):
+				continue
+			sha1 = str(obj.get("_id") or "").lower()
+			if not _valid_sha1(sha1):
+				continue
+			if sha1 not in wanted_sha1s:
+				continue
+			lookup.setdefault(sha1, obj)
+	return lookup
 
 
 async def _run(args: argparse.Namespace) -> None:
@@ -38,6 +62,7 @@ async def _run(args: argparse.Namespace) -> None:
 	# Load inputs (support URL like meta.py)
 	wads_json = args.wads_json
 	idgames_json = args.idgames_json
+	readmes_json = args.readmes_json
 	if meta.is_http_url(wads_json):
 		meta.eprint(f"Downloading wads.json: {wads_json} -> /tmp/wads.json")
 		meta.download_url_to_file(wads_json, "/tmp/wads.json")
@@ -46,6 +71,10 @@ async def _run(args: argparse.Namespace) -> None:
 		meta.eprint(f"Downloading idgames.json: {idgames_json} -> /tmp/idgames.json")
 		meta.download_url_to_file(idgames_json, "/tmp/idgames.json")
 		idgames_json = "/tmp/idgames.json"
+	if meta.is_http_url(readmes_json):
+		meta.eprint(f"Downloading readmes.json: {readmes_json} -> /tmp/readmes.json")
+		meta.download_url_to_file(readmes_json, "/tmp/readmes.json")
+		readmes_json = "/tmp/readmes.json"
 
 	wads_data = meta.read_json_file(wads_json)
 	idgames_data = meta.read_json_file(idgames_json)
@@ -57,6 +86,7 @@ async def _run(args: argparse.Namespace) -> None:
 	# Build idgames lookup keyed by sha1.
 	wad_sha1s = {str(w.get("_id", "")).lower() for w in wads_data if isinstance(w, dict) and w.get("_id")}
 	id_lookup = meta.build_idgames_lookup(idgames_data, wad_sha1s)
+	readme_lookup = _read_jsonl_lookup(path=readmes_json, wanted_sha1s=wad_sha1s)
 
 	nc = await connect_nats()
 	try:
@@ -83,10 +113,11 @@ async def _run(args: argparse.Namespace) -> None:
 				continue
 
 			job = MetaJob(
-				version=1,
+				version=2,
 				sha1=sha1,
 				wad_entry=wad_entry,
 				idgames_entry=id_lookup.get(sha1),
+				readmes_entry=readme_lookup.get(sha1),
 				dispatched_at=time.time(),
 			)
 
@@ -116,6 +147,7 @@ def main() -> None:
 	ap = argparse.ArgumentParser(description="Dispatch dorch meta jobs to NATS JetStream")
 	ap.add_argument("--wads-json", required=True, help="Path or URL to wads.json")
 	ap.add_argument("--idgames-json", required=True, help="Path or URL to idgames.json")
+	ap.add_argument("--readmes-json", required=True, help="Path or URL to readmes.json (JSONL)")
 	ap.add_argument("--limit", type=int, default=0, help="Dispatch only N wads (0 = all)")
 	ap.add_argument("--start", type=int, default=0, help="Start index into wads.json array")
 	ap.add_argument("--sleep", type=float, default=0.0, help="Sleep seconds between publishes")

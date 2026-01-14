@@ -1291,6 +1291,7 @@ def build_output_object(
     extracted: Dict[str, Any],
     wad_archive: Dict[str, Any],
     idgames: Optional[Dict[str, Any]],
+    readmes: Optional[Dict[str, Any]] = None,
     integrity: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     def _compact_extracted(ex: Dict[str, Any]) -> Dict[str, Any]:
@@ -1317,7 +1318,11 @@ def build_output_object(
         ex2["text_files"] = compact
         return ex2
 
-    def _build_meta_text_files(ex: Dict[str, Any], ig_textfile_val: Optional[str]) -> Optional[List[Dict[str, Any]]]:
+    def _build_meta_text_files(
+        ex: Dict[str, Any],
+        ig_textfile_val: Optional[str],
+        readmes_entry: Optional[Dict[str, Any]],
+    ) -> Optional[List[Dict[str, Any]]]:
         out_files: List[Dict[str, Any]] = []
 
         # PK3-like (zip) embedded text
@@ -1347,6 +1352,17 @@ def build_output_object(
             )
             if ig_text:
                 out_files.append({"source": "idgames", "contents": ig_text})
+
+        # readmes.json entries: list of readme strings
+        if isinstance(readmes_entry, dict):
+            rms = readmes_entry.get("readmes")
+            if isinstance(rms, list):
+                for rm in rms:
+                    if not isinstance(rm, str) or not rm.strip():
+                        continue
+                    rm_text = normalize_whitespace(rm)
+                    if rm_text:
+                        out_files.append({"source": "readmes", "contents": rm_text})
 
         return out_files or None
 
@@ -1417,7 +1433,7 @@ def build_output_object(
         "title": title,
         "authors": authors,
         "descriptions": descriptions,
-        "text_files": _build_meta_text_files(extracted, ig_textfile),
+        "text_files": _build_meta_text_files(extracted, ig_textfile, readmes),
         "file": {
             "type": wa_type,
             "size": wad_archive.get("size"),
@@ -1573,6 +1589,7 @@ def post_to_wadinfo(obj, sha1, wadinfo_base_url: str = WADINFO_BASE_URL) -> None
         print(f"wadinfo rejected {sha1}: {response.text}")
         return
     response.raise_for_status()
+    print(json.dumps(obj, indent=2))
     print(f"Posted {sha1} to wadinfo: {response.status_code}")
 
 
