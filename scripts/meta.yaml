@@ -1,49 +1,9 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: meta-0
-  namespace: wad
+  name: meta-dispatch
+  namespace: dorch
 spec:
-  volumes:
-    - name: data
-      persistentVolumeClaim:
-        claimName: data-0
-  initContainers:
-    - name: aws-sync
-      image: amazon/aws-cli:2.15.32
-      imagePullPolicy: IfNotPresent
-      env:
-        - name: AWS_ACCESS_KEY_ID
-          valueFrom:
-            secretKeyRef:
-              name: spaces-cred
-              key: access_key_id
-        - name: AWS_SECRET_ACCESS_KEY
-          valueFrom:
-            secretKeyRef:
-              name: spaces-cred
-              key: secret_access_key
-        - name: AWS_DEFAULT_REGION
-          value: nyc3
-        - name: AWS_EC2_METADATA_DISABLED
-          value: "true"
-        - name: AWS_S3_FORCE_PATH_STYLE
-          value: "true"
-      command:
-        - /bin/sh
-        - -c
-        - |
-          set -euo pipefail
-          echo "Syncing IWADs"
-          aws s3 sync \
-            s3://iwads/ \
-            /data/iwads/ \
-            --endpoint-url https://nyc3.digitaloceanspaces.com \
-            --region nyc3
-          echo "IWAD sync complete"
-      volumeMounts:
-        - name: data
-          mountPath: /data
   containers:
     - name: meta
       image: thavlik/dorch-archiver:latest
@@ -51,37 +11,30 @@ spec:
       command:
         - python
         - -u
-        - /app/meta.py
+        - /app/meta-dispatch.py
         - --start
         - "0"
         - --limit
-        - "2"
-        - --pretty
+        - "10"
         - --wads-json
         - https://wadarchive2.nyc3.digitaloceanspaces.com/wads.json
         - --idgames-json
         - https://wadarchive2.nyc3.digitaloceanspaces.com/idgames.json
-        - --post-to-wadinfo
-        - --wadinfo-base-url
-        - http://dorch-wadinfo.dorch.svc.cluster.local
       env:
         - name: PYTHONUNBUFFERED
           value: "1"
-        - name: AWS_ACCESS_KEY_ID
+        - name: NATS_URL
+          value: "nats://nats.nats.svc.cluster.local:4222"
+        - name: NATS_USER
           valueFrom:
             secretKeyRef:
-              name: spaces-cred
-              key: access_key_id
-        - name: AWS_SECRET_ACCESS_KEY
+              name: nats-cred
+              key: user
+        - name: NATS_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: spaces-cred
-              key: secret_access_key
-        - name: IWADS_DIR
-          value: /data/iwads
-      volumeMounts:
-        - name: data
-          mountPath: /data
+              name: nats-cred
+              key: password
       resources:
         requests:
           cpu: 500m

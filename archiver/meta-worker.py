@@ -231,15 +231,28 @@ async def _run(args: argparse.Namespace) -> None:
 	wad_endpoint = _env_str("DORCH_WAD_ENDPOINT", "https://nyc3.digitaloceanspaces.com")
 	images_bucket = _env_str("DORCH_IMAGES_BUCKET", "wadimages")
 	images_endpoint = _env_str("DORCH_IMAGES_ENDPOINT", "https://nyc3.digitaloceanspaces.com")
+	print(f'region_name: {region_name}', file=sys.stderr)
+	print(f'wad_endpoint: {wad_endpoint}', file=sys.stderr)
+	print(f'wad_bucket: {wad_bucket}', file=sys.stderr)
+	print(f'images_endpoint: {images_endpoint}', file=sys.stderr)
+	print(f'images_bucket: {images_bucket}', file=sys.stderr)
+
 	post_to_wadinfo = _env_bool("DORCH_POST_TO_WADINFO", True)
 	wadinfo_base_url = _env_str("WADINFO_BASE_URL", "http://localhost:8000")
+	print(f'wadinfo_base_url: {wadinfo_base_url}', file=sys.stderr)
 
 	render_screens = _env_bool("DORCH_RENDER_SCREENSHOTS", False)
 	upload_screens = _env_bool("DORCH_UPLOAD_SCREENSHOTS", False)
 	screenshot_width = _env_int("DORCH_SCREENSHOT_WIDTH", 800)
 	screenshot_height = _env_int("DORCH_SCREENSHOT_HEIGHT", 600)
-	screenshot_count = _env_int("DORCH_SCREENSHOT_COUNT", 1)
+	screenshot_count = _env_int("DORCH_SCREENSHOT_COUNT", 5)
 	panorama = _env_bool("DORCH_PANORAMA", False)
+	print(f'render_screens: {render_screens}', file=sys.stderr)
+	print(f'upload_screens: {upload_screens}', file=sys.stderr)
+	print(f'screenshot_width: {screenshot_width}', file=sys.stderr)
+	print(f'screenshot_height: {screenshot_height}', file=sys.stderr)
+	print(f'screenshot_count: {screenshot_count}', file=sys.stderr)
+	print(f'panorama: {panorama}', file=sys.stderr)
 
 	s3_wads = boto3.client(
 		"s3",
@@ -357,7 +370,7 @@ async def _run(args: argparse.Namespace) -> None:
 	finally:
 		if fast_exit:
 			try:
-				await nc.flush(timeout=0.25)
+				await nc.flush(timeout=1)
 			except Exception:
 				pass
 			await nc.close()

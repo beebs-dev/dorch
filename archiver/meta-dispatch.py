@@ -104,7 +104,7 @@ async def _run(args: argparse.Namespace) -> None:
 	finally:
 		if fast_exit:
 			try:
-				await nc.flush(timeout=0.25)
+				await nc.flush(timeout=1)
 			except Exception:
 				pass
 			await nc.close()

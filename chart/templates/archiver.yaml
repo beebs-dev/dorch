@@ -72,10 +72,18 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
         env:
+        - name: DORCH_POST_TO_WADINFO
+          value: "1"
+        - name: WADINFO_BASE_URL
+          value: "http://{{ .Release.Name }}-wadinfo"
         - name: PYTHONUNBUFFERED
           value: "1"
         - name: DORCH_READY_FILE
           value: /etc/ready
+        - name: DORCH_PANORAMA
+          value: "1"
+        - name: DORCH_SCREENSHOT_COUNT
+          value: "5"
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
