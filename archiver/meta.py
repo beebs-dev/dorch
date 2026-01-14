@@ -43,6 +43,164 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from screenshots import RenderConfig, render_screenshots
 import requests
 
+
+def _iwads_dir() -> Path:
+    dir = os.getenv("IWADS_DIR", None)
+    if dir is not None:
+        return Path(dir).resolve()
+    return Path(__file__).resolve().parent / "assets"
+
+
+def _normalize_iwad_guess(s: str) -> str:
+    s = str(s or "").strip().lower()
+    if not s:
+        return ""
+    # Reduce to basename without extension.
+    s = os.path.basename(s)
+    if s.endswith(".wad"):
+        s = s[: -len(".wad")]
+    return s
+
+
+def _extract_map_markers_from_extracted(extracted: Dict[str, Any]) -> List[str]:
+    if not isinstance(extracted, dict):
+        return []
+    fmt = extracted.get("format")
+    if fmt == "wad":
+        maps = extracted.get("maps")
+        return [m for m in maps if isinstance(m, str) and m.strip()] if isinstance(maps, list) else []
+    if fmt == "zip":
+        # Pick the embedded WAD with the most maps; tie-break if under maps/.
+        best: Optional[Tuple[int, int, List[str]]] = None
+        embedded = extracted.get("embedded_wads")
+        if not isinstance(embedded, list):
+            return []
+        for w in embedded:
+            if not isinstance(w, dict):
+                continue
+            maps = w.get("maps")
+            maps_list = [m for m in maps if isinstance(m, str) and m.strip()] if isinstance(maps, list) else []
+            p = str(w.get("path") or "").replace("\\", "/").lower()
+            under_maps = 1 if (p.startswith("maps/") or "/maps/" in p) else 0
+            score = (len(maps_list), under_maps)
+            if best is None or score > (best[0], best[1]):
+                best = (score[0], score[1], maps_list)
+        return best[2] if best is not None else []
+    return []
+
+
+def deduce_iwad_path_from_meta(wad_entry: Dict[str, Any], extracted: Dict[str, Any]) -> Path:
+    """Deduce an IWAD path for rendering, based on WAD Archive metadata + extracted map markers.
+
+    Returns a *path to an IWAD file* that should exist locally (typically under archiver/assets).
+    """
+    assets = _iwads_dir()
+
+    def _first_existing(*paths: Path) -> Optional[Path]:
+        for p in paths:
+            try:
+                if p.exists():
+                    return p
+            except OSError:
+                continue
+        return None
+
+    # Common IWAD filenames in the wild (case-sensitive on Linux).
+    doom1 = _first_existing(
+        assets / "DOOM.WAD",
+        assets / "doom.wad",
+        assets / "doom1.wad",
+        assets / "DOOM1.WAD",
+    )
+
+    doom2 = _first_existing(
+        assets / "DOOM2.WAD",
+        assets / "doom2.wad",
+        assets / "freedoom2.wad",
+    )
+
+    tnt = _first_existing(assets / "TNT.WAD", assets / "tnt.wad")
+    plutonia = _first_existing(assets / "PLUTONIA.WAD", assets / "plutonia.wad")
+
+    heretic = _first_existing(assets / "heretic.wad", assets / "HERETIC.WAD")
+    hexen = _first_existing(assets / "hexen.wad", assets / "HEXEN.WAD")
+    strife = _first_existing(assets / "strife1.wad", assets / "STRIFE1.WAD")
+
+    # 1) Trust explicit WAD Archive guesses first (if available).
+    iwads_guess = wad_entry.get("iwads")
+    normalized: List[str] = []
+    if isinstance(iwads_guess, list):
+        normalized = [_normalize_iwad_guess(v) for v in iwads_guess if isinstance(v, str)]
+    elif isinstance(iwads_guess, str):
+        normalized = [_normalize_iwad_guess(iwads_guess)]
+    normalized = [v for v in normalized if v]
+
+    # Canonicalize common names into a minimal set we can satisfy.
+    doom1_names = {"doom", "doom1", "doomu", "ultimate", "ultimate_doom", "freedoom1", "freedoom_phase1", "phase1"}
+    doom2_names = {"doom2", "doom2bfg", "doom2_bfg", "freedoom2", "freedoom_phase2", "phase2", "freedoom", "freedm"}
+    tnt_names = {"tnt", "tnt.wad", "tnt_wad", "finaldoom_tnt", "final_doom_tnt"}
+    plutonia_names = {"plutonia", "plutonia.wad", "plutonia_wad", "finaldoom_plutonia", "final_doom_plutonia"}
+    heretic_names = {"heretic", "heretic.wad", "heretic1", "shadow_of_the_serpent_riders"}
+    hexen_names = {"hexen", "hexen.wad"}
+    strife_names = {"strife", "strife1", "strife1.wad", "strife.wad"}
+
+    # Some datasets put the "engine" guess in a separate field; fold it into the same decision.
+    engines_guess = wad_entry.get("engines")
+    engines_norm: List[str] = []
+    if isinstance(engines_guess, list):
+        engines_norm = [str(v).strip().lower() for v in engines_guess if isinstance(v, (str, int, float))]
+    elif isinstance(engines_guess, str):
+        engines_norm = [engines_guess.strip().lower()]
+
+    tokens = [v for v in (normalized + engines_norm) if v]
+
+    if any(v in hexen_names for v in tokens) and hexen is not None:
+        return hexen
+    if any(v in heretic_names for v in tokens) and heretic is not None:
+        return heretic
+    if any(v in strife_names for v in tokens) and strife is not None:
+        return strife
+    if any(v in plutonia_names for v in tokens) and plutonia is not None:
+        return plutonia
+    if any(v in tnt_names for v in tokens) and tnt is not None:
+        return tnt
+    if any(v in doom2_names for v in tokens) and doom2 is not None:
+        return doom2
+    if any(v in doom1_names for v in tokens) and doom1 is not None:
+        return doom1
+
+    # 2) Fall back to map-marker heuristics.
+    maps = _extract_map_markers_from_extracted(extracted)
+    up = [m.strip().upper() for m in maps if isinstance(m, str)]
+    if any(re.fullmatch(r"MAP\d\d", m) for m in up):
+        # MAPxx is common to Doom2/Final Doom/Hexen/Strife; prefer Doom2-ish IWADs.
+        if doom2 is not None:
+            return doom2
+        # If Doom2 isn't available but one of the MAPxx games is, pick it.
+        if tnt is not None:
+            return tnt
+        if plutonia is not None:
+            return plutonia
+        if hexen is not None:
+            return hexen
+        if strife is not None:
+            return strife
+    if any(re.fullmatch(r"E\dM\d", m) for m in up):
+        # E#M# is common to Doom1 and Heretic.
+        if doom1 is not None:
+            return doom1
+        if heretic is not None:
+            return heretic
+
+    # 3) Last resort: prefer Doom 2-ish IWAD if present.
+    for p in (doom2, tnt, plutonia, doom1, heretic, hexen, strife):
+        if p is not None:
+            return p
+    raise FileNotFoundError(
+        "No IWADs found under assets dir: "
+        f"{assets} (looked for doom/doom2/tnt/plutonia/heretic/hexen/strife)"
+    )
+
 DEFAULT_WAD_URL_BASE = "https://wadarchive.nyc3.digitaloceanspaces.com"
 WADINFO_BASE_URL = os.getenv("WADINFO_BASE_URL", "http://localhost:8000")
 
@@ -1388,6 +1546,10 @@ def extract_metadata_from_file(path: str, ext: str) -> Dict[str, Any]:
         "size": len(buf),
     }
 
+def upload_screenshots(sha1: str, path: str, bucket: str, endpoint: str):
+    # TODO: Upload {path}/ to s3://{bucket}/{sha1}/ preserving directory structure.
+    # Overwrite existing files.
+    pass
 
 def main() -> None:
     ap = argparse.ArgumentParser()
@@ -1406,7 +1568,6 @@ def main() -> None:
     ap.add_argument("--screenshot-height", type=int, default=600, help="Height of screenshots to render")
     ap.add_argument("--screenshot-count", type=int, default=1, help="Number of screenshots to render (per map)")
     ap.add_argument("--panorama", action="store_true", help="Render panorama screenshots")
-    ap.add_argument("--delete-wads", action="store_true", help="Delete WAD files after processing")
     ap.add_argument("--s3-bucket", default="wadimages", help="S3 bucket to upload screenshots to")
     ap.add_argument("--s3-endpoint", default="https://nyc3.digitaloceanspaces.com", help="S3 endpoint URL")
     args = ap.parse_args()
@@ -1548,12 +1709,22 @@ def main() -> None:
                         map_lists.append(extract_per_map_stats_from_wad_bytes(wbuf))
                     per_map_stats = merge_per_map_stats(map_lists)
 
-                iwad = "" # TODO
+                # Deduce IWAD for rendering screenshots.
+                # - If this entry is itself an IWAD, render it directly.
+                # - Otherwise pick a locally-available IWAD based on wad meta.
+                wad_type = str(wad_entry.get("type") or "").upper()
+                if wad_type == "IWAD" and ext == "wad":
+                    iwad_path = Path(file_path)
+                    files_for_render: List[Path] = []
+                else:
+                    iwad_path = deduce_iwad_path_from_meta(wad_entry, extracted)
+                    files_for_render = [Path(file_path)]
+
                 # Screenshot rendering
                 os.makedirs(output_path, exist_ok=True)
                 config = RenderConfig(
-                    iwad=Path(iwad),
-                    files=[Path(file_path)],
+                    iwad=iwad_path,
+                    files=files_for_render,
                     output=Path(output_path),
                     width=args.screenshot_width,
                     height=args.screenshot_height,
@@ -1569,16 +1740,6 @@ def main() -> None:
                 per_map_stats = []
                 computed_hashes = None
                 integrity = None
-            finally:
-                if args.delete_wads:
-                    try:
-                        os.remove(file_path)
-                    except Exception:
-                        pass
-                    try:
-                        os.remove(gz_path)
-                    except Exception:
-                        pass
      
             meta_obj = build_output_object(
                 sha1=sha1,

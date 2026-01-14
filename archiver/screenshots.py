@@ -1452,7 +1452,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 					)
 					if best is None:
 						continue
-					out_path = map_dir / f"{idx}.{ext}"
+					out_path = map_dir / "images" / f"{idx}.{ext}"
 					_save_image(best.screen, out_path, fmt=str(config.format), quality=quality)
 					if bool(config.panorama):
 						try:
@@ -1474,7 +1474,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 							)
 							_save_image(
 								pano,
-								map_dir / f"{idx}_pano.{str(config.panorama_format)}",
+								map_dir / "pano" /f"pano_{idx}.{str(config.panorama_format)}",
 								fmt=str(config.panorama_format),
 								quality=pano_quality,
 							)
@@ -1498,7 +1498,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 					)
 					selected = _select_diverse(candidates, n=int(config.num) - saved)
 					for j, cand in enumerate(selected, start=idx):
-						out_path = map_dir / f"{j}.{ext}"
+						out_path = map_dir / "images" / f"{j}.{ext}"
 						_save_image(cand.screen, out_path, fmt=str(config.format), quality=quality)
 						if bool(config.panorama):
 							try:
@@ -1508,12 +1508,12 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 									base_yaw_deg=float(cand.angle),
 									face_size=pano_face_size,
 								)
-								_save_image(front, map_dir / f"{j}_front.{ext}", fmt=str(config.format), quality=quality)
-								_save_image(right, map_dir / f"{j}_right.{ext}", fmt=str(config.format), quality=quality)
-								_save_image(back, map_dir / f"{j}_back.{ext}", fmt=str(config.format), quality=quality)
-								_save_image(left, map_dir / f"{j}_left.{ext}", fmt=str(config.format), quality=quality)
-								_save_image(up, map_dir / f"{j}_up.{ext}", fmt=str(config.format), quality=quality)
-								_save_image(down, map_dir / f"{j}_down.{ext}", fmt=str(config.format), quality=quality)
+								#_save_image(front, map_dir / f"{j}_front.{ext}", fmt=str(config.format), quality=quality)
+								#_save_image(right, map_dir / f"{j}_right.{ext}", fmt=str(config.format), quality=quality)
+								#_save_image(back, map_dir / f"{j}_back.{ext}", fmt=str(config.format), quality=quality)
+								#_save_image(left, map_dir / f"{j}_left.{ext}", fmt=str(config.format), quality=quality)
+								#_save_image(up, map_dir / f"{j}_up.{ext}", fmt=str(config.format), quality=quality)
+								#_save_image(down, map_dir / f"{j}_down.{ext}", fmt=str(config.format), quality=quality)
 								pano = _cubemap_faces_to_equirect(
 									front=front,
 									right=right,
@@ -1526,7 +1526,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 								)
 								_save_image(
 									pano,
-									map_dir / f"{j}_pano.{str(config.panorama_format)}",
+									map_dir / f"pano_{j}.{str(config.panorama_format)}",
 									fmt=str(config.panorama_format),
 									quality=pano_quality,
 								)
@@ -1547,7 +1547,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 				)
 				selected = _select_diverse(candidates, n=int(config.num))
 				for i, cand in enumerate(selected):
-					out_path = map_dir / f"{i}.{ext}"
+					out_path = map_dir / "images" / f"{i}.{ext}"
 					_save_image(cand.screen, out_path, fmt=str(config.format), quality=quality)
 					if bool(config.panorama):
 						try:
@@ -1557,12 +1557,12 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 								base_yaw_deg=float(cand.angle),
 								face_size=pano_face_size,
 							)
-							_save_image(front, map_dir / f"{i}_front.{ext}", fmt=str(config.format), quality=quality)
-							_save_image(right, map_dir / f"{i}_right.{ext}", fmt=str(config.format), quality=quality)
-							_save_image(back, map_dir / f"{i}_back.{ext}", fmt=str(config.format), quality=quality)
-							_save_image(left, map_dir / f"{i}_left.{ext}", fmt=str(config.format), quality=quality)
-							_save_image(up, map_dir / f"{i}_up.{ext}", fmt=str(config.format), quality=quality)
-							_save_image(down, map_dir / f"{i}_down.{ext}", fmt=str(config.format), quality=quality)
+							#_save_image(front, map_dir / f"{i}_front.{ext}", fmt=str(config.format), quality=quality)
+							#_save_image(right, map_dir / f"{i}_right.{ext}", fmt=str(config.format), quality=quality)
+							#_save_image(back, map_dir / f"{i}_back.{ext}", fmt=str(config.format), quality=quality)
+							#_save_image(left, map_dir / f"{i}_left.{ext}", fmt=str(config.format), quality=quality)
+							#_save_image(up, map_dir / f"{i}_up.{ext}", fmt=str(config.format), quality=quality)
+							#_save_image(down, map_dir / f"{i}_down.{ext}", fmt=str(config.format), quality=quality)
 							pano = _cubemap_faces_to_equirect(
 								front=front,
 								right=right,
@@ -1575,7 +1575,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 							)
 							_save_image(
 								pano,
-								map_dir / f"{i}_pano.{str(config.panorama_format)}",
+								map_dir / "pano" / f"pano_{i}.{str(config.panorama_format)}",
 								fmt=str(config.panorama_format),
 								quality=pano_quality,
 							)
@@ -1617,7 +1617,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 		action="store_true",
 		help=(
 			"Also write a 6-sided cubemap and a stitched equirectangular web panorama per shot. "
-			"When enabled, {i}.{format} is the front face, plus 5 additional faces, plus {i}_pano.(jpg|png)."
+			"When enabled, {i}.{format} is the front face, plus 5 additional faces, plus pano_{i}.(jpg|png)."
 		),
 	)
 	parser.add_argument(
