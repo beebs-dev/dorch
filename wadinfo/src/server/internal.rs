@@ -69,10 +69,34 @@ pub async fn upsert_wad(
     State(state): State<App>,
     Json(req): Json<WadMergedOut>,
 ) -> impl IntoResponse {
-    match state.db.insert_wad(&req).await {
-        Ok(wad_id) => (StatusCode::OK, Json(wad_id)).into_response(),
-        Err(e) => response::error(e.context("Failed to insert wad")),
-    }
+    let wad_id = match state.db.insert_wad(&req).await {
+        Ok(wad_id) => wad_id,
+        Err(e) => return response::error(e.context("Failed to insert wad")),
+    };
+    println!(
+        "{}{}{}{}{}{}{}{}",
+        "✅ Upserted WAD • wad_id=".green(),
+        wad_id.green().dimmed(),
+        " • size=".green(),
+        req.meta
+            .file
+            .size
+            .map(|s| s.to_string())
+            .as_deref()
+            .unwrap_or("<null>")
+            .green()
+            .dimmed(),
+        " • title=".green(),
+        req.meta
+            .title
+            .as_deref()
+            .unwrap_or("<null>")
+            .green()
+            .dimmed(),
+        " • sha1=".green(),
+        req.meta.sha1.green().dimmed()
+    );
+    (StatusCode::OK, Json(wad_id)).into_response()
 }
 
 pub async fn list_wads(

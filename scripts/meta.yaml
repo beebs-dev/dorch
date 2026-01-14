@@ -56,7 +56,7 @@ spec:
         - --start
         - "0"
         - --limit
-        - "23410"
+        - "2"
         - --pretty
         - --wads-json
         - https://wadarchive.nyc3.digitaloceanspaces.com/wads.json

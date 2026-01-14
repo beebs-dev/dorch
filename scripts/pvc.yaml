@@ -8,40 +8,40 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 60Gi
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: data-1
-  namespace: wad
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 60Gi
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: data-2
-  namespace: wad
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 60Gi
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: data-3
-  namespace: wad
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 60Gi
+      storage: 20Gi
+# ---
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: data-1
+#   namespace: wad
+# spec:
+#   accessModes:
+#     - ReadWriteOnce
+#   resources:
+#     requests:
+#       storage: 60Gi
+# ---
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: data-2
+#   namespace: wad
+# spec:
+#   accessModes:
+#     - ReadWriteOnce
+#   resources:
+#     requests:
+#       storage: 60Gi
+# ---
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: data-3
+#   namespace: wad
+# spec:
+#   accessModes:
+#     - ReadWriteOnce
+#   resources:
+#     requests:
+#       storage: 60Gi

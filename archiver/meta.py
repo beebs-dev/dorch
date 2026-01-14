@@ -1576,11 +1576,12 @@ def build_idgames_lookup(
     return lookup
 
 
-def post_to_wadinfo(obj, wadinfo_base_url: str = WADINFO_BASE_URL) -> None:
+def post_to_wadinfo(obj, sha1, wadinfo_base_url: str = WADINFO_BASE_URL) -> None:
+    assert obj['meta']['sha1'] == sha1, "SHA1 mismatch in post_to_wadinfo"
     url = f"{wadinfo_base_url}/upsert_wad"
     response = requests.post(url, json=obj)
     response.raise_for_status()
-    print(f"Posted to wadinfo: {response.status_code}")
+    print(f"Posted {sha1} to wadinfo: {response.status_code}")
 
 
 def extract_metadata_from_file(path: str, ext: str) -> Dict[str, Any]:
@@ -1626,7 +1627,7 @@ def upload_screenshots(sha1: str, path: str, bucket: str, region: Optional[str] 
     # Credentials/region are expected to come from environment variables or instance metadata.
     dest = f"s3://{bucket}/{sha1.lower()}/"
     cmd: List[str] = ["aws", "s3", "cp", str(
-        root), dest, "--recursive", "--only-show-errors"]
+        root), dest, "--recursive", "--only-show-errors", "--acl", "public-read"]
 
     endpoint_url = endpoint or os.getenv("AWS_ENDPOINT_URL")
     if endpoint_url:
@@ -1735,7 +1736,7 @@ def main() -> None:
 
     total = len(wads_data)
     start = max(0, args.start)
-    end = total if args.limit <= 0 else min(total, start + args.limit)
+    end = total if args.limit <= 0 else min(total, start + args.limit + 1)
 
     out_items: Optional[List[Dict[str, Any]]] = [] if (
         args.pretty and not args.stream) else None
@@ -1859,6 +1860,7 @@ def main() -> None:
                         wad_entry, extracted)
                     files_for_render = [Path(file_path)]
 
+                """
                 try:
                     # Screenshot rendering
                     os.makedirs(output_path, exist_ok=True)
@@ -1879,6 +1881,7 @@ def main() -> None:
                                     endpoint=args.s3_endpoint)
                 except Exception as ex:
                     eprint(f"Screenshot rendering/upload failed for {sha1}: {ex}")
+                """
             except Exception as ex:
                 extracted = {
                     "format": "unknown",
@@ -1917,13 +1920,12 @@ def main() -> None:
 
             if args.post_to_wadinfo:
                 post_to_wadinfo(
-                    out_obj, wadinfo_base_url=args.wadinfo_base_url)
+                    out_obj, sha1, wadinfo_base_url=args.wadinfo_base_url)
 
         # Temp directory auto-deletes here
 
         if args.sleep > 0:
             time.sleep(args.sleep)
-
     #if not args.stream:
     #    if out_items is not None:
     #        sys.stdout.write(json.dumps(

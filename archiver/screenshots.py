@@ -1042,6 +1042,7 @@ def _save_image(arr: np.ndarray, out_path: Path, fmt: str, quality: int) -> None
 		img.save(out_path, format="WEBP", quality=quality, method=6)
 	else:
 		raise ValueError(f"Unknown format: {fmt}")
+	print(f"Saved image: {out_path}")
 
 
 def _signed_angle_delta_deg(target: float, current: float) -> float:

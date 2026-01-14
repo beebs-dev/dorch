@@ -6,5 +6,6 @@ python3 meta.py \
   --wads-json ../../wads.json \
   --idgames-json ../../idgames.json \
   --pretty \
-  --limit 2 \
+  --limit 3 \
+  --start 3 \
   --panorama
