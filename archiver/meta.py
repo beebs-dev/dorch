@@ -52,7 +52,7 @@ def _iwads_dir() -> Path:
     dir = os.getenv("IWADS_DIR", None)
     if dir is not None:
         return Path(dir).resolve()
-    return Path(__file__).resolve().parent / "assets"
+    return (Path(__file__).resolve().parent / "../../wads").resolve()
 
 
 def _normalize_iwad_guess(s: str) -> str:
