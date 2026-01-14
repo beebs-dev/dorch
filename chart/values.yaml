@@ -153,6 +153,20 @@ archiver:
       memory: "256Mi"
     limits:
       memory: "512Mi"
+  init:
+    image: thavlik/dorch-archiver-init:latest
+    imagePullPolicy: Always
+    resources:
+      requests:
+        memory: "256Mi"
+      limits:
+        memory: "512Mi"
+    s3:
+      accessKeyId: {}
+      secretAccessKey: {}
+      region: {}
+      endpoint: {}
+      bucket: ""
 
 webrtcAuth:
   image: thavlik/dorch-webrtc-auth:latest

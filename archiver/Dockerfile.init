@@ -1,0 +1,6 @@
+FROM amazon/aws-cli:2.15.32
+# TODO: install redis-cli
+
+COPY archiver/download-iwads.sh /download-iwads.sh
+RUN chmod +x /download-iwads.sh
+CMD ["/download-iwads.sh"]

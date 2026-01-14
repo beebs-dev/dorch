@@ -14,6 +14,8 @@ group "default" {
     "master",
     "webrtc-auth",
     "party",
+    "archiver",
+    "archiver-init",
     "downloader"
   ]
 }
@@ -40,6 +42,13 @@ target "archiver" {
   context    = "./"
   dockerfile = "archiver/Dockerfile"
   tags       = ["${REGISTRY}thavlik/dorch-archiver:latest"]
+  push       = true
+}
+
+target "archiver-init" {
+  context    = "./"
+  dockerfile = "archiver/Dockerfile.init"
+  tags       = ["${REGISTRY}thavlik/dorch-archiver-init:latest"]
   push       = true
 }
 

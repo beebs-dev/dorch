@@ -22,6 +22,57 @@ from natsutil import connect_nats, ensure_stream
 from screenshots import RenderConfig, render_screenshots
 
 
+_REDIS_CLIENT: Any = None
+
+
+def _get_redis_client() -> Optional[Any]:
+	"""Best-effort Redis client from env.
+
+	Returns None if Redis isn't configured or redis-py isn't installed.
+	"""
+	global _REDIS_CLIENT
+	if _REDIS_CLIENT is not None:
+		return _REDIS_CLIENT if _REDIS_CLIENT is not False else None
+
+	try:
+		import redis  # type: ignore
+	except Exception:
+		_REDIS_CLIENT = False
+		return None
+
+	host = (os.getenv("REDIS_HOST") or "").strip()
+	if not host:
+		_REDIS_CLIENT = False
+		return None
+	port_s = (os.getenv("REDIS_PORT") or "").strip()
+	try:
+		port = int(port_s) if port_s else 6379
+	except ValueError:
+		port = 6379
+	username = (os.getenv("REDIS_USERNAME") or "").strip() or None
+	password = (os.getenv("REDIS_PASSWORD") or "").strip() or None
+	proto = (os.getenv("REDIS_PROTO") or "redis").strip().lower()
+	use_ssl = proto == "rediss"
+
+	try:
+		client = redis.Redis(
+			host=host,
+			port=port,
+			username=username,
+			password=password,
+			ssl=use_ssl,
+			decode_responses=False,
+			socket_connect_timeout=2,
+			socket_timeout=30,
+		)
+		_REDIS_CLIENT = client
+		return client
+	except Exception as ex:
+		meta.eprint(f"Redis disabled (connect failed): {type(ex).__name__}: {ex}")
+		_REDIS_CLIENT = False
+		return None
+
+
 def _env_bool(name: str, default: bool) -> bool:
 	v = os.getenv(name)
 	if v is None:
@@ -73,6 +124,9 @@ def analyze_one_wad(
 	if not isinstance(wad_entry, dict):
 		raise ValueError("wad_entry must be a dict")
 
+	redis_client = _get_redis_client()
+	redis_key = f"dorch:wad:{sha1}"
+
 	wad_type = str(wad_entry.get("type") or "UNKNOWN")
 	ext = meta.TYPE_TO_EXT.get(wad_type, None) or "wad"
 
@@ -97,8 +151,30 @@ def analyze_one_wad(
 		output_path = os.path.join(td, "output_screenshots")
 
 		try:
-			meta.download_s3_to_path(s3_wads, wad_bucket, s3_key, gz_path)
-			meta.gunzip_file(gz_path, file_path)
+			cached_bytes: Optional[bytes] = None
+			if redis_client is not None:
+				try:
+					v = redis_client.get(redis_key)
+					if v is not None:
+						cached_bytes = bytes(v)
+						meta.eprint(f"Redis cache hit {redis_key} ({len(cached_bytes)} bytes)")
+				except Exception as ex:
+					meta.eprint(f"Redis GET failed for {redis_key}: {type(ex).__name__}: {ex}")
+
+			if cached_bytes is not None:
+				with open(file_path, "wb") as f:
+					f.write(cached_bytes)
+			else:
+				meta.download_s3_to_path(s3_wads, wad_bucket, s3_key, gz_path)
+				meta.gunzip_file(gz_path, file_path)
+				if redis_client is not None:
+					try:
+						with open(file_path, "rb") as f:
+							buf = f.read()
+						redis_client.set(redis_key, buf, ex=90 * 60)
+						meta.eprint(f"Redis cache set {redis_key} ({len(buf)} bytes, ttl=5400s)")
+					except Exception as ex:
+						meta.eprint(f"Redis SET failed for {redis_key}: {type(ex).__name__}: {ex}")
 
 			computed_hashes = meta.compute_hashes_for_file(file_path)
 			if isinstance(expected_hashes, dict):

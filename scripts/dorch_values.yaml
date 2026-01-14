@@ -88,3 +88,28 @@ keycloak:
       secretKeyRef:
         name: keycloak-client-cred
         key: clientsecret
+
+archiver:
+  init:
+    s3:
+      accessKeyId:
+        valueFrom:
+          secretKeyRef:
+            name: spaces-cred
+            key: access_key_id
+      secretAccessKey:
+        valueFrom:
+          secretKeyRef:
+            name: spaces-cred
+            key: secret_access_key
+      region:
+        valueFrom:
+          secretKeyRef:
+            name: spaces-cred
+            key: region
+      endpoint:
+        valueFrom:
+          secretKeyRef:
+            name: spaces-cred
+            key: endpoint
+      bucket: "iwads"
