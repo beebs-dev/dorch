@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/"
-KUBECONTEXT="${KUBECONTEXT:-do-nyc1-beebs}"
+KUBECONTEXT="${KUBECONTEXT:-do-nyc3-beeb}"
 NAMESPACE="${NAMESPACE:-dorch}"
 echo "Using kubectl context: $KUBECONTEXT"
 do_build() {

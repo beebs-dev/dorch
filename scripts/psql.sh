@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")"
-: "${CONTEXT:=do-nyc1-beebs}"
+: "${CONTEXT:=do-nyc3-beeb}"
 secret() {
     kubectl get secret --context $CONTEXT -n admin postgres-cred -o json \
     | jq .data.$1 \
