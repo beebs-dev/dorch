@@ -1238,7 +1238,7 @@ def download_s3_to_path(s3, bucket: str, key: str, out_path: str) -> None:
     """Download s3://bucket/key -> out_path (atomic replace)."""
     parent = os.path.dirname(out_path) or "."
     os.makedirs(parent, exist_ok=True)
-    print(f"Downloading s3://{bucket}/{key} to {out_path}...", file=sys.stderr)
+    #print(f"Downloading s3://{bucket}/{key} to {out_path}...", file=sys.stderr)
     fd, tmp_path = tempfile.mkstemp(prefix=os.path.basename(out_path) + ".", dir=parent)
     try:
         os.close(fd)
@@ -1300,6 +1300,39 @@ def build_output_object(
     readmes: Optional[Dict[str, Any]] = None,
     integrity: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+    def _idgames_content(entry: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Return the idGames 'content' dict, tolerating multiple shapes.
+
+        Historically we've seen idgames entries arrive as either:
+          - {"content": {...}, "hashes": [...], ...}
+          - {...} (the content object itself: title/author/description/textfile/etc)
+        """
+        if not isinstance(entry, dict) or not entry:
+            return None
+
+        c = entry.get("content")
+        if isinstance(c, dict) and c:
+            return c
+
+        # If the entry itself looks like the content payload, accept it.
+        content_keys = {
+            "title",
+            "author",
+            "description",
+            "textfile",
+            "id",
+            "url",
+            "dir",
+            "filename",
+            "date",
+            "rating",
+            "votes",
+            "credits",
+        }
+        if any(k in entry for k in content_keys):
+            return entry
+
+        return None
     def _normalize_map_names(maybe_maps: Any) -> Optional[List[str]]:
         """Return a unique list of map name strings.
 
@@ -1418,7 +1451,7 @@ def build_output_object(
     corrupt_flag = _is_truthy_bool(wa_corrupt)
 
     # idGames fields (if present)
-    ig = (idgames or {}).get("content") if isinstance(idgames, dict) else None
+    ig = _idgames_content(idgames)
     ig_title = ig.get("title") if isinstance(ig, dict) else None
     ig_author = ig.get("author") if isinstance(ig, dict) else None
     ig_date = ig.get("date") if isinstance(ig, dict) else None
@@ -1635,7 +1668,6 @@ def post_to_wadinfo(obj, sha1, wadinfo_base_url: str = WADINFO_BASE_URL) -> None
         print(f"wadinfo rejected {sha1}: {response.text}")
         return
     response.raise_for_status()
-    print(f"Posted {sha1} to wadinfo: {response.status_code}")
 
 
 def extract_metadata_from_file(path: str, ext: str) -> Dict[str, Any]:

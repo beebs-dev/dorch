@@ -850,6 +850,48 @@ def _gather_candidates(
 
 	rng = np.random.default_rng(seed)
 
+	# Always include the initial player spawn location as a valid screenshot candidate.
+	# Also use it as a fallback if exploration yields no candidates.
+	candidates: List[Candidate] = []
+	seen = set()
+	spawn_candidate: Optional[Candidate] = None
+
+	def _maybe_capture_spawn_candidate() -> Optional[Candidate]:
+		# Best-effort: ensure pitch is centered and we have a valid state.
+		try:
+			_center_pitch(game)
+			game.make_action([0, 0, 0, 0, 0, 0, 0.0, 0.0], 1)
+		except Exception:
+			pass
+		cand = _capture_best_yaw_sweep(game, pickup=False)
+		return cand
+
+	def _add_if_new(cand: Candidate) -> None:
+		if cand.pickup:
+			key = (
+				int(cand.x // 32.0),
+				int(cand.y // 32.0),
+				int(cand.z // 16.0),
+				int(_wrap_angle_deg(cand.angle) // 12.0),
+				0,
+			)
+		else:
+			key = (
+				int(cand.x // 32.0),
+				int(cand.y // 32.0),
+				int(cand.z // 16.0),
+				int(_wrap_angle_deg(cand.angle) // 12.0),
+				int(_clamp(cand.pitch, -89.0, 89.0) // 8.0),
+			)
+		if key in seen:
+			return
+		seen.add(key)
+		candidates.append(cand)
+
+	spawn_candidate = _maybe_capture_spawn_candidate()
+	if spawn_candidate is not None:
+		_add_if_new(spawn_candidate)
+
 	# Warmup: run forward/strafe a bit while keeping pitch centered.
 	for i in range(warmup_steps):
 		u1, u2, u3, u4 = _ld_sequence(i + 1)
@@ -874,9 +916,11 @@ def _gather_candidates(
 		game.make_action(action, frame_skip)
 		if game.is_episode_finished():
 			_new_episode(game, invulnerable=invulnerable)
-
-	candidates: List[Candidate] = []
-	seen = set()
+			# If we failed to capture the initial spawn candidate, retry after respawn.
+			if spawn_candidate is None:
+				spawn_candidate = _maybe_capture_spawn_candidate()
+				if spawn_candidate is not None:
+					_add_if_new(spawn_candidate)
 
 	# Generate candidates: a longer walk with low-discrepancy steering.
 	# We add:
@@ -960,6 +1004,11 @@ def _gather_candidates(
 		game.make_action(action, frame_skip)
 		if game.is_episode_finished():
 			_new_episode(game, invulnerable=invulnerable)
+			# If we failed to capture the initial spawn candidate, retry after respawn.
+			if spawn_candidate is None:
+				spawn_candidate = _maybe_capture_spawn_candidate()
+				if spawn_candidate is not None:
+					_add_if_new(spawn_candidate)
 			continue
 
 		# Detect pickup events and capture a candidate at that location.
@@ -989,18 +1038,9 @@ def _gather_candidates(
 		if picked_up:
 			cand = _capture_best_yaw_sweep(game, pickup=True)
 			if cand is not None:
-				key = (
-					int(cand.x // 32.0),
-					int(cand.y // 32.0),
-					int(cand.z // 16.0),
-					int(_wrap_angle_deg(cand.angle) // 12.0),
-					0,
-				)
-				if key not in seen:
-					seen.add(key)
-					candidates.append(cand)
-					if len(candidates) >= target_candidates:
-						break
+				_add_if_new(cand)
+				if len(candidates) >= target_candidates:
+					break
 
 		if t % keep_every != 0:
 			continue
@@ -1009,21 +1049,14 @@ def _gather_candidates(
 		if cand is None:
 			continue
 
-		# Quantize pose to avoid near-duplicates.
-		key = (
-			int(cand.x // 32.0),
-			int(cand.y // 32.0),
-			int(cand.z // 16.0),
-			int(_wrap_angle_deg(cand.angle) // 12.0),
-			int(_clamp(cand.pitch, -89.0, 89.0) // 8.0),
-		)
-		if key in seen:
-			continue
-		seen.add(key)
-		candidates.append(cand)
+		_add_if_new(cand)
 
 		if len(candidates) >= target_candidates:
 			break
+
+	# Hard fallback: if everything failed, return at least the spawn candidate.
+	if not candidates and spawn_candidate is not None:
+		candidates = [spawn_candidate]
 
 	# Shuffle slightly so selection doesn't always favor early frames.
 	rng.shuffle(candidates)

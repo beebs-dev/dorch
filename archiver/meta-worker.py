@@ -190,7 +190,6 @@ def analyze_one_wad(
 					v = redis_client.get(redis_key)
 					if v is not None:
 						cached_bytes = bytes(v)
-						meta.eprint(f"Redis cache hit {redis_key} ({len(cached_bytes)} bytes)")
 				except Exception as ex:
 					meta.eprint(f"Redis GET failed for {redis_key}: {type(ex).__name__}: {ex}")
 
@@ -205,7 +204,6 @@ def analyze_one_wad(
 						with open(file_path, "rb") as f:
 							buf = f.read()
 						redis_client.set(redis_key, buf, ex=90 * 60)
-						meta.eprint(f"Redis cache set {redis_key} ({len(buf)} bytes, ttl=5400s)")
 					except Exception as ex:
 						meta.eprint(f"Redis SET failed for {redis_key}: {type(ex).__name__}: {ex}")
 
