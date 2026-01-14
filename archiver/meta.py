@@ -1632,6 +1632,10 @@ def main() -> None:
                     help="Path or URL to idgames.json")
     ap.add_argument("--wad-url-base", default=DEFAULT_WAD_URL_BASE,
                     help="Base URL for public WADs bucket")
+    ap.add_argument("--wad-bucket", default="wadarchive2",
+                    help="S3 bucket name for WADs")
+    ap.add_argument("--wad-endpoint", default="https://nyc3.digitaloceanspaces.com",
+                    help="S3 endpoint URL for WADs bucket")
     ap.add_argument("--limit", type=int, default=0,
                     help="Process only N wads (0 = all)")
     ap.add_argument("--start", type=int, default=0,
