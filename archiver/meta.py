@@ -1580,6 +1580,10 @@ def post_to_wadinfo(obj, sha1, wadinfo_base_url: str = WADINFO_BASE_URL) -> None
     assert obj['meta']['sha1'] == sha1, "SHA1 mismatch in post_to_wadinfo"
     url = f"{wadinfo_base_url}/upsert_wad"
     response = requests.post(url, json=obj)
+    if response.status_code == 422:
+        print(json.dumps(obj))
+        print(f"wadinfo rejected {sha1}: {response.text}")
+        return
     response.raise_for_status()
     print(f"Posted {sha1} to wadinfo: {response.status_code}")
 
