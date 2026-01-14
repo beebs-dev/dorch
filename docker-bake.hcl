@@ -15,9 +15,12 @@ group "default" {
     "webrtc-auth",
     "party",
     "archiver",
-    "archiver-init",
     "downloader"
   ]
+}
+
+group "archiver" {
+  targets = ["archiver-worker", "archiver-init"]
 }
 
 target "base" {
@@ -38,7 +41,7 @@ target "wadinfo" {
   cache-to   = ["type=local,dest=.buildx-cache/wadinfo,mode=min"]
 }
 
-target "archiver" {
+target "archiver-worker" {
   context    = "./"
   dockerfile = "archiver/Dockerfile"
   tags       = ["${REGISTRY}thavlik/dorch-archiver:latest"]

@@ -102,14 +102,6 @@ archiver:
           secretKeyRef:
             name: spaces-cred
             key: secret_access_key
-      region:
-        valueFrom:
-          secretKeyRef:
-            name: spaces-cred
-            key: region
-      endpoint:
-        valueFrom:
-          secretKeyRef:
-            name: spaces-cred
-            key: endpoint
+      region: "nyc3"
+      endpoint: "https://nyc3.digitaloceanspaces.com"
       bucket: "iwads"

@@ -21,6 +21,8 @@ spec:
       - name: init
         image: {{ .Values.archiver.init.image }}
         imagePullPolicy: {{ .Values.archiver.init.imagePullPolicy }}
+        command:
+        - /download-iwads.sh
         env:
 {{ include "dorch.redis-env" . | indent 8 }}
         - name: IWADS_DIR
@@ -32,7 +34,9 @@ spec:
         - name: AWS_SECRET_ACCESS_KEY
 {{ toYaml .Values.archiver.init.s3.secretAccessKey | indent 10 }}
         - name: AWS_DEFAULT_REGION
-{{ toYaml .Values.archiver.init.s3.region | indent 10 }}
+          value: {{ .Values.archiver.init.s3.region }}
+        - name: AWS_ENDPOINT_URL
+          value: {{ .Values.archiver.init.s3.endpoint }}
         - name: AWS_EC2_METADATA_DISABLED
           value: "true"
         - name: AWS_S3_FORCE_PATH_STYLE

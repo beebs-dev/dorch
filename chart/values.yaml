@@ -164,8 +164,8 @@ archiver:
     s3:
       accessKeyId: {}
       secretAccessKey: {}
-      region: {}
-      endpoint: {}
+      region: "us-east-1"
+      endpoint: ""
       bucket: ""
 
 webrtcAuth:
