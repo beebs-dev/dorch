@@ -13,7 +13,7 @@ spec:
         - name: START_RANGE
           value: "0"
         - name: END_RANGE
-          value: "32"
+          value: "16"
         - name: PYTHONUNBUFFERED
           value: "1"
         - name: AWS_ACCESS_KEY_ID
@@ -42,7 +42,52 @@ spec:
       command: ["python", "-u", "/app/download_wad.py"]
       env:
         - name: START_RANGE
+          value: "16"
+        - name: END_RANGE
           value: "32"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: secret_access_key
+    - name: archiver-c
+      image: thavlik/dorch-archiver:latest
+      imagePullPolicy: Always
+      command: ["python", "-u", "/app/download_wad.py"]
+      env:
+        - name: START_RANGE
+          value: "32"
+        - name: END_RANGE
+          value: "48"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: secret_access_key
+      volumeMounts:
+        - name: data
+          mountPath: /data
+    - name: archiver-d
+      image: thavlik/dorch-archiver:latest
+      imagePullPolicy: Always
+      command: ["python", "-u", "/app/download_wad.py"]
+      env:
+        - name: START_RANGE
+          value: "48"
         - name: END_RANGE
           value: "64"
         - name: PYTHONUNBUFFERED
@@ -87,7 +132,7 @@ spec:
         - name: START_RANGE
           value: "64"
         - name: END_RANGE
-          value: "96"
+          value: "80"
         - name: PYTHONUNBUFFERED
           value: "1"
         - name: AWS_ACCESS_KEY_ID
@@ -116,7 +161,69 @@ spec:
       command: ["python", "-u", "/app/download_wad.py"]
       env:
         - name: START_RANGE
+          value: "80"
+        - name: END_RANGE
           value: "96"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: secret_access_key
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 1000m
+          memory: 512Mi
+      volumeMounts:
+        - name: data
+          mountPath: /data
+    - name: archiver-c
+      image: thavlik/dorch-archiver:latest
+      imagePullPolicy: Always
+      command: ["python", "-u", "/app/download_wad.py"]
+      env:
+        - name: START_RANGE
+          value: "96"
+        - name: END_RANGE
+          value: "112"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: secret_access_key
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 1000m
+          memory: 512Mi
+      volumeMounts:
+        - name: data
+          mountPath: /data
+    - name: archiver-d
+      image: thavlik/dorch-archiver:latest
+      imagePullPolicy: Always
+      command: ["python", "-u", "/app/download_wad.py"]
+      env:
+        - name: START_RANGE
+          value: "112"
         - name: END_RANGE
           value: "128"
         - name: PYTHONUNBUFFERED
@@ -161,7 +268,7 @@ spec:
         - name: START_RANGE
           value: "128"
         - name: END_RANGE
-          value: "160"
+          value: "144"
         - name: PYTHONUNBUFFERED
           value: "1"
         - name: AWS_ACCESS_KEY_ID
@@ -190,7 +297,69 @@ spec:
       command: ["python", "-u", "/app/download_wad.py"]
       env:
         - name: START_RANGE
+          value: "144"
+        - name: END_RANGE
           value: "160"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: secret_access_key
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 1000m
+          memory: 512Mi
+      volumeMounts:
+        - name: data
+          mountPath: /data
+    - name: archiver-c
+      image: thavlik/dorch-archiver:latest
+      imagePullPolicy: Always
+      command: ["python", "-u", "/app/download_wad.py"]
+      env:
+        - name: START_RANGE
+          value: "160"
+        - name: END_RANGE
+          value: "176"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: secret_access_key
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 1000m
+          memory: 512Mi
+      volumeMounts:
+        - name: data
+          mountPath: /data
+    - name: archiver-d
+      image: thavlik/dorch-archiver:latest
+      imagePullPolicy: Always
+      command: ["python", "-u", "/app/download_wad.py"]
+      env:
+        - name: START_RANGE
+          value: "176"
         - name: END_RANGE
           value: "192"
         - name: PYTHONUNBUFFERED
@@ -235,7 +404,7 @@ spec:
         - name: START_RANGE
           value: "192"
         - name: END_RANGE
-          value: "224"
+          value: "208"
         - name: PYTHONUNBUFFERED
           value: "1"
         - name: AWS_ACCESS_KEY_ID
@@ -264,7 +433,69 @@ spec:
       command: ["python", "-u", "/app/download_wad.py"]
       env:
         - name: START_RANGE
+          value: "208"
+        - name: END_RANGE
           value: "224"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: secret_access_key
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 1000m
+          memory: 512Mi
+      volumeMounts:
+        - name: data
+          mountPath: /data
+    - name: archiver-c
+      image: thavlik/dorch-archiver:latest
+      imagePullPolicy: Always
+      command: ["python", "-u", "/app/download_wad.py"]
+      env:
+        - name: START_RANGE
+          value: "224"
+        - name: END_RANGE
+          value: "240"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: spaces-cred
+              key: secret_access_key
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 1000m
+          memory: 512Mi
+      volumeMounts:
+        - name: data
+          mountPath: /data
+    - name: archiver-d
+      image: thavlik/dorch-archiver:latest
+      imagePullPolicy: Always
+      command: ["python", "-u", "/app/download_wad.py"]
+      env:
+        - name: START_RANGE
+          value: "240"
         - name: END_RANGE
           value: "256"
         - name: PYTHONUNBUFFERED
