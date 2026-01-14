@@ -69,7 +69,7 @@ pub async fn upsert_wad(
     State(state): State<App>,
     Json(req): Json<WadMergedOut>,
 ) -> impl IntoResponse {
-    let wad_id = match state.db.insert_wad(&req).await {
+    let wad_id = match state.db.upsert_wad(&req).await {
         Ok(wad_id) => wad_id,
         Err(e) => return response::error(e.context("Failed to insert wad")),
     };

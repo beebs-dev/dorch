@@ -325,7 +325,7 @@ impl Database {
         })
     }
 
-    pub async fn insert_wad(&self, merged: &WadMergedOut) -> Result<Uuid> {
+    pub async fn upsert_wad(&self, merged: &WadMergedOut) -> Result<Uuid> {
         let mut conn = self.pool.get().await.context("failed to get connection")?;
         let tx = conn
             .transaction()
