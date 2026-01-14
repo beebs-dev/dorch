@@ -25,13 +25,13 @@ Notes:
 """
 
 from __future__ import annotations
-
 import argparse
 import gzip
 import hashlib
 import io
 import json
 import os
+from pathlib import Path
 import re
 import struct
 import sys
@@ -40,7 +40,7 @@ import time
 import zipfile
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-
+from screenshots import RenderConfig, render_screenshots
 import requests
 
 DEFAULT_WAD_URL_BASE = "https://wadarchive.nyc3.digitaloceanspaces.com"
@@ -1402,6 +1402,13 @@ def main() -> None:
     ap.add_argument("--post-to-wadinfo", action="store_true", help="POST results to wadinfo service")
     ap.add_argument("--wadinfo-base-url", default=WADINFO_BASE_URL, help="Base URL for wadinfo service")
     ap.add_argument("--smoke-test-id", default=None, help="SHA1 hash of a single WAD to process for smoke testing")
+    ap.add_argument("--screenshot-width", type=int, default=800, help="Width of screenshots to render")
+    ap.add_argument("--screenshot-height", type=int, default=600, help="Height of screenshots to render")
+    ap.add_argument("--screenshot-count", type=int, default=1, help="Number of screenshots to render (per map)")
+    ap.add_argument("--panorama", action="store_true", help="Render panorama screenshots")
+    ap.add_argument("--delete-wads", action="store_true", help="Delete WAD files after processing")
+    ap.add_argument("--s3-bucket", default="wadimages", help="S3 bucket to upload screenshots to")
+    ap.add_argument("--s3-endpoint", default="https://nyc3.digitaloceanspaces.com", help="S3 endpoint URL")
     args = ap.parse_args()
 
     if is_http_url(args.wads_json):
@@ -1576,6 +1583,17 @@ def main() -> None:
 
             if args.post_to_wadinfo:
                 post_to_wadinfo(out_obj, wadinfo_base_url=args.wadinfo_base_url)
+                output_path = Path("/tmp/output_screenshots")
+                config = RenderConfig(
+                    iwad=Path(""),
+                    files=[],
+                    output=output_path,
+                    num=16,
+                    seed=0,
+                    width=args.screenshot_width,
+                    height=args.screenshot_height,
+                    panorama=args.panorama,
+                )
 
         # Temp directory auto-deletes here
 
