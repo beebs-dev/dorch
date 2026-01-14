@@ -46,7 +46,7 @@ pub async fn run_server(
     println!(
         "{}{}",
         "🚀 Starting public server • port=".green(),
-        format!("{}", port).green().dimmed()
+        port.green().dimmed()
     );
     let start = std::time::Instant::now();
     axum::serve(listener, router)
