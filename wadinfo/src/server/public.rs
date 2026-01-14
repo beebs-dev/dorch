@@ -56,11 +56,10 @@ pub async fn run_server(
         .await
         .context("Failed to serve public router")?;
     println!(
-        "{} {} {} {} {}",
-        "🛑 Public server on port".red(),
-        format!("{}", port).red().dimmed(),
-        "shut down gracefully".red(),
-        "• uptime was".red(),
+        "{}{}{}{}",
+        "🛑 Public server on port ".red(),
+        port.red().dimmed(),
+        " shut down gracefully • uptime=".red(),
         humantime::format_duration(start.elapsed()).red().dimmed()
     );
     Ok(())

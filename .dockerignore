@@ -1,4 +1,8 @@
 target
+.buildx-cache
+.venv
+.git
+/*/**/target
 /*/**/.venv
 /*/**/.git
 /*/**/.git*
@@ -8,4 +12,3 @@ target
 /*/**/*.pyc
 /*/**/_vizdoom
 /*/**/output
-.buildx-cache

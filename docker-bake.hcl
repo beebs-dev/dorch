@@ -23,8 +23,6 @@ target "base" {
   dockerfile = "Dockerfile.base"
   tags       = ["${REGISTRY}thavlik/dorch-base:latest"]
   push       = false
-  cache-from = ["type=local,src=.buildx-cache"]
-  cache-to   = ["type=local,dest=.buildx-cache,mode=max"]
 }
 
 target "wadinfo" {
@@ -34,8 +32,8 @@ target "wadinfo" {
   args       = { BASE_IMAGE = "base_context" }
   tags       = ["${REGISTRY}thavlik/dorch-wadinfo:latest"]
   push       = true
-  cache-from = ["type=local,src=.buildx-cache"]
-  cache-to   = ["type=local,dest=.buildx-cache,mode=max"]
+  cache-from = ["type=local,src=.buildx-cache/wadinfo"]
+  cache-to   = ["type=local,dest=.buildx-cache/wadinfo,mode=min"]
 }
 
 target "archiver" {

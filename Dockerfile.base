@@ -45,10 +45,4 @@ COPY types/Cargo.toml types/Cargo.toml
 
 COPY --from=chef /app/recipe.json recipe.json
 
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/local/cargo/git \
-    --mount=type=cache,target=/sccache \
-    --mount=type=cache,target=/app/target \
-    sccache --start-server && \
-    cargo chef cook --release --recipe-path recipe.json && \
-    sccache --show-stats
+RUN cargo chef cook --release --recipe-path recipe.json
