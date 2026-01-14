@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import re
+import signal
 import sys
 import time
 from typing import Any, Dict, List, Optional
@@ -18,6 +20,21 @@ def _valid_sha1(s: str) -> bool:
 
 
 async def _run(args: argparse.Namespace) -> None:
+	shutdown = asyncio.Event()
+	fast_exit = False
+
+	def _request_shutdown() -> None:
+		nonlocal fast_exit
+		fast_exit = True
+		shutdown.set()
+
+	try:
+		loop = asyncio.get_running_loop()
+		loop.add_signal_handler(signal.SIGTERM, _request_shutdown)
+		loop.add_signal_handler(signal.SIGINT, _request_shutdown)
+	except NotImplementedError:
+		pass
+
 	# Load inputs (support URL like meta.py)
 	wads_json = args.wads_json
 	idgames_json = args.idgames_json
@@ -52,6 +69,9 @@ async def _run(args: argparse.Namespace) -> None:
 
 		published = 0
 		for idx in range(start, end):
+			if shutdown.is_set():
+				break
+
 			wad_entry = wads_data[idx]
 			if not isinstance(wad_entry, dict):
 				continue
@@ -71,15 +91,25 @@ async def _run(args: argparse.Namespace) -> None:
 			)
 
 			subj = subject_for_sha1(sha1)
-			headers = {"Nats-Msg-Id": f"dorch-meta:{sha1}"}
+			headers = {} #{"Nats-Msg-Id": f"dorch-meta:{sha1}"} # TODO
 			await js.publish(subj, job.to_bytes(), headers=headers)
 			published += 1
 			if args.sleep > 0:
-				time.sleep(args.sleep)
+				try:
+					await asyncio.wait_for(shutdown.wait(), timeout=args.sleep)
+				except asyncio.TimeoutError:
+					pass
 
 		print(f"Dispatched {published} jobs to stream {STREAM_NAME}")
 	finally:
-		await nc.drain()
+		if fast_exit:
+			try:
+				await nc.flush(timeout=0.25)
+			except Exception:
+				pass
+			await nc.close()
+		else:
+			await nc.drain()
 
 
 def main() -> None:
@@ -94,7 +124,6 @@ def main() -> None:
 
 	# Async entry
 	try:
-		import asyncio
 		asyncio.run(_run(args))
 	except KeyboardInterrupt:
 		raise SystemExit(130)

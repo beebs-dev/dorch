@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
+import contextlib
 import os
 import re
+import signal
 import sys
 import tempfile
 import time
@@ -206,6 +209,22 @@ def signal_ready() -> None:
 			meta.eprint(f"Could not write ready file {ready_file}: {type(ex).__name__}: {ex}")
 			
 async def _run(args: argparse.Namespace) -> None:
+	shutdown = asyncio.Event()
+	fast_exit = False
+
+	def _request_shutdown() -> None:
+		nonlocal fast_exit
+		fast_exit = True
+		shutdown.set()
+
+	try:
+		loop = asyncio.get_running_loop()
+		loop.add_signal_handler(signal.SIGTERM, _request_shutdown)
+		loop.add_signal_handler(signal.SIGINT, _request_shutdown)
+	except NotImplementedError:
+		# add_signal_handler is not available on some platforms (e.g. Windows)
+		pass
+
 	# JetStream + S3 clients
 	region_name = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 	wad_bucket = _env_str("DORCH_WAD_BUCKET", "wadarchive2")
@@ -241,15 +260,37 @@ async def _run(args: argparse.Namespace) -> None:
 		)
 		signal_ready()
 		meta.eprint(f"meta-worker: consuming from stream={STREAM_NAME} durable={durable}")
-		while True:
+		while not shutdown.is_set():
+			fetch_task = asyncio.create_task(sub.fetch(args.batch, timeout=args.fetch_timeout))
+			shutdown_task = asyncio.create_task(shutdown.wait())
+			done, pending = await asyncio.wait(
+				{fetch_task, shutdown_task},
+				return_when=asyncio.FIRST_COMPLETED,
+			)
+
+			if shutdown_task in done:
+				fetch_task.cancel()
+				with contextlib.suppress(Exception):
+					await fetch_task
+				break
+
+			shutdown_task.cancel()
 			msgs = []
 			try:
-				msgs = await sub.fetch(args.batch, timeout=args.fetch_timeout)
+				msgs = await fetch_task
 			except Exception:
 				# fetch timeout is normal; loop
 				continue
 
 			for msg in msgs:
+				if shutdown.is_set():
+					# Best-effort immediate redelivery for any fetched-but-unprocessed messages.
+					try:
+						await msg.nak()
+					except Exception:
+						pass
+					continue
+
 				try:
 					job = parse_meta_job(msg.data)
 					sha1 = job.sha1
@@ -260,24 +301,48 @@ async def _run(args: argparse.Namespace) -> None:
 					if not _valid_sha1(sha1):
 						raise ValueError(f"invalid sha1: {sha1}")
 
-					analyze_one_wad(
-						sha1=sha1,
-						wad_entry=job.wad_entry,
-						idgames_entry=job.idgames_entry,
-						s3_wads=s3_wads,
-						wad_bucket=wad_bucket,
-						wad_endpoint=wad_endpoint,
-						post_to_wadinfo=post_to_wadinfo,
-						wadinfo_base_url=wadinfo_base_url,
-						render_screens=render_screens,
-						upload_screens=upload_screens,
-						screenshot_width=screenshot_width,
-						screenshot_height=screenshot_height,
-						screenshot_count=screenshot_count,
-						panorama=panorama,
-						images_bucket=images_bucket,
-						images_endpoint=images_endpoint,
+					work_task = asyncio.create_task(
+						asyncio.to_thread(
+							analyze_one_wad,
+							sha1=sha1,
+							wad_entry=job.wad_entry,
+							idgames_entry=job.idgames_entry,
+							s3_wads=s3_wads,
+							wad_bucket=wad_bucket,
+							wad_endpoint=wad_endpoint,
+							post_to_wadinfo=post_to_wadinfo,
+							wadinfo_base_url=wadinfo_base_url,
+							render_screens=render_screens,
+							upload_screens=upload_screens,
+							screenshot_width=screenshot_width,
+							screenshot_height=screenshot_height,
+							screenshot_count=screenshot_count,
+							panorama=panorama,
+							images_bucket=images_bucket,
+							images_endpoint=images_endpoint,
+						)
 					)
+					shutdown_task = asyncio.create_task(shutdown.wait())
+					done, pending = await asyncio.wait(
+						{work_task, shutdown_task},
+						return_when=asyncio.FIRST_COMPLETED,
+					)
+
+					if shutdown_task in done:
+						# Shutdown requested mid-job: best-effort NAK so it redelivers quickly.
+						try:
+							await msg.nak()
+						except Exception:
+							pass
+						# Cancel the worker task (it may be running in a thread).
+						work_task.cancel()
+						# Avoid noisy "Task exception was never retrieved" warnings.
+						work_task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
+						break
+
+					# Job finished; propagate any exception.
+					shutdown_task.cancel()
+					await work_task
 					await msg.ack()
 				except Exception as ex:
 					meta.eprint(f"meta-worker: job failed: {type(ex).__name__}: {ex}")
@@ -286,8 +351,18 @@ async def _run(args: argparse.Namespace) -> None:
 						await msg.nak()
 					except Exception:
 						pass
+
+				if shutdown.is_set():
+					break
 	finally:
-		await nc.drain()
+		if fast_exit:
+			try:
+				await nc.flush(timeout=0.25)
+			except Exception:
+				pass
+			await nc.close()
+		else:
+			await nc.drain()
 
 
 def main() -> None:
