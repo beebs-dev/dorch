@@ -1,25 +1,25 @@
-FROM amazon/aws-cli:2.15.32
+FROM debian:bookworm-slim
 
-# Install redis-cli (and bash, since /download-iwads.sh is a bash script).
 RUN set -eux; \
-		if command -v yum >/dev/null 2>&1; then \
-			yum -y update; \
-			yum -y install redis bash; \
-			yum -y clean all; \
-		elif command -v dnf >/dev/null 2>&1; then \
-			dnf -y upgrade --refresh; \
-			dnf -y install redis bash; \
-			dnf -y clean all; \
-		elif command -v apk >/dev/null 2>&1; then \
-			apk add --no-cache redis bash; \
-		elif command -v apt-get >/dev/null 2>&1; then \
-			apt-get update; \
-			apt-get install -y --no-install-recommends redis-tools bash ca-certificates; \
-			rm -rf /var/lib/apt/lists/*; \
-		else \
-			echo "No supported package manager found to install redis-cli" >&2; \
-			exit 1; \
-		fi
+		apt-get update; \
+		apt-get install -y --no-install-recommends \
+			bash \
+			ca-certificates \
+			curl \
+			unzip \
+			redis-tools \
+		; \
+		rm -rf /var/lib/apt/lists/*; \
+		arch="$(dpkg --print-architecture)"; \
+		case "$arch" in \
+			amd64) aws_arch="x86_64" ;; \
+			arm64) aws_arch="aarch64" ;; \
+			*) echo "Unsupported architecture for AWS CLI: $arch" >&2; exit 1 ;; \
+		esac; \
+		curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${aws_arch}.zip" -o /tmp/awscliv2.zip; \
+		unzip -q /tmp/awscliv2.zip -d /tmp; \
+		/tmp/aws/install; \
+		rm -rf /tmp/aws /tmp/awscliv2.zip
 
 COPY archiver/download-iwads.sh /download-iwads.sh
 RUN chmod +x /download-iwads.sh
