@@ -1195,7 +1195,6 @@ def resolve_s3_key(
     bucket: str,
     sha1: str,
     ext: str,
-    prefixes: List[str],
 ) -> Optional[str]:
     """Resolve the object key for a WAD archive in S3.
 
@@ -1210,34 +1209,23 @@ def resolve_s3_key(
     """
     if not isinstance(sha1, str) or len(sha1) != 40:
         return None
+    key = f"{sha1}/{sha1}.{ext}.gz"
+    try:
+        s3.head_object(Bucket=bucket, Key=key)
+        return key
+    except NoCredentialsError as e:
+        raise ValueError(
+            "AWS credentials not found for S3 access (set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or configure a credentials file)."
+        ) from e
+    except ClientError as e:
+        err = (e.response or {}).get("Error") or {}
+        code = str(err.get("Code") or "")
+        if code in {"404", "NoSuchKey", "NotFound"}:
+            return None
+        raise ValueError(
+            f"Error checking s3://{bucket}/{key}: {code or type(e).__name__}: {err.get('Message') or e}"
+        ) from e
 
-    folder_sha1 = sha1.removeprefix("00")
-    candidates: List[str] = [f"{folder_sha1}/{sha1}.{ext}.gz"]
-
-    # Best-effort fallbacks for older sharding/prefix rules.
-    for p in prefixes:
-        candidates.append(f"{sha1}/{p}{sha1}.{ext}.gz")
-    for p in prefixes:
-        candidates.append(f"{folder_sha1}/{p}{sha1}.{ext}.gz")
-
-    for key in candidates:
-        try:
-            s3.head_object(Bucket=bucket, Key=key)
-            return key
-        except NoCredentialsError as e:
-            raise ValueError(
-                "AWS credentials not found for S3 access (set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or configure a credentials file)."
-            ) from e
-        except ClientError as e:
-            err = (e.response or {}).get("Error") or {}
-            code = str(err.get("Code") or "")
-            if code in {"404", "NoSuchKey", "NotFound"}:
-                continue
-            raise ValueError(
-                f"Error checking s3://{bucket}/{key}: {code or type(e).__name__}: {err.get('Message') or e}"
-            ) from e
-
-    return None
 
 
 def download_s3_to_path(s3, bucket: str, key: str, out_path: str) -> None:
@@ -1770,8 +1758,7 @@ def main() -> None:
         wad_type = str(wad_entry.get("type") or "UNKNOWN")
         ext = TYPE_TO_EXT.get(wad_type, None) or "wad"  # default best-guess
 
-        prefixes = candidate_prefixes(wad_entry)
-        s3_key = resolve_s3_key(s3_wads, args.wad_bucket, sha1, ext, prefixes)
+        s3_key = resolve_s3_key(s3_wads, args.wad_bucket, sha1, ext)
         s3_url = f"s3://{args.wad_bucket}/{s3_key}" if s3_key else None
 
         extracted: Dict[str, Any]
@@ -1782,7 +1769,6 @@ def main() -> None:
             extracted = {
                 "format": "unknown",
                 "error": "Could not resolve S3 object key (layout/prefix mismatch).",
-                "tried_prefixes": prefixes,
                 "expected_ext": ext,
             }
             meta_obj = build_output_object(

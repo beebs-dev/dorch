@@ -77,8 +77,7 @@ def analyze_one_wad(
 	wad_type = str(wad_entry.get("type") or "UNKNOWN")
 	ext = meta.TYPE_TO_EXT.get(wad_type, None) or "wad"
 
-	prefixes = meta.candidate_prefixes(wad_entry)
-	s3_key = meta.resolve_s3_key(s3_wads, wad_bucket, sha1, ext, prefixes)
+	s3_key = meta.resolve_s3_key(s3_wads, wad_bucket, sha1, ext)
 	s3_url = f"s3://{wad_bucket}/{s3_key}" if s3_key else None
 
 	expected_hashes = wad_entry.get("hashes") or {}
@@ -93,7 +92,6 @@ def analyze_one_wad(
 		extracted = {
 			"format": "unknown",
 			"error": "Could not resolve S3 object key (layout/prefix mismatch).",
-			"tried_prefixes": prefixes,
 			"expected_ext": ext,
 		}
 		meta_obj = meta.build_output_object(
