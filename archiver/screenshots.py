@@ -1452,8 +1452,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 					)
 					if best is None:
 						continue
-					out_path = map_dir / "images" / f"{idx}.{ext}"
-					_save_image(best.screen, out_path, fmt=str(config.format), quality=quality)
+					_save_image(best.screen, map_dir / "images" / f"{idx}.{ext}", fmt=str(config.format), quality=quality)
 					if bool(config.panorama):
 						try:
 							front, right, back, left, up, down = _capture_panorama_bundle(
@@ -1474,7 +1473,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 							)
 							_save_image(
 								pano,
-								map_dir / "pano" /f"pano_{idx}.{str(config.panorama_format)}",
+								map_dir / "pano" / f"pano_{idx}.{str(config.panorama_format)}",
 								fmt=str(config.panorama_format),
 								quality=pano_quality,
 							)

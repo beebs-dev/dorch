@@ -43,6 +43,8 @@ import zipfile
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from screenshots import RenderConfig, render_screenshots
+import boto3
+from botocore.exceptions import ClientError, NoCredentialsError
 import requests
 
 
@@ -1134,7 +1136,7 @@ def merge_per_map_stats(map_lists_in_load_order: List[List[Dict[str, Any]]]) -> 
 
 
 # -----------------------------
-# S3 resolution / downloading
+# S3 resolution / downloading (via AWS SDK; no public HTTP URLs)
 # -----------------------------
 
 TYPE_TO_EXT = {
@@ -1188,44 +1190,72 @@ def candidate_prefixes(wad_entry: Dict[str, Any]) -> List[str]:
     return out
 
 
-def resolve_s3_url(
-    session: requests.Session,
-    s3_base: str,
+def resolve_s3_key(
+    s3,
+    bucket: str,
     sha1: str,
     ext: str,
     prefixes: List[str],
-    timeout: Tuple[int, int] = (5, 15),
 ) -> Optional[str]:
+    """Resolve the object key for a WAD archive in S3.
+
+    We avoid constructing/using any public HTTP URL. Instead, probe a small set
+    of likely keys via `HeadObject`.
+
+    Current observed layout:
+      s3://{bucket}/{sha1-with-leading-00-stripped}/{sha1}.{ext}.gz
+
+    Historical/unknown layouts (kept as probes):
+      s3://{bucket}/{sha1}/{prefix}{sha1}.{ext}.gz
     """
-    Try HEAD on a handful of candidates:
-      {base}/{sha1}/{prefix}{sha1}.{ext}.gz
-    """
-    # NOTE: Prefix guessing is kept for backwards compatibility with earlier layouts,
-    # but the current bucket layout appears to be:
-    #   {base}/{sha1-with-leading-00-stripped}/{sha1}.{ext}.gz
-    # We keep the 'prefixes' argument in the signature since it is part of the
-    # original design, but we currently probe only this one candidate.
-    folder_sha1 = sha1.removeprefix("00")
-    if len(sha1) != 40:
+    if not isinstance(sha1, str) or len(sha1) != 40:
         return None
-    url = f"{s3_base.rstrip('/')}/{folder_sha1}/{sha1}.{ext}.gz"
+
+    folder_sha1 = sha1.removeprefix("00")
+    candidates: List[str] = [f"{folder_sha1}/{sha1}.{ext}.gz"]
+
+    # Best-effort fallbacks for older sharding/prefix rules.
+    for p in prefixes:
+        candidates.append(f"{sha1}/{p}{sha1}.{ext}.gz")
+    for p in prefixes:
+        candidates.append(f"{folder_sha1}/{p}{sha1}.{ext}.gz")
+
+    for key in candidates:
+        try:
+            s3.head_object(Bucket=bucket, Key=key)
+            return key
+        except NoCredentialsError as e:
+            raise ValueError(
+                "AWS credentials not found for S3 access (set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or configure a credentials file)."
+            ) from e
+        except ClientError as e:
+            err = (e.response or {}).get("Error") or {}
+            code = str(err.get("Code") or "")
+            if code in {"404", "NoSuchKey", "NotFound"}:
+                continue
+            raise ValueError(
+                f"Error checking s3://{bucket}/{key}: {code or type(e).__name__}: {err.get('Message') or e}"
+            ) from e
+
+    return None
+
+
+def download_s3_to_path(s3, bucket: str, key: str, out_path: str) -> None:
+    """Download s3://bucket/key -> out_path (atomic replace)."""
+    parent = os.path.dirname(out_path) or "."
+    os.makedirs(parent, exist_ok=True)
+    print(f"Downloading s3://{bucket}/{key} to {out_path}...", file=sys.stderr)
+    fd, tmp_path = tempfile.mkstemp(prefix=os.path.basename(out_path) + ".", dir=parent)
     try:
-        r = session.head(url, timeout=timeout, allow_redirects=True)
-        if r.status_code == 200:
-            return url
-        elif r.status_code in [404, 403]:
-            raise ValueError(f"Error checking S3 URL {url}: HTTP {r.status_code}")
-    except requests.RequestException as e:
-        raise ValueError(f"Error checking S3 URL {url}: {e}")
-
-
-def download_to_path(session: requests.Session, url: str, out_path: str) -> None:
-    with session.get(url, stream=True, timeout=(10, 60)) as r:
-        r.raise_for_status()
-        with open(out_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=1024 * 256):
-                if chunk:
-                    f.write(chunk)
+        os.close(fd)
+        s3.download_file(bucket, key, tmp_path)
+        os.replace(tmp_path, out_path)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def gunzip_file(src_gz: str, dst_path: str) -> None:
@@ -1695,7 +1725,13 @@ def main() -> None:
                  for w in wads_data if isinstance(w, dict) and w.get("_id")}
     id_lookup = build_idgames_lookup(idgames_data, wad_sha1s)
 
-    session = requests.Session()
+    # S3 client for WAD downloads.
+    region_name = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+    s3_wads = boto3.client(
+        "s3",
+        endpoint_url=args.wad_endpoint,
+        region_name=region_name,
+    )
 
     total = len(wads_data)
     start = max(0, args.start)
@@ -1730,18 +1766,17 @@ def main() -> None:
         ext = TYPE_TO_EXT.get(wad_type, None) or "wad"  # default best-guess
 
         prefixes = candidate_prefixes(wad_entry)
-        s3_url = resolve_s3_url(
-            session, args.wad_url_base, sha1, ext, prefixes)
+        s3_key = resolve_s3_key(s3_wads, args.wad_bucket, sha1, ext, prefixes)
+        s3_url = f"s3://{args.wad_bucket}/{s3_key}" if s3_key else None
 
         extracted: Dict[str, Any]
         per_map_stats: List[Dict[str, Any]] = []
         computed_hashes: Optional[Dict[str, str]] = None
         integrity: Optional[Dict[str, Any]] = None
-        if not s3_url:
-            raise ValueError("Could not resolve S3 URL")
+        if not s3_key:
             extracted = {
                 "format": "unknown",
-                "error": "Could not resolve S3 object URL (prefix mismatch).",
+                "error": "Could not resolve S3 object key (layout/prefix mismatch).",
                 "tried_prefixes": prefixes,
                 "expected_ext": ext,
             }
@@ -1781,7 +1816,7 @@ def main() -> None:
             output_path = os.path.join(td, f"output_screenshots")
 
             try:
-                download_to_path(session, s3_url, gz_path)
+                download_s3_to_path(s3_wads, args.wad_bucket, s3_key, gz_path)
 
                 # Decompress to actual file
                 with gzip.open(gz_path, "rb") as gz:
