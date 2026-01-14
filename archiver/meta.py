@@ -1214,9 +1214,9 @@ def resolve_s3_url(
         if r.status_code == 200:
             return url
         elif r.status_code in [404, 403]:
-            return None
+            raise ValueError(f"Error checking S3 URL {url}: HTTP {r.status_code}")
     except requests.RequestException as e:
-        return None
+        raise ValueError(f"Error checking S3 URL {url}: {e}")
 
 
 def download_to_path(session: requests.Session, url: str, out_path: str) -> None:
@@ -1734,6 +1734,7 @@ def main() -> None:
         computed_hashes: Optional[Dict[str, str]] = None
         integrity: Optional[Dict[str, Any]] = None
         if not s3_url:
+            raise ValueError("Could not resolve S3 URL")
             extracted = {
                 "format": "unknown",
                 "error": "Could not resolve S3 object URL (prefix mismatch).",

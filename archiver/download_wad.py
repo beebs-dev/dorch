@@ -123,13 +123,13 @@ def upload_files(dir: str,
                  id: str,
                  bucket: str = "wadarchive2",
                  endpoint: str = "https://nyc3.digitaloceanspaces.com"):
-    print(f"Uploading files from {dir} to s3://{bucket}/{id}/")
+    print(f"Uploading files from {dir} to s3://{bucket}/{id}...")
     subprocess.run(
-        ["aws", "s3", "sync", dir, f"s3://{bucket}/{id}/",
+        ["aws", "s3", "sync", dir, f"s3://{bucket}/",
             "--endpoint", endpoint, "--acl", "public-read"],
         check=True,
     )
-    print(f"Synced files from {dir} to s3://{bucket}/{id}/")
+    print(f"Synced files from {dir} to s3://{bucket}/{id}...")
 
 
 def mark_done(done_path: str, zip_path: str):
@@ -145,6 +145,28 @@ def cleanup(zip_path: str, extract_dir: str):
         os.remove(zip_path)
     if os.path.exists(extract_dir):
         shutil.rmtree(extract_dir)
+
+def rename_dirs(tmp_dir: str, id: str):
+    """
+    Renames the directories in the extracted zip to have the correct prefix.
+    The extracted directories have names of length 38 (missing the 2-character prefix).
+    This function renames them to have the full 40-character name by adding the prefix.
+    40-character names are left unchanged.
+    38-character names are renamed by adding the given prefix.
+    Any other name length raises an error.
+    """
+    entries = os.listdir(tmp_dir)
+    for entry in entries:
+        print(f"  Entry: '{entry}'")
+        entry = str(entry.strip())
+        if len(entry) != 38:
+            continue
+        new_entry = id + entry
+        old_path = os.path.join(tmp_dir, entry)
+        new_path = os.path.join(tmp_dir, new_entry)
+        print(f"Renaming {entry} to {new_entry}")
+        os.rename(old_path, new_path)
+        print(f"Moved {old_path} to {new_path}")
 
 def process_zip(i: int, out_dir: str):
     id = f"{i:02x}"
@@ -171,6 +193,7 @@ def process_zip(i: int, out_dir: str):
         ["unzip", "-q", zip_path, "-d", tmp_dir],
         check=True,
     )
+    rename_dirs(os.path.join(tmp_dir, id), id)
     os.rename(tmp_dir, extract_dir)
     print(f"Unzipped {zip_path} to {extract_dir}")
     upload_files(os.path.join(extract_dir, id), id=id)
@@ -180,7 +203,7 @@ def process_zip(i: int, out_dir: str):
 def download_wad_archive(out_dir: str):
     start_range = int(os.getenv("START_RANGE", "0"))
     end_range = int(os.getenv("END_RANGE", "256"))
-    print(f"Processing WAD archive from {start_range} to {end_range}")
+    print(f"Processing WAD archive from {start_range:02x} to {end_range:02x}")
     for i in range(start_range, end_range):
         process_zip(i, out_dir)
 
