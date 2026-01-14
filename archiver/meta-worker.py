@@ -87,27 +87,6 @@ def analyze_one_wad(
 		if isinstance(v, str) and v.strip():
 			expected_sha256 = v.strip().lower()
 
-	# No S3 key resolved => still emit an object to wadinfo (so it can be debugged).
-	if not s3_key:
-		extracted = {
-			"format": "unknown",
-			"error": "Could not resolve S3 object key (layout/prefix mismatch).",
-			"expected_ext": ext,
-		}
-		meta_obj = meta.build_output_object(
-			sha1=sha1,
-			sha256=expected_sha256,
-			s3_url=None,
-			extracted=extracted,
-			wad_archive=wad_entry,
-			idgames=idgames_entry,
-			integrity=None,
-		)
-		out_obj = {"meta": meta_obj, "maps": []}
-		if post_to_wadinfo:
-			meta.post_to_wadinfo(out_obj, sha1, wadinfo_base_url=wadinfo_base_url)
-		return out_obj
-
 	computed_hashes: Optional[Dict[str, str]] = None
 	integrity: Optional[Dict[str, Any]] = None
 	extracted: Dict[str, Any] = {}

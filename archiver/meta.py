@@ -1195,7 +1195,7 @@ def resolve_s3_key(
     bucket: str,
     sha1: str,
     ext: str,
-) -> Optional[str]:
+) -> str:
     """Resolve the object key for a WAD archive in S3.
 
     We avoid constructing/using any public HTTP URL. Instead, probe a small set
@@ -1208,7 +1208,7 @@ def resolve_s3_key(
       s3://{bucket}/{sha1}/{prefix}{sha1}.{ext}.gz
     """
     if not isinstance(sha1, str) or len(sha1) != 40:
-        return None
+        raise ValueError("sha1 must be a 40-character hex string")
     key = f"{sha1}/{sha1}.{ext}.gz"
     try:
         s3.head_object(Bucket=bucket, Key=key)
@@ -1221,7 +1221,7 @@ def resolve_s3_key(
         err = (e.response or {}).get("Error") or {}
         code = str(err.get("Code") or "")
         if code in {"404", "NoSuchKey", "NotFound"}:
-            return None
+            raise ValueError(f"s3://{bucket}/{key} not found") from e
         raise ValueError(
             f"Error checking s3://{bucket}/{key}: {code or type(e).__name__}: {err.get('Message') or e}"
         ) from e
