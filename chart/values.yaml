@@ -150,7 +150,7 @@ archiver:
   logLevel: debug
   resources:
     requests: 
-      memory: "128Mi"
+      memory: "256Mi"
     limits:
       memory: "512Mi"
 
