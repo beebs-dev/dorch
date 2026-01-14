@@ -4,8 +4,48 @@ use dorch_common::{
     postgres::strip_sql_comments,
     types::wad::{MapStat, WadMergedOut, WadMeta},
 };
+use serde_json::Value;
+use std::collections::BTreeMap;
 use tokio_postgres::types::Json;
 use uuid::Uuid;
+
+fn escape_nul_in_str(s: &str) -> Option<String> {
+    if s.contains('\0') {
+        // Postgres text/jsonb cannot contain a literal NUL. Preserve information by turning it
+        // into the literal 6-character sequence "\\u0000".
+        Some(s.replace('\0', "\\u0000"))
+    } else {
+        None
+    }
+}
+
+fn escape_nul_in_vec(v: &[String]) -> Option<Vec<String>> {
+    if v.iter().any(|s| s.contains('\0')) {
+        Some(
+            v.iter()
+                .map(|s| escape_nul_in_str(s).unwrap_or_else(|| s.clone()))
+                .collect(),
+        )
+    } else {
+        None
+    }
+}
+
+fn escape_nul_in_json(value: &mut Value) -> usize {
+    match value {
+        Value::String(s) => {
+            if s.contains('\0') {
+                *s = s.replace('\0', "\\u0000");
+                1
+            } else {
+                0
+            }
+        }
+        Value::Array(items) => items.iter_mut().map(escape_nul_in_json).sum(),
+        Value::Object(obj) => obj.values_mut().map(escape_nul_in_json).sum(),
+        _ => 0,
+    }
+}
 
 mod sql {
     pub const TABLES: &str = include_str!("sql/tables.sql");
@@ -331,21 +371,42 @@ impl Database {
             .transaction()
             .await
             .context("failed to begin transaction")?;
-        let meta_json = serde_json::to_value(&merged.meta).context("serialize merged.meta")?;
+
+        let mut meta_json = serde_json::to_value(&merged.meta).context("serialize merged.meta")?;
+        let meta_nul_count = escape_nul_in_json(&mut meta_json);
+        if meta_nul_count > 0 {
+            eprintln!(
+                "⚠️  escaped embedded NULs in merged.meta • sha1={} • strings_touched={}",
+                merged.meta.sha1, meta_nul_count
+            );
+        }
         let wa_updated_ts = parse_updated_ts(&merged.meta.sources.wad_archive.updated);
 
         let sha1 = merged.meta.sha1.as_str();
         let sha256 = merged.meta.sha256.as_deref();
+
         let title = merged.meta.title.as_deref();
+        let title_escaped = title.and_then(escape_nul_in_str);
+        let title_param: Option<&str> = title_escaped.as_deref().or(title);
 
         let file_type = merged.meta.file.file_type.as_str();
         let file_size = merged.meta.file.size;
         let file_url = merged.meta.file.url.as_deref();
+        let file_url_escaped = file_url.and_then(escape_nul_in_str);
+        let file_url_param: Option<&str> = file_url_escaped.as_deref().or(file_url);
         let corrupt = merged.meta.file.corrupt;
         let corrupt_msg = merged.meta.file.corrupt_message.as_deref();
+        let corrupt_msg_escaped = corrupt_msg.and_then(escape_nul_in_str);
+        let corrupt_msg_param: Option<&str> = corrupt_msg_escaped.as_deref().or(corrupt_msg);
 
         let engines_guess = merged.meta.content.engines_guess.as_ref();
+        let engines_guess_escaped = engines_guess.and_then(|v| escape_nul_in_vec(v));
+        let engines_guess_param: Option<&Vec<String>> =
+            engines_guess_escaped.as_ref().or(engines_guess);
+
         let iwads_guess = merged.meta.content.iwads_guess.as_ref();
+        let iwads_guess_escaped = iwads_guess.and_then(|v| escape_nul_in_vec(v));
+        let iwads_guess_param: Option<&Vec<String>> = iwads_guess_escaped.as_ref().or(iwads_guess);
 
         // 1) Upsert wads row -> wad_id
         let insert_wad = tx
@@ -359,14 +420,14 @@ impl Database {
                     &merged.meta.id,
                     &sha1,
                     &sha256,
-                    &title,
+                    &title_param,
                     &file_type,
                     &file_size,
-                    &file_url,
+                    &file_url_param,
                     &corrupt,
-                    &corrupt_msg,
-                    &engines_guess,
-                    &iwads_guess,
+                    &corrupt_msg_param,
+                    &engines_guess_param,
+                    &iwads_guess_param,
                     &wa_updated_ts,
                     &Json(meta_json),
                 ],
@@ -391,7 +452,9 @@ impl Database {
                 .await
                 .context("prepare INSERT_WAD_AUTHOR")?;
             for (ord, a) in authors.iter().enumerate() {
-                tx.execute(&stmt, &[&wad_id, &a, &(ord as i32)])
+                let a_escaped = escape_nul_in_str(a);
+                let a_param = a_escaped.as_deref().unwrap_or(a);
+                tx.execute(&stmt, &[&wad_id, &a_param, &(ord as i32)])
                     .await
                     .with_context(|| format!("insert author ord={ord}"))?;
             }
@@ -403,7 +466,9 @@ impl Database {
                 .await
                 .context("prepare INSERT_WAD_DESCRIPTION")?;
             for (ord, d) in descs.iter().enumerate() {
-                tx.execute(&stmt, &[&wad_id, &d, &(ord as i32)])
+                let d_escaped = escape_nul_in_str(d);
+                let d_param = d_escaped.as_deref().unwrap_or(d);
+                tx.execute(&stmt, &[&wad_id, &d_param, &(ord as i32)])
                     .await
                     .with_context(|| format!("insert description ord={ord}"))?;
             }
@@ -415,9 +480,11 @@ impl Database {
                 .await
                 .context("prepare INSERT_WAD_MAP_LIST")?;
             for (ord, m) in maps.iter().enumerate() {
-                tx.execute(&stmt, &[&wad_id, &m, &(ord as i32)])
+                let m_escaped = escape_nul_in_str(m);
+                let m_param = m_escaped.as_deref().unwrap_or(m);
+                tx.execute(&stmt, &[&wad_id, &m_param, &(ord as i32)])
                     .await
-                    .with_context(|| format!("insert map_list ord={ord} map={m}"))?;
+                    .with_context(|| format!("insert map_list ord={ord} map={m_param}"))?;
             }
         }
 
@@ -427,9 +494,25 @@ impl Database {
                 .await
                 .context("prepare INSERT_WAD_TEXT_FILE")?;
             for (ord, tf) in tfs.iter().enumerate() {
+                let source_escaped = escape_nul_in_str(&tf.source);
+                let source_param = source_escaped.as_deref().unwrap_or(tf.source.as_str());
+
+                let name = tf.name.as_deref();
+                let name_escaped = name.and_then(escape_nul_in_str);
+                let name_param: Option<&str> = name_escaped.as_deref().or(name);
+
+                let contents_escaped = escape_nul_in_str(&tf.contents);
+                let contents_param = contents_escaped.as_deref().unwrap_or(tf.contents.as_str());
+
                 tx.execute(
                     &stmt,
-                    &[&wad_id, &tf.source, &tf.name, &tf.contents, &(ord as i32)],
+                    &[
+                        &wad_id,
+                        &source_param,
+                        &name_param,
+                        &contents_param,
+                        &(ord as i32),
+                    ],
                 )
                 .await
                 .with_context(|| format!("insert text_file ord={ord}"))?;
@@ -438,7 +521,15 @@ impl Database {
 
         // 4) counts (jsonb)
         if let Some(counts) = &merged.meta.content.counts {
-            let counts_json = serde_json::to_value(counts).context("serialize counts")?;
+            // Counts is a string-keyed map; sanitize keys defensively.
+            let mut counts_sanitized: BTreeMap<String, i64> = BTreeMap::new();
+            for (k, v) in counts.iter() {
+                let k_escaped = escape_nul_in_str(k);
+                counts_sanitized.insert(k_escaped.unwrap_or_else(|| k.clone()), *v);
+            }
+            let mut counts_json =
+                serde_json::to_value(counts_sanitized).context("serialize counts")?;
+            _ = escape_nul_in_json(&mut counts_json);
             let stmt = tx
                 .prepare_cached(sql::UPSERT_WAD_COUNTS)
                 .await
@@ -450,8 +541,9 @@ impl Database {
 
         // 5) sources: wad_archive, extracted, idgames
         {
-            let hashes_json = serde_json::to_value(&merged.meta.sources.wad_archive.hashes)
+            let mut hashes_json = serde_json::to_value(&merged.meta.sources.wad_archive.hashes)
                 .context("serialize wad_archive.hashes")?;
+            _ = escape_nul_in_json(&mut hashes_json);
             let stmt = tx
                 .prepare_cached(sql::UPSERT_WAD_SOURCE_WAD_ARCHIVE)
                 .await
@@ -460,8 +552,9 @@ impl Database {
                 .await
                 .context("exec UPSERT_WAD_SOURCE_WAD_ARCHIVE")?;
 
-            let extracted_json = serde_json::to_value(&merged.meta.sources.extracted)
+            let mut extracted_json = serde_json::to_value(&merged.meta.sources.extracted)
                 .context("serialize extracted")?;
+            _ = escape_nul_in_json(&mut extracted_json);
             let stmt = tx
                 .prepare_cached(sql::UPSERT_WAD_SOURCE_EXTRACTED)
                 .await
@@ -471,7 +564,36 @@ impl Database {
                 .context("exec UPSERT_WAD_SOURCE_EXTRACTED")?;
 
             if let Some(ig) = &merged.meta.sources.idgames {
-                let ig_raw_json = serde_json::to_value(ig).context("serialize idgames")?;
+                let url = ig.url.as_deref();
+                let url_escaped = url.and_then(escape_nul_in_str);
+                let url_param: Option<&str> = url_escaped.as_deref().or(url);
+
+                let dir = ig.dir.as_deref();
+                let dir_escaped = dir.and_then(escape_nul_in_str);
+                let dir_param: Option<&str> = dir_escaped.as_deref().or(dir);
+
+                let filename = ig.filename.as_deref();
+                let filename_escaped = filename.and_then(escape_nul_in_str);
+                let filename_param: Option<&str> = filename_escaped.as_deref().or(filename);
+
+                let date = ig.date.as_deref();
+                let date_escaped = date.and_then(escape_nul_in_str);
+                let date_param: Option<&str> = date_escaped.as_deref().or(date);
+
+                let ig_title = ig.title.as_deref();
+                let ig_title_escaped = ig_title.and_then(escape_nul_in_str);
+                let ig_title_param: Option<&str> = ig_title_escaped.as_deref().or(ig_title);
+
+                let author = ig.author.as_deref();
+                let author_escaped = author.and_then(escape_nul_in_str);
+                let author_param: Option<&str> = author_escaped.as_deref().or(author);
+
+                let credits = ig.credits.as_deref();
+                let credits_escaped = credits.and_then(escape_nul_in_str);
+                let credits_param: Option<&str> = credits_escaped.as_deref().or(credits);
+
+                let mut ig_raw_json = serde_json::to_value(ig).context("serialize idgames")?;
+                _ = escape_nul_in_json(&mut ig_raw_json);
                 let stmt = tx
                     .prepare_cached(sql::UPSERT_WAD_SOURCE_IDGAMES)
                     .await
@@ -481,13 +603,13 @@ impl Database {
                     &[
                         &wad_id,
                         &ig.id,
-                        &ig.url,
-                        &ig.dir,
-                        &ig.filename,
-                        &ig.date,
-                        &ig.title,
-                        &ig.author,
-                        &ig.credits,
+                        &url_param,
+                        &dir_param,
+                        &filename_param,
+                        &date_param,
+                        &ig_title_param,
+                        &author_param,
+                        &credits_param,
                         &ig.rating,
                         &ig.votes.map(|v| v as i32),
                         &Json(ig_raw_json),
@@ -528,7 +650,35 @@ impl Database {
                 .context("prepare INSERT_WAD_MAP_ITEM")?;
 
             for m in &merged.maps {
-                let map_json = serde_json::to_value(m).context("serialize map stat")?;
+                let map_name_escaped = escape_nul_in_str(&m.map);
+                let map_name_param = map_name_escaped.as_deref().unwrap_or(m.map.as_str());
+
+                let format_escaped = escape_nul_in_str(&m.format);
+                let format_param = format_escaped.as_deref().unwrap_or(m.format.as_str());
+
+                let compat_escaped = escape_nul_in_str(&m.compatibility);
+                let compat_param = compat_escaped
+                    .as_deref()
+                    .unwrap_or(m.compatibility.as_str());
+
+                let keys_escaped = escape_nul_in_vec(&m.mechanics.keys);
+                let keys_param: &Vec<String> = keys_escaped.as_ref().unwrap_or(&m.mechanics.keys);
+
+                let meta_title = m.metadata.title.as_deref();
+                let meta_title_escaped = meta_title.and_then(escape_nul_in_str);
+                let meta_title_param: Option<&str> = meta_title_escaped.as_deref().or(meta_title);
+
+                let meta_music = m.metadata.music.as_deref();
+                let meta_music_escaped = meta_music.and_then(escape_nul_in_str);
+                let meta_music_param: Option<&str> = meta_music_escaped.as_deref().or(meta_music);
+
+                let meta_source_escaped = escape_nul_in_str(&m.metadata.source);
+                let meta_source_param = meta_source_escaped
+                    .as_deref()
+                    .unwrap_or(m.metadata.source.as_str());
+
+                let mut map_json = serde_json::to_value(m).context("serialize map stat")?;
+                _ = escape_nul_in_json(&mut map_json);
 
                 let things: i32 = m.stats.things.try_into().context("map things overflow")?;
                 let linedefs: i32 = m
@@ -601,9 +751,9 @@ impl Database {
                     &insert_map,
                     &[
                         &wad_id,
-                        &m.map,
-                        &m.format,
-                        &m.compatibility,
+                        &map_name_param,
+                        &format_param,
+                        &compat_param,
                         &things,
                         &linedefs,
                         &sidedefs,
@@ -614,7 +764,7 @@ impl Database {
                         &nodes,
                         &m.mechanics.teleports,
                         &m.mechanics.secret_exit,
-                        &m.mechanics.keys,
+                        keys_param,
                         &monster_total,
                         &uv_monsters,
                         &hmp_monsters,
@@ -623,41 +773,50 @@ impl Database {
                         &uv_items,
                         &hmp_items,
                         &htr_items,
-                        &m.metadata.title,
-                        &m.metadata.music,
-                        &m.metadata.source,
+                        &meta_title_param,
+                        &meta_music_param,
+                        &meta_source_param,
                         &Json(map_json),
                     ],
                 )
                 .await
-                .with_context(|| format!("insert wad_map {}", m.map))?;
+                .with_context(|| format!("insert wad_map {map_name_param}"))?;
 
                 let mut textures_seen: HashSet<&str> = HashSet::new();
                 for tex in &m.stats.textures {
                     if !textures_seen.insert(tex.as_str()) {
                         continue;
                     }
-                    tx.execute(&insert_tex, &[&wad_id, &m.map, &tex])
+                    let tex_escaped = escape_nul_in_str(tex);
+                    let tex_param = tex_escaped.as_deref().unwrap_or(tex);
+                    tx.execute(&insert_tex, &[&wad_id, &map_name_param, &tex_param])
                         .await
-                        .with_context(|| format!("insert texture {} {}", m.map, tex))?;
+                        .with_context(|| format!("insert texture {map_name_param} {tex_param}"))?;
                 }
 
                 for (monster, cnt) in &m.monsters.by_type {
-                    let cnt: i32 = (*cnt)
-                        .try_into()
-                        .with_context(|| format!("monster count overflow {} {}", m.map, monster))?;
-                    tx.execute(&insert_mon, &[&wad_id, &m.map, &monster, &cnt])
-                        .await
-                        .with_context(|| format!("insert monster {} {}", m.map, monster))?;
+                    let cnt: i32 = (*cnt).try_into().with_context(|| {
+                        format!("monster count overflow {map_name_param} {monster}")
+                    })?;
+                    let monster_escaped = escape_nul_in_str(monster);
+                    let monster_param = monster_escaped.as_deref().unwrap_or(monster);
+                    tx.execute(
+                        &insert_mon,
+                        &[&wad_id, &map_name_param, &monster_param, &cnt],
+                    )
+                    .await
+                    .with_context(|| format!("insert monster {map_name_param} {monster_param}"))?;
                 }
 
                 for (item, cnt) in &m.items.by_type {
                     let cnt: i32 = (*cnt)
                         .try_into()
-                        .with_context(|| format!("item count overflow {} {}", m.map, item))?;
-                    tx.execute(&insert_item, &[&wad_id, &m.map, &item, &cnt])
+                        .with_context(|| format!("item count overflow {map_name_param} {item}"))?;
+                    let item_escaped = escape_nul_in_str(item);
+                    let item_param = item_escaped.as_deref().unwrap_or(item);
+                    tx.execute(&insert_item, &[&wad_id, &map_name_param, &item_param, &cnt])
                         .await
-                        .with_context(|| format!("insert item {} {}", m.map, item))?;
+                        .with_context(|| format!("insert item {map_name_param} {item_param}"))?;
                 }
             }
         }

@@ -25,6 +25,38 @@ from screenshots import RenderConfig, render_screenshots
 _REDIS_CLIENT: Any = None
 
 
+def _dedupe_per_map_stats_keep_last(
+	per_map_stats: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+	"""Drop duplicate maps, keeping the last occurrence.
+
+	Some containers (e.g. PK3/PK7) may include multiple WADs that define the same
+	map name (MAP01, E1M1, ...). For the per-map breakdown we want "last loaded
+	wins" semantics: keep the latest definition in load order and drop earlier.
+
+	We treat map names case-insensitively and ignore surrounding whitespace.
+	"""
+	if not isinstance(per_map_stats, list) or not per_map_stats:
+		return []
+
+	seen: set[str] = set()
+	out_rev: List[Dict[str, Any]] = []
+	for m in reversed(per_map_stats):
+		if not isinstance(m, dict):
+			continue
+		name = m.get("map")
+		if not isinstance(name, str):
+			continue
+		key = name.strip().upper()
+		if not key or key in seen:
+			continue
+		seen.add(key)
+		out_rev.append(m)
+
+	out_rev.reverse()
+	return out_rev
+
+
 def _get_redis_client() -> Optional[Any]:
 	"""Best-effort Redis client from env.
 
@@ -195,6 +227,11 @@ def analyze_one_wad(
 				for (_wad_path, wbuf) in embedded:
 					map_lists.append(meta.extract_per_map_stats_from_wad_bytes(wbuf))
 				per_map_stats = meta.merge_per_map_stats(map_lists)
+
+			# Ensure we never send duplicate map names to wadinfo. (Even if
+			# meta.merge_per_map_stats() already dedupes for PK3, we defensively
+			# enforce last-occurrence-wins across all formats.)
+			per_map_stats = _dedupe_per_map_stats_keep_last(per_map_stats)
 
 			if render_screens:
 				try:

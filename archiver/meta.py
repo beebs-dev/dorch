@@ -1221,6 +1221,12 @@ def resolve_s3_key(
         err = (e.response or {}).get("Error") or {}
         code = str(err.get("Code") or "")
         if code in {"404", "NoSuchKey", "NotFound"}:
+            fallback = f"{sha1}/{sha1}.wad.gz"
+            try:
+                s3.head_object(Bucket=bucket, Key=fallback)
+                return key
+            except ClientError:
+                pass
             raise ValueError(f"s3://{bucket}/{key} not found") from e
         raise ValueError(
             f"Error checking s3://{bucket}/{key}: {code or type(e).__name__}: {err.get('Message') or e}"
@@ -1294,6 +1300,35 @@ def build_output_object(
     readmes: Optional[Dict[str, Any]] = None,
     integrity: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+    def _normalize_map_names(maybe_maps: Any) -> Optional[List[str]]:
+        """Return a unique list of map name strings.
+
+        Some sources (older wads.json, or extracted metadata) may provide per-map
+        dicts instead of a simple list of map lump names. wadinfo expects
+        meta.content.maps to be []string.
+        """
+        if not isinstance(maybe_maps, list) or not maybe_maps:
+            return None
+
+        names: List[str] = []
+        for item in maybe_maps:
+            if isinstance(item, str):
+                s = item.strip()
+                if s:
+                    names.append(s)
+                continue
+            if isinstance(item, dict):
+                # Common shape: {"name": "MAP01", ...}
+                n = item.get("name") or item.get("map")
+                if isinstance(n, str):
+                    s = n.strip()
+                    if s:
+                        names.append(s)
+                continue
+
+        out = uniq_preserve(names)
+        return out or None
+
     def _compact_extracted(ex: Dict[str, Any]) -> Dict[str, Any]:
         """Avoid embedding large blobs (e.g. text file contents) in sources.extracted."""
         if not isinstance(ex, dict):
@@ -1380,6 +1415,8 @@ def build_output_object(
     wa_corrupt_msg = wad_archive.get("corruptMessage")
     wa_hashes = wad_archive.get("hashes") or {}
 
+    corrupt_flag = _is_truthy_bool(wa_corrupt)
+
     # idGames fields (if present)
     ig = (idgames or {}).get("content") if isinstance(idgames, dict) else None
     ig_title = ig.get("title") if isinstance(ig, dict) else None
@@ -1422,10 +1459,8 @@ def build_output_object(
             "latin-1", errors="replace")))] if isinstance(ig_desc, str) else None,
     )
 
-    # Maps: prefer extracted maps, else WAD Archive maps
-    ex_maps = extracted.get("maps") if isinstance(
-        extracted.get("maps"), list) else None
-    maps = ex_maps or wa_maps
+    # Maps: normalize to []string (names only)
+    maps = _normalize_map_names(extracted.get("maps")) or _normalize_map_names(wa_maps)
 
     out: Dict[str, Any] = {
         "sha1": sha1,
@@ -1480,9 +1515,16 @@ def build_output_object(
             out.setdefault("file", {})
             out["file"]["corrupt"] = True
             out["file"]["corruptMessage"] = msg or "Failed integrity checks"
+            corrupt_flag = True
 
     # Prune nulls for cleanliness
-    return prune_nones(out)
+    pruned = prune_nones(out)
+    # wadinfo expects meta.content to exist, even for corrupt uploads where it is empty.
+    if corrupt_flag:
+        content = pruned.get("content")
+        if not isinstance(content, dict):
+            pruned["content"] = {}
+    return pruned
 
 
 def compute_hashes_for_file(path: str) -> Dict[str, str]:
@@ -1552,6 +1594,10 @@ def prune_nones(obj: Any) -> Any:
     return obj
 
 
+def _is_truthy_bool(v: Any) -> bool:
+    return v is True
+
+
 # -----------------------------
 # Main
 # -----------------------------
@@ -1589,7 +1635,6 @@ def post_to_wadinfo(obj, sha1, wadinfo_base_url: str = WADINFO_BASE_URL) -> None
         print(f"wadinfo rejected {sha1}: {response.text}")
         return
     response.raise_for_status()
-    print(json.dumps(obj, indent=2))
     print(f"Posted {sha1} to wadinfo: {response.status_code}")
 
 

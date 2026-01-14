@@ -12,10 +12,12 @@ spec:
         - python
         - -u
         - /app/meta-dispatch.py
-        - --start
-        - "0"
-        - --limit
-        - "10"
+        #- --start
+        #- "0"
+        #- --limit
+        #- "10"
+        - --readmes-json
+        - https://wadarchive2.nyc3.digitaloceanspaces.com/readmes.json
         - --wads-json
         - https://wadarchive2.nyc3.digitaloceanspaces.com/wads.json
         - --idgames-json
