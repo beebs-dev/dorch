@@ -28,6 +28,4 @@ spec:
   duplicateWindow: 2m
   retention: limits
   discard: old
-  maxMsgSize: 1062144
-  maxBytes: 53687091200
   maxAge: 168h

@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 import meta
 from meta_eda import MetaJob, STREAM_NAME, subject_for_sha1
-from natsutil import connect_nats, ensure_stream
+from natsutil import connect_nats, ensure_stream, nats_flush_timeout_seconds, nats_publish_timeout_seconds
 
 
 def _valid_sha1(s: str) -> bool:
@@ -93,6 +93,8 @@ async def _run(args: argparse.Namespace) -> None:
 		js = nc.jetstream()
 		await ensure_stream(js, STREAM_NAME, subjects=["dorch.wad.*.meta"])
 
+		publish_timeout = nats_publish_timeout_seconds()
+
 		total = len(wads_data)
 		start = max(0, int(args.start))
 		end = total if args.limit <= 0 else min(total, start + int(args.limit))
@@ -123,7 +125,7 @@ async def _run(args: argparse.Namespace) -> None:
 
 			subj = subject_for_sha1(sha1)
 			headers = {} #{"Nats-Msg-Id": f"dorch-meta:{sha1}"} # TODO
-			await js.publish(subj, job.to_bytes(), headers=headers)
+			await js.publish(subj, job.to_bytes(), headers=headers, timeout=publish_timeout)
 			published += 1
 			if args.sleep > 0:
 				try:
@@ -135,7 +137,7 @@ async def _run(args: argparse.Namespace) -> None:
 	finally:
 		if fast_exit:
 			try:
-				await nc.flush(timeout=1)
+				await nc.flush(timeout=nats_flush_timeout_seconds())
 			except Exception:
 				pass
 			await nc.close()

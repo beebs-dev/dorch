@@ -4,6 +4,7 @@ use dorch_common::{
     postgres::strip_sql_comments,
     types::wad::{MapStat, WadMergedOut, WadMeta},
 };
+use owo_colors::OwoColorize;
 use serde_json::Value;
 use std::collections::BTreeMap;
 use tokio_postgres::types::Json;
@@ -376,8 +377,11 @@ impl Database {
         let meta_nul_count = escape_nul_in_json(&mut meta_json);
         if meta_nul_count > 0 {
             eprintln!(
-                "⚠️  escaped embedded NULs in merged.meta • sha1={} • strings_touched={}",
-                merged.meta.sha1, meta_nul_count
+                "{}{}{}{}",
+                "⚠️  Escaped embedded NULLs in merged.meta • sha1=".yellow(),
+                merged.meta.sha1.yellow().dimmed(),
+                " • strings_touched=".yellow(),
+                meta_nul_count.yellow().dimmed(),
             );
         }
         let wa_updated_ts = parse_updated_ts(&merged.meta.sources.wad_archive.updated);

@@ -18,7 +18,7 @@ import boto3
 
 import meta
 from meta_eda import STREAM_NAME, parse_meta_job, sha1_from_subject
-from natsutil import connect_nats, ensure_stream
+from natsutil import connect_nats, ensure_stream, nats_flush_timeout_seconds
 from screenshots import RenderConfig, render_screenshots
 
 
@@ -459,7 +459,7 @@ async def _run(args: argparse.Namespace) -> None:
 	finally:
 		if fast_exit:
 			try:
-				await nc.flush(timeout=1)
+				await nc.flush(timeout=nats_flush_timeout_seconds())
 			except Exception:
 				pass
 			await nc.close()

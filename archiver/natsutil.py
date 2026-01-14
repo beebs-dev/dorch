@@ -18,6 +18,30 @@ def _env(name: str, default: str = "") -> str:
 	return v or default
 
 
+def _env_float(name: str, default: float) -> float:
+	v = os.getenv(name)
+	if v is None or not v.strip():
+		return default
+	try:
+		return float(v)
+	except ValueError:
+		return default
+
+
+def nats_publish_timeout_seconds() -> float:
+	"""Timeout for JetStream publish acknowledgements.
+
+	This guards `js.publish()` awaiting the PubAck. Larger payloads and/or a busy
+	cluster can make the default too tight.
+	"""
+	return _env_float("DORCH_NATS_PUBLISH_TIMEOUT", 5.0)
+
+
+def nats_flush_timeout_seconds() -> float:
+	"""Timeout for `nc.flush()` on fast-exit paths."""
+	return _env_float("DORCH_NATS_FLUSH_TIMEOUT", 3.0)
+
+
 async def connect_nats() -> NATS:
 	servers = _env("NATS_URL", "nats://localhost:4222")
 	user = _env("NATS_USER", "")
