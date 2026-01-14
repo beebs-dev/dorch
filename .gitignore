@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 _vizdoom
 output
+/*/**/.buildx-cache
