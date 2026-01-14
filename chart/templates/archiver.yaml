@@ -1,0 +1,74 @@
+{{- $image := printf "%s%s" .Values.registry .Values.archiver.image -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-archiver
+spec:
+  replicas: {{ .Values.archiver.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-archiver
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-archiver
+    spec:
+    {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 10 }}
+    {{- end }}
+      containers:
+      - name: archiver
+        imagePullPolicy: {{ .Values.archiver.imagePullPolicy }}
+        image: {{ $image }}
+    {{- if .Values.archiver.resources }}
+        resources:
+{{ toYaml .Values.archiver.resources | indent 10 }}
+    {{- end }}
+        command:
+          - python
+          - /app/meta-worker.py
+          - --durable
+          - meta-worker
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /etc/ready
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        env:
+        - name: DORCH_READY_FILE
+          value: /etc/ready
+        - name: SERVICE_NAME
+          value: archiver
+        - name: RUST_LOG
+          value: info,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info
+        - name: LOG_LEVEL
+          value: {{ .Values.archiver.logLevel }}
+{{- if .Values.nats.user }}
+        - name: NATS_USER
+{{ tpl (toYaml .Values.nats.user) . | indent 10 }}
+{{- end }}
+{{- if .Values.nats.password }}
+        - name: NATS_PASSWORD
+{{ tpl (toYaml .Values.nats.password) . | indent 10 }}
+{{- end }}
+{{ include "dorch.metrics-env" . | indent 8 }}
+{{ include "dorch.nats-env" . | indent 8 }}
+{{ include "dorch.redis-env" . | indent 8 }}
+---
+{{- if .Values.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ .Release.Name }}-archiver
+  labels:
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-archiver
+  podMetricsEndpoints:
+  - port: metrics
+{{- end }}

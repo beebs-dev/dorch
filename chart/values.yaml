@@ -3,6 +3,11 @@ registry: "" # same as "docker.io/"
 prometheus:
   enabled: false
 
+nats:
+  url: "nats://nats.nats.svc.cluster.local:4222"
+  user: {}
+  password: {}
+
 postgres:
   host:
     value: ""
@@ -137,6 +142,17 @@ party:
         memory: "32Mi"
       limits:
         memory: "64Mi"
+
+archiver:
+  image: thavlik/dorch-archiver:latest
+  imagePullPolicy: Always
+  replicas: 1
+  logLevel: debug
+  resources:
+    requests: 
+      memory: "128Mi"
+    limits:
+      memory: "512Mi"
 
 webrtcAuth:
   image: thavlik/dorch-webrtc-auth:latest

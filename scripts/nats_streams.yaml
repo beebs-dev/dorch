@@ -1,0 +1,33 @@
+apiVersion: jetstream.nats.io/v1beta2
+kind: Account
+metadata:
+  name: admin
+  namespace: nats
+spec:
+  name: admin
+  servers:
+    - nats://nats.nats.svc.cluster.local:4222
+  user:
+    secret:
+      name: nack-userpass
+    user: "user"
+    password: "password"
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Stream
+metadata:
+  name: dorch-meta
+  namespace: nats
+spec:
+  name: DORCH_META
+  account: admin
+  subjects:
+    - "dorch.wad.*.meta"
+  storage: file
+  replicas: 1
+  duplicateWindow: 2m
+  retention: limits
+  discard: old
+  maxMsgSize: 262144
+  maxBytes: 53687091200
+  maxAge: 168h
