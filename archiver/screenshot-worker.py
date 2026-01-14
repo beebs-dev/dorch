@@ -1,0 +1,408 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import contextlib
+import os
+import re
+import signal
+import sys
+import tempfile
+import time
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+import uuid
+
+import boto3
+import requests
+
+import meta
+from natsutil import connect_nats, ensure_stream, nats_flush_timeout_seconds
+from screenshots import RenderConfig, render_screenshots
+
+
+STREAM_NAME = os.getenv("DORCH_IMAGES_STREAM", "DORCH_IMAGES")
+SUBJECT_PREFIX = os.getenv("DORCH_IMAGES_SUBJECT_PREFIX", "dorch.wad")
+SUBJECT_SUFFIX = os.getenv("DORCH_IMAGES_SUBJECT_SUFFIX", "img")
+
+WADINFO_BASE_URL = os.getenv("WADINFO_BASE_URL", "http://localhost:8000")
+
+
+def subject_for_wad_id(wad_id: str) -> str:
+	wad_id = (wad_id or "").strip().lower()
+	return f"{SUBJECT_PREFIX}.{wad_id}.{SUBJECT_SUFFIX}"
+
+
+def wad_id_from_subject(subject: str) -> Optional[str]:
+	# Expected: dorch.wad.{wad_id}.img (prefix length may vary)
+	parts = (subject or "").split(".")
+	if len(parts) < 4:
+		return None
+	if parts[-1] != SUBJECT_SUFFIX:
+		return None
+	wad_id = parts[-2].strip().lower()
+	if not _valid_uuid(wad_id):
+		return None
+	return wad_id
+
+
+def _env_bool(name: str, default: bool) -> bool:
+	v = os.getenv(name)
+	if v is None:
+		return default
+	v = v.strip().lower()
+	return v in {"1", "true", "yes", "y", "on"}
+
+
+def _env_int(name: str, default: int) -> int:
+	v = os.getenv(name)
+	if v is None or not v.strip():
+		return default
+	try:
+		return int(v)
+	except ValueError:
+		return default
+
+
+def _env_str(name: str, default: str) -> str:
+	v = os.getenv(name)
+	return (v.strip() if v is not None else "") or default
+
+
+def _valid_sha1(s: str) -> bool:
+	return bool(re.fullmatch(r"[0-9a-f]{40}", (s or "").lower()))
+
+
+def _valid_uuid(s: str) -> bool:
+	try:
+		uuid.UUID(str(s))
+		return True
+	except Exception:
+		return False
+
+
+def _wadinfo_timeout_seconds() -> float:
+	# Keep this independent from NATS timeouts.
+	# Values like 5-30s are typical depending on DB latency.
+	v = os.getenv("DORCH_WADINFO_TIMEOUT")
+	if v is None or not v.strip():
+		return 10.0
+	try:
+		return float(v)
+	except ValueError:
+		return 10.0
+
+
+def fetch_wad_from_wadinfo(*, wad_id: str, wadinfo_base_url: str) -> Dict[str, Any]:
+	if not _valid_uuid(wad_id):
+		raise ValueError(f"invalid wad_id uuid: {wad_id}")
+	url = f"{wadinfo_base_url.rstrip('/')}/wad/{wad_id}"
+	r = requests.get(url, timeout=_wadinfo_timeout_seconds())
+	# Let 404 / 5xx surface distinctly.
+	r.raise_for_status()
+	obj = r.json()
+	if not isinstance(obj, dict):
+		raise ValueError("wadinfo response must be a JSON object")
+	return obj
+
+
+def _wad_entry_from_wadinfo_meta(wad_meta: Dict[str, Any]) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+	"""Build the minimal wad_entry + extracted dict expected by meta.py helpers."""
+	file_meta = wad_meta.get("file")
+	content = wad_meta.get("content")
+	sources = wad_meta.get("sources")
+
+	file_type = None
+	if isinstance(file_meta, dict):
+		v = file_meta.get("type")
+		if isinstance(v, str) and v.strip():
+			file_type = v.strip()
+
+	iwads_guess = None
+	engines_guess = None
+	if isinstance(content, dict):
+		v = content.get("iwads_guess")
+		if isinstance(v, list):
+			iwads_guess = [x for x in v if isinstance(x, str) and x.strip()]
+		v = content.get("engines_guess")
+		if isinstance(v, list):
+			engines_guess = [x for x in v if isinstance(x, str) and x.strip()]
+
+	extracted = None
+	if isinstance(sources, dict):
+		v = sources.get("extracted")
+		if isinstance(v, dict):
+			extracted = v
+
+	wad_entry: Dict[str, Any] = {}
+	if file_type is not None:
+		wad_entry["type"] = file_type
+	if iwads_guess is not None:
+		wad_entry["iwads"] = iwads_guess
+	if engines_guess is not None:
+		wad_entry["engines"] = engines_guess
+	return wad_entry, extracted
+
+
+def signal_ready() -> None:
+	ready_file = os.getenv("DORCH_READY_FILE")
+	if ready_file:
+		try:
+			with open(ready_file, "w", encoding="utf-8") as f:
+				f.write(f"ready {time.time()}\n")
+		except Exception as ex:
+			meta.eprint(f"Could not write ready file {ready_file}: {type(ex).__name__}: {ex}")
+
+
+def render_one_wad_screenshots(
+	*,
+	wad_id: str,
+	wadinfo_base_url: str,
+	s3_wads,
+	wad_bucket: str,
+	images_bucket: str,
+	images_endpoint: str,
+	width: int,
+	height: int,
+	count: int,
+	panorama: bool,
+) -> None:
+	if not _valid_uuid(wad_id):
+		raise ValueError("wad_id must be a UUID")
+	obj = fetch_wad_from_wadinfo(wad_id=wad_id, wadinfo_base_url=wadinfo_base_url)
+	meta_obj = obj.get("meta")
+	if not isinstance(meta_obj, dict):
+		raise ValueError("wadinfo wad JSON missing 'meta' object")
+	sha1 = str(meta_obj.get("sha1") or "").strip().lower()
+	if not _valid_sha1(sha1):
+		raise ValueError("wadinfo meta.sha1 must be 40 hex chars")
+
+	wad_entry, extracted_hint = _wad_entry_from_wadinfo_meta(meta_obj)
+	wad_type = str(wad_entry.get("type") or "UNKNOWN")
+	ext = meta.TYPE_TO_EXT.get(wad_type, None) or "wad"
+
+	s3_key = meta.resolve_s3_key(s3_wads, wad_bucket, sha1, ext)
+	if not s3_key:
+		raise FileNotFoundError(f"Could not resolve S3 object key for sha1={sha1} ext={ext}")
+
+	with tempfile.TemporaryDirectory(prefix="dorch_img_") as td:
+		gz_path = os.path.join(td, f"{sha1}.{ext}.gz")
+		file_path = os.path.join(td, f"{sha1}.{ext}")
+		output_path = os.path.join(td, "output_screenshots")
+
+		meta.download_s3_to_path(s3_wads, wad_bucket, s3_key, gz_path)
+		meta.gunzip_file(gz_path, file_path)
+
+		# IWAD selection
+		wad_type_upper = str(wad_entry.get("type") or "").upper()
+		if wad_type_upper == "IWAD" and ext == "wad":
+			iwad_path = Path(file_path)
+			files_for_render: List[Path] = []
+		else:
+			extracted = extracted_hint
+			if extracted is None:
+				extracted = meta.extract_metadata_from_file(file_path, ext)
+			iwad_path = meta.deduce_iwad_path_from_meta(wad_entry, extracted)
+			files_for_render = [Path(file_path)]
+
+		os.makedirs(output_path, exist_ok=True)
+		config = RenderConfig(
+			iwad=iwad_path,
+			files=files_for_render,
+			output=Path(output_path),
+			num=int(count),
+			width=int(width),
+			height=int(height),
+			panorama=bool(panorama),
+			invulnerable=True,
+		)
+		render_screenshots(config)
+		meta.upload_screenshots(
+			sha1=sha1,
+			path=output_path,
+			bucket=images_bucket,
+			endpoint=images_endpoint,
+		)
+
+
+async def _run(args: argparse.Namespace) -> None:
+	shutdown = asyncio.Event()
+	fast_exit = False
+
+	def _request_shutdown() -> None:
+		nonlocal fast_exit
+		fast_exit = True
+		shutdown.set()
+
+	try:
+		loop = asyncio.get_running_loop()
+		loop.add_signal_handler(signal.SIGTERM, _request_shutdown)
+		loop.add_signal_handler(signal.SIGINT, _request_shutdown)
+	except NotImplementedError:
+		pass
+
+	region_name = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+	wad_bucket = _env_str("DORCH_WAD_BUCKET", "wadarchive2")
+	wad_endpoint = _env_str("DORCH_WAD_ENDPOINT", "https://nyc3.digitaloceanspaces.com")
+	images_bucket = _env_str("DORCH_IMAGES_BUCKET", "wadimages")
+	images_endpoint = _env_str("DORCH_IMAGES_ENDPOINT", "https://nyc3.digitaloceanspaces.com")
+
+	default_width = _env_int("DORCH_SCREENSHOT_WIDTH", 800)
+	default_height = _env_int("DORCH_SCREENSHOT_HEIGHT", 600)
+	default_count = _env_int("DORCH_SCREENSHOT_COUNT", 5)
+	default_panorama = _env_bool("DORCH_PANORAMA", False)
+	wadinfo_base_url = _env_str("WADINFO_BASE_URL", WADINFO_BASE_URL)
+
+	print(f"region_name: {region_name}", file=sys.stderr)
+	print(f"wad_endpoint: {wad_endpoint}", file=sys.stderr)
+	print(f"wad_bucket: {wad_bucket}", file=sys.stderr)
+	print(f"images_endpoint: {images_endpoint}", file=sys.stderr)
+	print(f"images_bucket: {images_bucket}", file=sys.stderr)
+	print(f"default_width: {default_width}", file=sys.stderr)
+	print(f"default_height: {default_height}", file=sys.stderr)
+	print(f"default_count: {default_count}", file=sys.stderr)
+	print(f"default_panorama: {default_panorama}", file=sys.stderr)
+	print(f"wadinfo_base_url: {wadinfo_base_url}", file=sys.stderr)
+
+	s3_wads = boto3.client(
+		"s3",
+		endpoint_url=wad_endpoint,
+		region_name=region_name,
+	)
+
+	nc = await connect_nats()
+	try:
+		js = nc.jetstream()
+		await ensure_stream(js, STREAM_NAME, subjects=[f"{SUBJECT_PREFIX}.*.{SUBJECT_SUFFIX}"])
+
+		durable = args.durable
+		subject = f"{SUBJECT_PREFIX}.*.{SUBJECT_SUFFIX}"
+		sub = await js.pull_subscribe(
+			subject=subject,
+			durable=durable,
+			stream=STREAM_NAME,
+		)
+		signal_ready()
+		meta.eprint(f"screenshot-worker: consuming from stream={STREAM_NAME} subject={subject} durable={durable}")
+
+		while not shutdown.is_set():
+			fetch_task = asyncio.create_task(sub.fetch(args.batch, timeout=args.fetch_timeout))
+			shutdown_task = asyncio.create_task(shutdown.wait())
+			done, _pending = await asyncio.wait(
+				{fetch_task, shutdown_task},
+				return_when=asyncio.FIRST_COMPLETED,
+			)
+
+			if shutdown_task in done:
+				fetch_task.cancel()
+				with contextlib.suppress(Exception):
+					await fetch_task
+				break
+
+			shutdown_task.cancel()
+			try:
+				msgs = await fetch_task
+			except Exception:
+				continue
+
+			for msg in msgs:
+				if shutdown.is_set():
+					try:
+						await msg.nak()
+					except Exception:
+						pass
+					continue
+
+				try:
+					wad_id = msg.data.decode("utf-8").strip().strip('"')
+					sub_id = wad_id_from_subject(msg.subject)
+					if sub_id and sub_id != wad_id:
+						wad_id = sub_id
+					if not _valid_uuid(wad_id):
+						raise ValueError(f"invalid wad_id uuid: {wad_id}")
+
+					work_task = asyncio.create_task(
+						asyncio.to_thread(
+							render_one_wad_screenshots,
+							wad_id=wad_id,
+							wadinfo_base_url=wadinfo_base_url,
+							s3_wads=s3_wads,
+							wad_bucket=wad_bucket,
+							images_bucket=images_bucket,
+							images_endpoint=images_endpoint,
+							width=int(default_width),
+							height=int(default_height),
+							count=int(default_count),
+							panorama=bool(default_panorama),
+						)
+					)
+					shutdown_task = asyncio.create_task(shutdown.wait())
+					done, _pending = await asyncio.wait(
+						{work_task, shutdown_task},
+						return_when=asyncio.FIRST_COMPLETED,
+					)
+
+					if shutdown_task in done:
+						try:
+							await msg.nak()
+						except Exception:
+							pass
+						work_task.cancel()
+						work_task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
+						break
+
+					shutdown_task.cancel()
+					await work_task
+					await msg.ack()
+				except Exception as ex:
+					meta.eprint(f"screenshot-worker: job failed: {type(ex).__name__}: {ex}")
+					try:
+						await msg.nak()
+					except Exception:
+						pass
+
+				if shutdown.is_set():
+					break
+	finally:
+		if fast_exit:
+			try:
+				await nc.flush(timeout=int(nats_flush_timeout_seconds()))
+			except Exception:
+				pass
+			await nc.close()
+		else:
+			await nc.drain()
+
+
+def main() -> None:
+	ap = argparse.ArgumentParser(description="Consume dorch screenshot jobs from NATS JetStream")
+	ap.add_argument(
+		"--durable",
+		default=os.getenv("DORCH_IMAGES_DURABLE", "screenshot-worker"),
+		help="JetStream durable consumer name",
+	)
+	ap.add_argument(
+		"--batch",
+		type=int,
+		default=int(os.getenv("DORCH_IMAGES_BATCH", "1")),
+		help="Fetch batch size",
+	)
+	ap.add_argument(
+		"--fetch-timeout",
+		type=float,
+		default=float(os.getenv("DORCH_IMAGES_FETCH_TIMEOUT", "1.0")),
+		help="Fetch timeout seconds",
+	)
+	args = ap.parse_args()
+
+	try:
+		asyncio.run(_run(args))
+	except KeyboardInterrupt:
+		raise SystemExit(130)
+
+
+if __name__ == "__main__":
+	main()
+

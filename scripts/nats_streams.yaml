@@ -29,3 +29,20 @@ spec:
   retention: limits
   discard: old
   maxAge: 168h
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Stream
+metadata:
+  name: dorch-images
+  namespace: nats
+spec:
+  name: DORCH_IMAGES
+  account: admin
+  subjects:
+    - "dorch.wad.*.img"
+  storage: file
+  replicas: 1
+  duplicateWindow: 2m
+  retention: limits
+  discard: old
+  maxAge: 168h

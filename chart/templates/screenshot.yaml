@@ -1,17 +1,17 @@
-{{- $image := printf "%s%s" .Values.registry .Values.archiver.image -}}
+{{- $image := printf "%s%s" .Values.registry .Values.screenshot.image -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-archiver
+  name: {{ .Release.Name }}-screenshot
 spec:
-  replicas: {{ .Values.archiver.replicas }}
+  replicas: {{ .Values.screenshot.replicas }}
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-archiver
+      app: {{ .Release.Name }}-screenshot
   template:
     metadata:
       labels:
-        app: {{ .Release.Name }}-archiver
+        app: {{ .Release.Name }}-screenshot
     spec:
     {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -19,8 +19,8 @@ spec:
     {{- end }}
       initContainers:
       - name: init
-        image: {{ .Values.archiver.init.image }}
-        imagePullPolicy: {{ .Values.archiver.init.imagePullPolicy }}
+        image: {{ .Values.screenshot.init.image }}
+        imagePullPolicy: {{ .Values.screenshot.init.imagePullPolicy }}
         command:
         - /download-iwads.sh
         env:
@@ -28,36 +28,34 @@ spec:
         - name: IWADS_DIR
           value: /data/iwads
         - name: IWAD_BUCKET
-          value: {{ .Values.archiver.init.s3.bucket }}
+          value: {{ .Values.screenshot.init.s3.bucket }}
         - name: AWS_ACCESS_KEY_ID
-{{ toYaml .Values.archiver.init.s3.accessKeyId | indent 10 }}
+{{ toYaml .Values.screenshot.init.s3.accessKeyId | indent 10 }}
         - name: AWS_SECRET_ACCESS_KEY
-{{ toYaml .Values.archiver.init.s3.secretAccessKey | indent 10 }}
+{{ toYaml .Values.screenshot.init.s3.secretAccessKey | indent 10 }}
         - name: AWS_DEFAULT_REGION
-          value: {{ .Values.archiver.init.s3.region }}
+          value: {{ .Values.screenshot.init.s3.region }}
         - name: AWS_ENDPOINT_URL
-          value: {{ .Values.archiver.init.s3.endpoint }}
+          value: {{ .Values.screenshot.init.s3.endpoint }}
         - name: AWS_EC2_METADATA_DISABLED
           value: "true"
         - name: AWS_S3_FORCE_PATH_STYLE
           value: "true"
-    {{- if .Values.archiver.init.resources }}
+    {{- if .Values.screenshot.init.resources }}
         resources:
-{{ toYaml .Values.archiver.init.resources | indent 10 }}
+{{ toYaml .Values.screenshot.init.resources | indent 10 }}
     {{- end }}
       containers:
-      - name: archiver
-        imagePullPolicy: {{ .Values.archiver.imagePullPolicy }}
+      - name: screenshot
+        imagePullPolicy: {{ .Values.screenshot.imagePullPolicy }}
         image: {{ $image }}
-    {{- if .Values.archiver.resources }}
+    {{- if .Values.screenshot.resources }}
         resources:
-{{ toYaml .Values.archiver.resources | indent 10 }}
+{{ toYaml .Values.screenshot.resources | indent 10 }}
     {{- end }}
         command:
           - python
-          - /app/meta-worker.py
-          - --durable
-          - meta-worker
+          - /app/screenshot-worker.py
         readinessProbe:
           exec:
             command:
@@ -66,14 +64,12 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
         env:
-        - name: DORCH_POST_TO_WADINFO
-          value: "1"
-        - name: WADINFO_BASE_URL
-          value: "http://{{ .Release.Name }}-wadinfo"
         - name: PYTHONUNBUFFERED
           value: "1"
         - name: DORCH_READY_FILE
           value: /etc/ready
+        - name: WADINFO_BASE_URL
+          value: "http://{{ .Release.Name }}-wadinfo"
         - name: DORCH_PANORAMA
           value: "1"
         - name: DORCH_SCREENSHOT_COUNT
@@ -91,11 +87,11 @@ spec:
         - name: IWADS_DIR
           value: /data/iwads
         - name: SERVICE_NAME
-          value: archiver
+          value: screenshot
         - name: RUST_LOG
           value: info,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info
         - name: LOG_LEVEL
-          value: {{ .Values.archiver.logLevel }}
+          value: {{ .Values.screenshot.logLevel }}
 {{- if .Values.nats.user }}
         - name: NATS_USER
 {{ tpl (toYaml .Values.nats.user) . | indent 10 }}
