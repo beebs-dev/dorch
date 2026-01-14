@@ -56,7 +56,6 @@ def analyze_one_wad(
 	idgames_entry: Optional[Dict[str, Any]],
 	s3_wads,
 	wad_bucket: str,
-	wad_endpoint: str,
 	post_to_wadinfo: bool,
 	wadinfo_base_url: str,
 	render_screens: bool,
@@ -131,19 +130,19 @@ def analyze_one_wad(
 						iwad_path = meta.deduce_iwad_path_from_meta(wad_entry, extracted)
 						files_for_render = [Path(file_path)]
 
-					os.makedirs(output_path, exist_ok=True)
-					config = RenderConfig(
-						iwad=iwad_path,
-						files=files_for_render,
-						output=Path(output_path),
-						num=screenshot_count,
-						width=screenshot_width,
-						height=screenshot_height,
-						panorama=panorama,
-						invulnerable=True,
-					)
-					render_screenshots(config)
 					if upload_screens:
+						os.makedirs(output_path, exist_ok=True)
+						config = RenderConfig(
+							iwad=iwad_path,
+							files=files_for_render,
+							output=Path(output_path),
+							num=screenshot_count,
+							width=screenshot_width,
+							height=screenshot_height,
+							panorama=panorama,
+							invulnerable=True,
+						)
+						render_screenshots(config)
 						meta.upload_screenshots(
 							sha1=sha1,
 							path=output_path,
@@ -299,7 +298,6 @@ async def _run(args: argparse.Namespace) -> None:
 							idgames_entry=job.idgames_entry,
 							s3_wads=s3_wads,
 							wad_bucket=wad_bucket,
-							wad_endpoint=wad_endpoint,
 							post_to_wadinfo=post_to_wadinfo,
 							wadinfo_base_url=wadinfo_base_url,
 							render_screens=render_screens,
