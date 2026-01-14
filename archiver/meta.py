@@ -1580,7 +1580,7 @@ def post_to_wadinfo(obj, wadinfo_base_url: str = WADINFO_BASE_URL) -> None:
     url = f"{wadinfo_base_url}/upsert_wad"
     response = requests.post(url, json=obj)
     response.raise_for_status()
-    print(f"Posted to wadinfo: {response.status_code} {response.text}")
+    print(f"Posted to wadinfo: {response.status_code}")
 
 
 def extract_metadata_from_file(path: str, ext: str) -> Dict[str, Any]:
@@ -1922,14 +1922,14 @@ def main() -> None:
         if args.sleep > 0:
             time.sleep(args.sleep)
 
-    if not args.stream:
-        if out_items is not None:
-            sys.stdout.write(json.dumps(
-                out_items, indent=2, ensure_ascii=False))
-            sys.stdout.write("\n")
-        else:
-            sys.stdout.write("\n\n]")
-            sys.stdout.write("\n")
+    #if not args.stream:
+    #    if out_items is not None:
+    #        sys.stdout.write(json.dumps(
+    #            out_items, indent=2, ensure_ascii=False))
+    #        sys.stdout.write("\n")
+    #    else:
+    #        sys.stdout.write("\n\n]")
+    #        sys.stdout.write("\n")
 
 
 if __name__ == "__main__":

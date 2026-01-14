@@ -1439,7 +1439,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 			saved = 0
 
 			if starts:
-				# Teleport directly to globally-distributed pickup coordinates.
+				# Tele[port directly to globally-distributed pickup coordinates.
 				from vizdoom import GameVariable
 				_new_episode(game, invulnerable=bool(config.invulnerable))
 				try:
@@ -1447,7 +1447,6 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 					start_y = float(game.get_game_variable(GameVariable.POSITION_Y))
 				except Exception:
 					start_x, start_y = 0.0, 0.0
-
 				# Visit far targets first.
 				targets = sorted(starts, key=lambda p: -math.hypot(p[0] - start_x, p[1] - start_y))
 				used_xy: List[Tuple[float, float]] = []
@@ -1553,7 +1552,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 								)
 								_save_image(
 									pano,
-									map_dir / f"pano_{j}.{str(config.panorama_format)}",
+									map_dir / "pano" / f"pano_{j}.{str(config.panorama_format)}",
 									fmt=str(config.panorama_format),
 									quality=pano_quality,
 								)
@@ -1633,7 +1632,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 		help="Additional WAD/PK3 files to load (like Doom -file). Order matters.",
 	)
 	parser.add_argument("--output", required=True, help="Output directory")
-	parser.add_argument("-n", "--num", type=int, default=16, help="Screenshots per map")
+	parser.add_argument("-n", "--num", type=int, default=5, help="Screenshots per map")
 	parser.add_argument("--seed", type=int, default=1234, help="Base RNG seed")
 	parser.add_argument("--width", type=int, default=800)
 	parser.add_argument("--height", type=int, default=600)
