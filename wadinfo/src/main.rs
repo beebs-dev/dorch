@@ -10,6 +10,7 @@ pub mod app;
 pub mod args;
 pub mod client;
 pub mod db;
+pub mod dispatch;
 pub mod server;
 
 #[tokio::main]

@@ -3,6 +3,25 @@ use dorch_common::{
     types::wad::{MapStat, WadMeta},
 };
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct WadImage {
+    /// Optional on PUT; always present on GET.
+    #[serde(default)]
+    pub id: Option<Uuid>,
+
+    pub url: String,
+
+    #[serde(rename = "type", default)]
+    pub kind: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct WadMapImages {
+    pub map: String,
+    pub items: Vec<WadImage>,
+}
 
 #[derive(Deserialize)]
 pub struct SearchOptions {

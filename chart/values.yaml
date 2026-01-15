@@ -146,13 +146,27 @@ party:
 screenshot:
   image: thavlik/dorch-archiver:latest
   imagePullPolicy: Always
-  replicas: 1
+  replicas: 0
   logLevel: debug
   resources:
     requests: 
       memory: "2048Mi"
     limits:
       memory: "2048Mi"
+  init:
+    image: thavlik/dorch-archiver-init:latest
+    imagePullPolicy: Always
+    resources:
+      requests:
+        memory: "256Mi"
+      limits:
+        memory: "512Mi"
+    s3:
+      accessKeyId: {}
+      secretAccessKey: {}
+      region: "us-east-1"
+      endpoint: ""
+      bucket: ""
 
 archiver:
   image: thavlik/dorch-archiver:latest

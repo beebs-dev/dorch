@@ -105,3 +105,20 @@ archiver:
       region: "nyc3"
       endpoint: "https://nyc3.digitaloceanspaces.com"
       bucket: "iwads"
+
+screenshot:
+  init:
+    s3:
+      accessKeyId:
+        valueFrom:
+          secretKeyRef:
+            name: spaces-cred
+            key: access_key_id
+      secretAccessKey:
+        valueFrom:
+          secretKeyRef:
+            name: spaces-cred
+            key: secret_access_key
+      region: "nyc3"
+      endpoint: "https://nyc3.digitaloceanspaces.com"
+      bucket: "iwads"

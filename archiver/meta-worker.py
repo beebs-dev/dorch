@@ -25,6 +25,9 @@ from screenshots import RenderConfig, render_screenshots
 _REDIS_CLIENT: Any = None
 
 
+_MAX_REDIS_CACHE_BYTES = 300 * 1024 * 1024  # 300MB
+
+
 def _dedupe_per_map_stats_keep_last(
 	per_map_stats: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
@@ -178,7 +181,11 @@ def analyze_one_wad(
 	extracted: Dict[str, Any] = {}
 	per_map_stats: List[Dict[str, Any]] = []
 
-	with tempfile.TemporaryDirectory(prefix="dorch_meta_") as td:
+	tmp_base = (os.getenv("DORCH_TMP_PATH") or "").strip() or None
+	if tmp_base is not None:
+		os.makedirs(tmp_base, exist_ok=True)
+
+	with tempfile.TemporaryDirectory(prefix="dorch_meta_", dir=tmp_base) as td:
 		gz_path = os.path.join(td, f"{sha1}.{ext}.gz")
 		file_path = os.path.join(td, f"{sha1}.{ext}")
 		output_path = os.path.join(td, "output_screenshots")
@@ -201,9 +208,11 @@ def analyze_one_wad(
 				meta.gunzip_file(gz_path, file_path)
 				if redis_client is not None:
 					try:
-						with open(file_path, "rb") as f:
-							buf = f.read()
-						redis_client.set(redis_key, buf, ex=90 * 60)
+						file_size = os.path.getsize(file_path)
+						if file_size < _MAX_REDIS_CACHE_BYTES:
+							with open(file_path, "rb") as f:
+								buf = f.read()
+							redis_client.set(redis_key, buf, ex=90 * 60)
 					except Exception as ex:
 						meta.eprint(f"Redis SET failed for {redis_key}: {type(ex).__name__}: {ex}")
 

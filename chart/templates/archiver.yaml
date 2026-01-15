@@ -17,6 +17,11 @@ spec:
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 10 }}
     {{- end }}
+      volumes:
+      - name: data
+        hostPath:
+          path: /data
+          type: DirectoryOrCreate
       initContainers:
       - name: init
         image: {{ .Values.archiver.init.image }}
@@ -27,6 +32,8 @@ spec:
 {{ include "dorch.redis-env" . | indent 8 }}
         - name: IWADS_DIR
           value: /data/iwads
+        - name: DORCH_TMP_PATH
+          value: /data/tmp
         - name: IWAD_BUCKET
           value: {{ .Values.archiver.init.s3.bucket }}
         - name: AWS_ACCESS_KEY_ID
@@ -45,6 +52,9 @@ spec:
         resources:
 {{ toYaml .Values.archiver.init.resources | indent 10 }}
     {{- end }}
+        volumeMounts:
+        - name: data
+          mountPath: /data
       containers:
       - name: archiver
         imagePullPolicy: {{ .Values.archiver.imagePullPolicy }}
@@ -107,3 +117,6 @@ spec:
 {{ include "dorch.metrics-env" . | indent 8 }}
 {{ include "dorch.nats-env" . | indent 8 }}
 {{ include "dorch.redis-env" . | indent 8 }}
+        volumeMounts:
+        - name: data
+          mountPath: /data

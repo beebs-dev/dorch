@@ -1,6 +1,6 @@
 use crate::{
     app::App,
-    client::{ListWadsRequest, WadSearchRequest},
+    client::{ListWadsRequest, WadImage, WadSearchRequest},
 };
 use anyhow::{Context, Result};
 use axum::{
@@ -29,7 +29,12 @@ pub async fn run_server(
         .route("/upsert_wad", post(upsert_wad))
         .route("/wad", get(list_wads))
         .route("/wad/{id}", get(get_wad))
+        .route("/wad/{id}/images", get(list_wad_images))
         .route("/wad/{id}/map/{map}", get(get_wad_map))
+        .route(
+            "/wad/{id}/maps/{map}/images",
+            get(list_wad_map_images).put(put_wad_map_images),
+        )
         .route("/search", get(search))
         .with_state(app_state)
         .layer(middleware::from_fn(access_log::internal));
@@ -130,6 +135,16 @@ pub async fn get_wad(State(state): State<App>, Path(wad_id): Path<Uuid>) -> impl
     }
 }
 
+pub async fn list_wad_images(
+    State(state): State<App>,
+    Path(wad_id): Path<Uuid>,
+) -> impl IntoResponse {
+    match state.db.list_wad_images(wad_id).await {
+        Ok(images) => (StatusCode::OK, Json(images)).into_response(),
+        Err(e) => response::error(e.context("Failed to list wad images")),
+    }
+}
+
 pub async fn search(
     State(state): State<App>,
     Query(req): Query<WadSearchRequest>,
@@ -141,5 +156,30 @@ pub async fn search(
     {
         Ok(maps) => (StatusCode::OK, Json(maps)).into_response(),
         Err(e) => response::error(e.context("Failed to search wads")),
+    }
+}
+
+pub async fn list_wad_map_images(
+    State(state): State<App>,
+    Path((wad_id, map_name)): Path<(Uuid, String)>,
+) -> impl IntoResponse {
+    match state.db.list_wad_map_images(wad_id, &map_name).await {
+        Ok(images) => (StatusCode::OK, Json(images)).into_response(),
+        Err(e) => response::error(e.context("Failed to list wad map images")),
+    }
+}
+
+pub async fn put_wad_map_images(
+    State(state): State<App>,
+    Path((wad_id, map_name)): Path<(Uuid, String)>,
+    Json(images): Json<Vec<WadImage>>,
+) -> impl IntoResponse {
+    match state
+        .db
+        .replace_wad_map_images(wad_id, &map_name, &images)
+        .await
+    {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(e) => response::error(e.context("Failed to replace wad map images")),
     }
 }

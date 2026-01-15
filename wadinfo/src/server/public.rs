@@ -29,13 +29,24 @@ pub async fn run_server(
         .persist_raw_claims(true)
         .expected_audiences(vec![args.kc.client_id])
         .build();
-    let router = Router::new()
+    let protected_router = Router::new()
         .route("/wad", get(internal::list_wads))
         .route("/wad/{id}", get(internal::get_wad))
         .route("/wad/{id}/map/{map}", get(internal::get_wad_map))
         .route("/search", get(internal::search))
-        .with_state(app_state)
+        .with_state(app_state.clone())
         .layer(keycloak_layer)
+        .layer(middleware::from_fn(access_log::public))
+        .layer(cors::dev());
+
+    // Unprotected endpoints (no Keycloak middleware)
+    let router = Router::new()
+        .route("/wad/{id}/images", get(internal::list_wad_images))
+        .route(
+            "/wad/{id}/maps/{map}/images",
+            get(internal::list_wad_map_images),
+        )
+        .with_state(app_state)
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::dev());
     let port = args.public_port;
@@ -49,7 +60,7 @@ pub async fn run_server(
         port.green().dimmed()
     );
     let start = std::time::Instant::now();
-    axum::serve(listener, router)
+    axum::serve(listener, protected_router.merge(router))
         .with_graceful_shutdown(async move {
             cancel.cancelled().await;
         })

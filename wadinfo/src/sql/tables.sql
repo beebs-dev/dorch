@@ -38,7 +38,10 @@ create table if not exists wads (
   meta_json           jsonb not null,
 
   created_at          timestamptz not null default now(),
-  updated_at          timestamptz not null default now()
+  updated_at          timestamptz not null default now(),
+
+  dispatched_images_at   timestamptz,
+  dispatched_analysis_at timestamptz
 );
 
 create index if not exists idx_wads_title_trgm
@@ -290,3 +293,17 @@ create index if not exists idx_wad_map_items_item
 
 create index if not exists idx_wad_map_items_count
   on wad_map_items (count);
+
+-- ----------------------------
+-- Per-map images (screenshots, panoramas, etc)
+-- ----------------------------
+create table if not exists wad_map_images (
+  id        uuid primary key default gen_random_uuid(),
+  wad_id    uuid not null references wads(wad_id) on delete cascade,
+  map_name  text not null,
+  url       text not null,
+  type      text
+);
+
+create index if not exists idx_wad_map_images_wad_map
+  on wad_map_images (wad_id, map_name);

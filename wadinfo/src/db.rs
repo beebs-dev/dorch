@@ -1,4 +1,4 @@
-use crate::client::{GetWadMapResponse, WadListResults, WadSearchResults};
+use crate::client::{GetWadMapResponse, WadImage, WadListResults, WadMapImages, WadSearchResults};
 use anyhow::{Context, Result};
 use dorch_common::{
     postgres::strip_sql_comments,
@@ -79,6 +79,12 @@ mod sql {
     pub const INSERT_WAD_MAP_TEXTURE: &str = include_str!("sql/insert_wad_map_texture.sql");
     pub const INSERT_WAD_MAP_MONSTER: &str = include_str!("sql/insert_wad_map_monster.sql");
     pub const INSERT_WAD_MAP_ITEM: &str = include_str!("sql/insert_wad_map_item.sql");
+
+    pub const LIST_WAD_MAP_IMAGES: &str = include_str!("sql/list_wad_map_images.sql");
+    pub const DELETE_WAD_MAP_IMAGES: &str = include_str!("sql/delete_wad_map_images.sql");
+    pub const INSERT_WAD_MAP_IMAGE: &str = include_str!("sql/insert_wad_map_image.sql");
+
+    pub const LIST_WAD_IMAGES: &str = include_str!("sql/list_wad_images.sql");
 }
 
 #[derive(Clone)]
@@ -177,6 +183,24 @@ impl Database {
             .prepare(sql::INSERT_WAD_MAP_ITEM)
             .await
             .context("failed to prepare INSERT_WAD_MAP_ITEM")?;
+
+        _ = conn
+            .prepare(sql::LIST_WAD_MAP_IMAGES)
+            .await
+            .context("failed to prepare LIST_WAD_MAP_IMAGES")?;
+        _ = conn
+            .prepare(sql::DELETE_WAD_MAP_IMAGES)
+            .await
+            .context("failed to prepare DELETE_WAD_MAP_IMAGES")?;
+        _ = conn
+            .prepare(sql::INSERT_WAD_MAP_IMAGE)
+            .await
+            .context("failed to prepare INSERT_WAD_MAP_IMAGE")?;
+
+        _ = conn
+            .prepare(sql::LIST_WAD_IMAGES)
+            .await
+            .context("failed to prepare LIST_WAD_IMAGES")?;
         Ok(Self { pool })
     }
 
@@ -254,6 +278,97 @@ impl Database {
         let map: MapStat = serde_json::from_value(map_json).context("deserialize MapStat")?;
 
         Ok(Some(GetWadMapResponse { map, wad_meta }))
+    }
+
+    pub async fn list_wad_map_images(&self, wad_id: Uuid, map_name: &str) -> Result<Vec<WadImage>> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::LIST_WAD_MAP_IMAGES)
+            .await
+            .context("failed to prepare LIST_WAD_MAP_IMAGES")?;
+        let rows = conn
+            .query(&stmt, &[&wad_id, &map_name])
+            .await
+            .context("failed to execute LIST_WAD_MAP_IMAGES")?;
+
+        let mut out = Vec::with_capacity(rows.len());
+        for row in rows {
+            let id: Uuid = row.try_get("id")?;
+            let url: String = row.try_get("url")?;
+            let kind: Option<String> = row.try_get("type")?;
+            out.push(WadImage {
+                id: Some(id),
+                url,
+                kind,
+            });
+        }
+        Ok(out)
+    }
+
+    pub async fn list_wad_images(&self, wad_id: Uuid) -> Result<Vec<WadMapImages>> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::LIST_WAD_IMAGES)
+            .await
+            .context("failed to prepare LIST_WAD_IMAGES")?;
+        let rows = conn
+            .query(&stmt, &[&wad_id])
+            .await
+            .context("failed to execute LIST_WAD_IMAGES")?;
+
+        let mut grouped: BTreeMap<String, Vec<WadImage>> = BTreeMap::new();
+        for row in rows {
+            let map_name: String = row.try_get("map_name")?;
+            let id: Uuid = row.try_get("id")?;
+            let url: String = row.try_get("url")?;
+            let kind: Option<String> = row.try_get("type")?;
+            grouped.entry(map_name).or_default().push(WadImage {
+                id: Some(id),
+                url,
+                kind,
+            });
+        }
+
+        Ok(grouped
+            .into_iter()
+            .map(|(map, items)| WadMapImages { map, items })
+            .collect())
+    }
+
+    pub async fn replace_wad_map_images(
+        &self,
+        wad_id: Uuid,
+        map_name: &str,
+        images: &[WadImage],
+    ) -> Result<()> {
+        let mut conn = self.pool.get().await.context("failed to get connection")?;
+        let tx = conn
+            .transaction()
+            .await
+            .context("begin replace_wad_map_images tx")?;
+
+        let delete_stmt = tx
+            .prepare_cached(sql::DELETE_WAD_MAP_IMAGES)
+            .await
+            .context("failed to prepare DELETE_WAD_MAP_IMAGES")?;
+        tx.execute(&delete_stmt, &[&wad_id, &map_name])
+            .await
+            .context("failed to execute DELETE_WAD_MAP_IMAGES")?;
+
+        let insert_stmt = tx
+            .prepare_cached(sql::INSERT_WAD_MAP_IMAGE)
+            .await
+            .context("failed to prepare INSERT_WAD_MAP_IMAGE")?;
+        for image in images {
+            tx.execute(&insert_stmt, &[&wad_id, &map_name, &image.url, &image.kind])
+                .await
+                .with_context(|| format!("insert wad_map_image {wad_id} {map_name}"))?;
+        }
+
+        tx.commit()
+            .await
+            .context("commit replace_wad_map_images tx")?;
+        Ok(())
     }
 
     pub async fn search_wads(

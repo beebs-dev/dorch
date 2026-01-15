@@ -28,11 +28,36 @@ while IFS= read -r key; do
 	name="$(basename "$key")"
 	dest="$IWADS_DIR/$name"
 	redis_key="dorch:iwad:${name}"
-	exists="$(redis-cli "${redis_args[@]}" EXISTS "$redis_key")"
-	if [[ "$exists" == "1" ]]; then
-		redis-cli "${redis_args[@]}" --raw GET "$redis_key" > "$dest"
+	# If another concurrent process already populated the file, skip.
+	if [[ -s "$dest" ]]; then
 		continue
 	fi
-	aws "${aws_args[@]}" s3 cp "s3://$IWAD_BUCKET/$key" "$dest"
-	redis-cli "${redis_args[@]}" -x SET "$redis_key" < "$dest" > /dev/null
+	exists="$(redis-cli "${redis_args[@]}" EXISTS "$redis_key")"
+	if [[ "$exists" == "1" ]]; then
+		tmp="$(mktemp "$IWADS_DIR/.${name}.tmp.XXXXXX")"
+		trap 'rm -f "$tmp"' RETURN
+		redis-cli "${redis_args[@]}" --raw GET "$redis_key" > "$tmp" || true
+		# If the redis value was empty/missing, fall back to S3.
+		if [[ -s "$tmp" ]]; then
+			if mv -n "$tmp" "$dest" 2>/dev/null; then
+				trap - RETURN
+				continue
+			fi
+		fi
+		rm -f "$tmp"
+		trap - RETURN
+		continue
+	fi
+	tmp="$(mktemp "$IWADS_DIR/.${name}.tmp.XXXXXX")"
+	trap 'rm -f "$tmp"' RETURN
+	aws "${aws_args[@]}" s3 cp "s3://$IWAD_BUCKET/$key" "$tmp"
+	# Atomic publish into place (avoid clobbering if another process won the race).
+	if mv -n "$tmp" "$dest" 2>/dev/null; then
+		trap - RETURN
+		redis-cli "${redis_args[@]}" -x SET "$redis_key" < "$dest" > /dev/null
+		continue
+	fi
+	# Destination already created by another process; don't overwrite.
+	rm -f "$tmp"
+	trap - RETURN
 done < <(printf '%s\n' "$listing" | awk '{print $4}')
