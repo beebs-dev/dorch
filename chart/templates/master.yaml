@@ -93,6 +93,8 @@ spec:
           value: info,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info
         - name: LOG_LEVEL
           value: {{ .Values.master.logLevel }}
+        - name: AUTH_ENDPOINT
+          value: http://{{ .Release.Name }}-auth
 {{ include "dorch.keycloak-env" . | indent 8 }}
 {{ include "dorch.metrics-env" . | indent 8 }}
 {{ include "dorch.nats-env" . | indent 8 }}

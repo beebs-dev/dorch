@@ -1,0 +1,83 @@
+{{- $image := printf "%s%s" .Values.registry .Values.party.router.image -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-auth
+spec:
+  replicas: {{ .Values.party.router.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-auth
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-auth
+    spec:
+    {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 10 }}
+    {{- end }}
+      containers:
+      - name: auth
+        imagePullPolicy: {{ .Values.party.router.imagePullPolicy }}
+        image: {{ $image }}
+    {{- if .Values.party.router.resources }}
+        resources:
+{{ toYaml .Values.party.router.resources | indent 10 }}
+    {{- end }}
+        command:
+          - dorch-auth
+          - server
+          - --client-port
+          - "3500"
+          - --admin-port
+          - "2500"
+          - --zandronum-port
+          - "16666"
+        ports:
+        - name: client
+          containerPort: 3500
+          protocol: TCP
+        - name: admin
+          containerPort: 2500
+          protocol: TCP
+        - name: zandronum-auth
+          containerPort: 16666
+          protocol: UDP
+{{- if .Values.prometheus.enabled }}
+        - containerPort: 2112
+          protocol: TCP
+          name: metrics
+{{- end }}
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 2500
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 2500
+        env:
+        - name: SERVICE_NAME
+          value: auth
+        - name: RUST_LOG
+          value: info,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info
+        - name: LOG_LEVEL
+          value: {{ .Values.party.router.logLevel }}
+{{ include "dorch.metrics-env" . | indent 8 }}
+{{ include "dorch.redis-env" . | indent 8 }}
+---
+{{- if .Values.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ .Release.Name }}-auth
+  labels:
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-auth
+  podMetricsEndpoints:
+  - port: metrics
+{{- end }}

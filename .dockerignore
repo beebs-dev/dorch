@@ -2,6 +2,14 @@ target
 .buildx-cache
 .venv
 .git
+Dockerfile
+Dockerfile.*
+.dockerignore
+.git*
+docker-bake.hcl
+up.sh
+build.sh
+secrets
 /*/**/target
 /*/**/.venv
 /*/**/.git

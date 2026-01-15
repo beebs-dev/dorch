@@ -3,6 +3,7 @@ ARG BASE_IMAGE=thavlik/dorch-base:latest
 
 FROM ${BASE_IMAGE} AS builder
 COPY common/src common/src
+COPY auth/src auth/src
 COPY types/src types/src
 COPY master/src master/src
 WORKDIR /app/master

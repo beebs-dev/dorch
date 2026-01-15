@@ -14,6 +14,7 @@ group "default" {
     "master",
     "webrtc-auth",
     "party",
+    "auth",
     "archiver",
     "downloader"
   ]
@@ -45,6 +46,15 @@ target "archiver-worker" {
   context    = "./"
   dockerfile = "archiver/Dockerfile"
   tags       = ["${REGISTRY}thavlik/dorch-archiver:latest"]
+  push       = true
+}
+
+target "auth" {
+  contexts   = { base_context = "target:base" }
+  context    = "./"
+  args       = { BASE_IMAGE = "base_context" }
+  dockerfile = "auth/Dockerfile"
+  tags       = ["${REGISTRY}thavlik/dorch-auth:latest"]
   push       = true
 }
 

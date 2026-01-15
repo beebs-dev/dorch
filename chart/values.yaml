@@ -143,6 +143,17 @@ master:
     limits:
       memory: "64Mi"
 
+auth:
+  image: thavlik/dorch-auth:latest
+  imagePullPolicy: Always
+  replicas: 1
+  logLevel: debug
+  resources:
+    requests: 
+      memory: "32Mi"
+    limits:
+      memory: "64Mi"
+
 party:
   image: thavlik/dorch-party:latest
   imagePullPolicy: Always
