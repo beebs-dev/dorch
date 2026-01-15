@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use dorch_common::args::{KeycloakArgs, PostgresArgs};
+use dorch_common::args::{KeycloakArgs, NatsArgs, PostgresArgs};
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about, long_about = None)]
@@ -11,6 +11,12 @@ pub struct Cli {
 #[derive(Subcommand, Debug, Clone)]
 pub enum Commands {
     Server(ServerArgs),
+
+    /// Dispatch pending WAD image jobs to JetStream.
+    DispatchImages(DispatchImagesArgs),
+
+    /// Dispatch pending WAD analysis jobs to JetStream.
+    DispatchAnalysis(DispatchAnalysisArgs),
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -23,6 +29,24 @@ pub struct ServerArgs {
 
     #[command(flatten)]
     pub kc: KeycloakArgs,
+
+    #[command(flatten)]
+    pub postgres: PostgresArgs,
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct DispatchImagesArgs {
+    #[command(flatten)]
+    pub nats: NatsArgs,
+
+    #[command(flatten)]
+    pub postgres: PostgresArgs,
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct DispatchAnalysisArgs {
+    #[command(flatten)]
+    pub nats: NatsArgs,
 
     #[command(flatten)]
     pub postgres: PostgresArgs,

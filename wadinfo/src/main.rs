@@ -20,6 +20,8 @@ async fn main() -> Result<()> {
     dorch_common::metrics::maybe_spawn_metrics_server();
     match cli.command {
         Commands::Server(args) => run_servers(args).await,
+        Commands::DispatchImages(args) => dispatch::images::run(args).await,
+        Commands::DispatchAnalysis(args) => dispatch::analysis::run(args).await,
     }
 }
 
