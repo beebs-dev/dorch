@@ -43,6 +43,61 @@ def _read_jsonl_lookup(*, path: str, wanted_sha1s: set[str]) -> Dict[str, Dict[s
 	return lookup
 
 
+def _drop_zero_linedef_maps_inplace(obj: Dict[str, Any]) -> None:
+	"""Best-effort cleanup for payloads that already include per-map stats.
+
+	Some pipelines may include a top-level `maps` list (per-map dicts) and also
+	`meta.content.maps` (list of map name strings). This removes maps whose
+	linedef count is exactly 0.
+	"""
+	if not isinstance(obj, dict):
+		return
+
+	def _linedefs_for_map_dict(m: Dict[str, Any]) -> Optional[int]:
+		stats = m.get("stats")
+		if isinstance(stats, dict):
+			v = stats.get("linedefs")
+			if isinstance(v, int):
+				return v
+		v2 = m.get("linedefs")
+		if isinstance(v2, int):
+			return v2
+		return None
+
+	keep_names: Optional[set[str]] = None
+	maybe_maps = obj.get("maps")
+	if isinstance(maybe_maps, list) and maybe_maps and all(isinstance(x, dict) for x in maybe_maps):
+		filtered: List[Dict[str, Any]] = []
+		keep: set[str] = set()
+		for m in maybe_maps:
+			ld = _linedefs_for_map_dict(m)
+			if ld == 0:
+				continue
+			filtered.append(m)
+			name = m.get("map") or m.get("name")
+			if isinstance(name, str) and name:
+				keep.add(name)
+		obj["maps"] = filtered
+		keep_names = keep
+
+	# If we have a keep-set from the per-map dicts, filter meta.content.maps accordingly.
+	if keep_names:
+		meta_obj = obj.get("meta")
+		if isinstance(meta_obj, dict):
+			content = meta_obj.get("content")
+			if isinstance(content, dict):
+				cmaps = content.get("maps")
+				if isinstance(cmaps, list) and cmaps:
+					content["maps"] = [x for x in cmaps if isinstance(x, str) and x in keep_names]
+
+		# Also handle a flatter shape if present.
+		content2 = obj.get("content")
+		if isinstance(content2, dict):
+			cmaps2 = content2.get("maps")
+			if isinstance(cmaps2, list) and cmaps2:
+				content2["maps"] = [x for x in cmaps2 if isinstance(x, str) and x in keep_names]
+
+
 async def _run(args: argparse.Namespace) -> None:
 	shutdown = asyncio.Event()
 	fast_exit = False
@@ -126,6 +181,9 @@ async def _run(args: argparse.Namespace) -> None:
 				readmes_entry=readme_lookup.get(sha1),
 				dispatched_at=time.time(),
 			)
+
+			# Best-effort: if the wad entry already contains per-map stats/meta, drop zero-linedef maps.
+			_drop_zero_linedef_maps_inplace(job.wad_entry)
 
 			subj = subject_for_sha1(sha1)
 			headers = {} #{"Nats-Msg-Id": f"dorch-meta:{sha1}"} # TODO

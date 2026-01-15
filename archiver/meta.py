@@ -1659,6 +1659,23 @@ def build_output_object(
                     names.append(s)
                 continue
             if isinstance(item, dict):
+                # If this looks like a per-map stats object, omit maps that have 0 linedefs.
+                # We've seen shapes like:
+                #   {"map": "MAP01", "stats": {"linedefs": 123}, ...}
+                #   {"name": "MAP01", "linedefs": 123, ...}
+                linedefs_val: Optional[int] = None
+                stats = item.get("stats")
+                if isinstance(stats, dict):
+                    v = stats.get("linedefs")
+                    if isinstance(v, int):
+                        linedefs_val = v
+                if linedefs_val is None:
+                    v2 = item.get("linedefs")
+                    if isinstance(v2, int):
+                        linedefs_val = v2
+                if linedefs_val == 0:
+                    continue
+
                 # Common shape: {"name": "MAP01", ...}
                 n = item.get("name") or item.get("map")
                 if isinstance(n, str):
@@ -2293,6 +2310,37 @@ def main() -> None:
                 idgames=id_lookup.get(sha1),
                 integrity=integrity,
             )
+
+            # Omit maps with zero linedefs from both the per-map stats list and meta.content.maps.
+            if isinstance(per_map_stats, list) and per_map_stats:
+                filtered_maps: List[Dict[str, Any]] = []
+                keep_names: List[str] = []
+                for m in per_map_stats:
+                    if not isinstance(m, dict):
+                        continue
+                    stats = m.get("stats")
+                    linedefs = None
+                    if isinstance(stats, dict):
+                        v = stats.get("linedefs")
+                        if isinstance(v, int):
+                            linedefs = v
+                    if linedefs == 0:
+                        continue
+                    filtered_maps.append(m)
+                    name = m.get("map")
+                    if isinstance(name, str) and name:
+                        keep_names.append(name)
+
+                per_map_stats = filtered_maps
+                keep_set = set(keep_names)
+                try:
+                    content = meta_obj.get("content") if isinstance(meta_obj, dict) else None
+                    cmaps = content.get("maps") if isinstance(content, dict) else None
+                    if isinstance(cmaps, list) and cmaps and keep_set:
+                        content["maps"] = [x for x in cmaps if isinstance(x, str) and x in keep_set]
+                except Exception:
+                    # Best-effort only; don't fail the whole job over a shape mismatch.
+                    pass
 
             out_obj = {"meta": meta_obj, "maps": per_map_stats}
 

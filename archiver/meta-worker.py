@@ -29,7 +29,15 @@ import meta
 from meta_eda import STREAM_NAME, parse_meta_job, sha1_from_subject
 from natsutil import connect_nats, ensure_stream, nats_flush_timeout_seconds
 from screenshots import RenderConfig, render_screenshots
+from concurrent.futures import ThreadPoolExecutor
 
+_REDIS_EXECUTOR = ThreadPoolExecutor(max_workers=1)
+
+def _cache_redis_file_sync(redis_client, redis_key, buf):
+    try:
+        redis_client.set(redis_key, buf, ex=90 * 60)
+    except Exception as ex:
+        meta.eprint(f"Redis SET failed for {redis_key}: {type(ex).__name__}: {ex}")
 
 _REDIS_CLIENT: Any = None
 
@@ -236,7 +244,6 @@ def _env_str(name: str, default: str) -> str:
 def _valid_sha1(s: str) -> bool:
 	return bool(re.fullmatch(r"[0-9a-f]{40}", (s or "").lower()))
 
-
 def analyze_one_wad(
 	*,
 	sha1: str,
@@ -310,14 +317,11 @@ def analyze_one_wad(
 				meta.download_s3_to_path(s3_wads, wad_bucket, s3_key, gz_path)
 				meta.gunzip_file(gz_path, file_path)
 				if redis_client is not None:
-					try:
-						file_size = os.path.getsize(file_path)
-						if file_size < _MAX_REDIS_CACHE_BYTES:
-							with open(file_path, "rb") as f:
-								buf = f.read()
-							redis_client.set(redis_key, buf, ex=90 * 60)
-					except Exception as ex:
-						meta.eprint(f"Redis SET failed for {redis_key}: {type(ex).__name__}: {ex}")
+					file_size = os.path.getsize(file_path)
+					if file_size < _MAX_REDIS_CACHE_BYTES:
+						with open(file_path, "rb") as f:
+							buf = f.read()
+						_REDIS_EXECUTOR.submit(_cache_redis_file_sync, redis_client, redis_key, buf)
 
 			computed_hashes = meta.compute_hashes_for_file(file_path)
 			if isinstance(expected_hashes, dict):

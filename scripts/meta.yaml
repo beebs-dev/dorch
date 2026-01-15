@@ -15,8 +15,8 @@ spec:
         - /app/meta-dispatch.py
         #- --start
         #- "0"
-        - --limit
-        - "10"
+        #- --limit
+        #- "10"
         - --readmes-json
         - https://wadarchive2.nyc3.digitaloceanspaces.com/readmes.json
         - --wads-json
