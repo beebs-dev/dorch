@@ -405,15 +405,14 @@ impl Database {
             .map(|row| {
                 let row_wad_id: Uuid = row.try_get("wad_id")?;
                 let meta_json: serde_json::Value = row.try_get("meta_json")?;
-                let mut meta =
-                    serde_json::from_value::<dorch_common::types::wad::InsertWadMeta>(meta_json)
-                        .context("deserialize InsertWadMeta from meta_json")?;
+                let mut meta = serde_json::from_value::<ReadWadMeta>(meta_json)
+                    .context("deserialize ReadWadMeta from meta_json")?;
                 if meta.id.is_nil() {
                     meta.id = row_wad_id;
                 }
                 Ok(meta)
             })
-            .collect::<Result<Vec<dorch_common::types::wad::InsertWadMeta>>>()?;
+            .collect::<Result<Vec<ReadWadMeta>>>()?;
 
         tx.commit().await.context("failed to commit transaction")?;
         Ok(WadSearchResults {
@@ -465,14 +464,14 @@ impl Database {
             .map(|row| {
                 let row_wad_id: Uuid = row.try_get("wad_id")?;
                 let meta_json: serde_json::Value = row.try_get("meta_json")?;
-                let mut meta = serde_json::from_value::<InsertWadMeta>(meta_json)
-                    .context("deserialize InsertWadMeta from meta_json")?;
+                let mut meta = serde_json::from_value::<ReadWadMeta>(meta_json)
+                    .context("deserialize ReadWadMeta from meta_json")?;
                 if meta.id.is_nil() {
                     meta.id = row_wad_id;
                 }
                 Ok(meta)
             })
-            .collect::<Result<Vec<InsertWadMeta>>>()?;
+            .collect::<Result<Vec<ReadWadMeta>>>()?;
 
         tx.commit().await.context("failed to commit transaction")?;
         Ok(ListWadsResponse {
