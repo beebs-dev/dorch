@@ -114,7 +114,7 @@ wadinfo:
     images:
       image: thavlik/dorch-wadinfo:latest
       imagePullPolicy: Always
-      replicas: 0
+      replicas: 1
       logLevel: debug
       resources:
         requests: 
@@ -178,11 +178,8 @@ party:
 screenshot:
   image: thavlik/dorch-archiver:latest
   imagePullPolicy: Always
-  replicas: 0
+  replicas: 8
   logLevel: debug
-  resources:
-    limits:
-      memory: "1280Mi"
   init:
     image: thavlik/dorch-archiver-init:latest
     imagePullPolicy: Always
@@ -196,11 +193,8 @@ screenshot:
 archiver:
   image: thavlik/dorch-archiver:latest
   imagePullPolicy: Always
-  replicas: 0
+  replicas: 12
   logLevel: debug
-  resources:
-    limits:
-      memory: "1280Mi"
   init:
     image: thavlik/dorch-archiver-init:latest
     imagePullPolicy: Always

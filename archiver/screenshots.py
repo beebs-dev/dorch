@@ -391,6 +391,48 @@ def _effective_map_list(iwad: Path, files: Sequence[Path]) -> List[str]:
 	return list(ordered.keys())
 
 
+def _map_list_from_files_only(files: Sequence[Path]) -> List[str]:
+	"""Return detected map markers from only the provided -file paths.
+
+	This is used to ensure PWAD screenshot jobs don't accidentally render IWAD-only maps.
+	"""
+	from collections import OrderedDict
+
+	ordered = OrderedDict()
+	for p in files:
+		maps: List[str] = []
+		try:
+			suffix = str(p.suffix).lower()
+			if suffix == ".pk3":
+				maps = _parse_pk3_map_names(p)
+			else:
+				maps = _parse_wad_map_names(p)
+		except Exception:
+			maps = []
+		for m in maps:
+			if m in ordered:
+				ordered.pop(m)
+			ordered[m] = True
+	return list(ordered.keys())
+
+
+def _maps_to_render(iwad: Path, files: Sequence[Path]) -> List[str]:
+	"""Return the final list of maps to render.
+
+	- If files are provided, only render maps that appear in those files.
+	- If no files are provided, render IWAD maps.
+	"""
+	effective = _effective_map_list(iwad, files)
+	if not files:
+		return effective
+
+	maps_in_files = _map_list_from_files_only(files)
+	if not maps_in_files:
+		return []
+	allowed = set(maps_in_files)
+	return [m for m in effective if m in allowed]
+
+
 def _init_game(
 	*,
 	iwad: Path,
@@ -1523,13 +1565,13 @@ class RenderConfig:
 
 
 def list_maps(iwad: Path, files: Sequence[Path]) -> List[str]:
-	"""Return detected map markers in effective load order."""
-	return _effective_map_list(Path(iwad), [Path(p) for p in files])
+	"""Return map markers that would be rendered (in effective load order)."""
+	return _maps_to_render(Path(iwad), [Path(p) for p in files])
 
 
 class NoMapsError(ScreenshotsError):
-	def __init__(self) -> None:
-		super().__init__("No maps detected in IWAD/--files (WAD/PK3 map detection found none).")
+	def __init__(self, message: Optional[str] = None) -> None:
+		super().__init__(message or "No maps detected in IWAD/--files (WAD/PK3 map detection found none).")
 
 def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 	"""Render screenshots for all maps and return {map_name: saved_count}.
@@ -1542,8 +1584,10 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 	out_root = Path(config.output)
 	out_root.mkdir(parents=True, exist_ok=True)
 
-	maps = _effective_map_list(iwad, files)
+	maps = _maps_to_render(iwad, files)
 	if not maps:
+		if files:
+			raise NoMapsError("No maps detected in --files; refusing to render IWAD-only maps.")
 		raise NoMapsError()
 	if int(config.num) <= 0:
 		raise ScreenshotsError("num must be > 0")
@@ -1873,7 +1917,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 	out_root = Path(args.output)
 	out_root.mkdir(parents=True, exist_ok=True)
 
-	maps = _effective_map_list(iwad, files)
+	maps = _maps_to_render(iwad, files)
 	if bool(args.list_maps):
 		for m in maps:
 			print(m)
