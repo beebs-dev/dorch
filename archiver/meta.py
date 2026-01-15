@@ -1989,8 +1989,7 @@ def post_to_wadinfo(obj, sha1, wadinfo_base_url: str = WADINFO_BASE_URL) -> None
     url = f"{wadinfo_base_url}/upsert_wad"
     response = requests.post(url, json=obj)
     if response.status_code == 422:
-        print(json.dumps(obj))
-        print(f"wadinfo rejected {sha1}: {response.text}")
+        print(f"🚫 wadinfo rejected {sha1}: {response.text}  {json.dumps(obj)}")
         return
     response.raise_for_status()
 

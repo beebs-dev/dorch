@@ -123,18 +123,18 @@ async def _run(args: argparse.Namespace) -> None:
 	idgames_json = args.idgames_json
 	readmes_json = args.readmes_json
 	if meta.is_http_url(wads_json):
-		meta.eprint(f"Downloading wads.json: {wads_json} -> /tmp/wads.json")
+		meta.eprint(f"📥 Downloading wads.json: {wads_json} -> /tmp/wads.json")
 		meta.download_url_to_file(wads_json, "/tmp/wads.json")
 		wads_json = "/tmp/wads.json"
 	if meta.is_http_url(idgames_json):
-		meta.eprint(f"Downloading idgames.json: {idgames_json} -> /tmp/idgames.json")
+		meta.eprint(f"📥 Downloading idgames.json: {idgames_json} -> /tmp/idgames.json")
 		meta.download_url_to_file(idgames_json, "/tmp/idgames.json")
 		idgames_json = "/tmp/idgames.json"
 	if meta.is_http_url(readmes_json):
-		meta.eprint(f"Downloading readmes.json: {readmes_json} -> /tmp/readmes.json")
+		meta.eprint(f"📥 Downloading readmes.json: {readmes_json} -> /tmp/readmes.json")
 		meta.download_url_to_file(readmes_json, "/tmp/readmes.json")
 		readmes_json = "/tmp/readmes.json"
-
+	print("📄 Loading JSON data...", file=sys.stderr)
 	wads_data = meta.read_json_file(wads_json)
 	idgames_data = meta.read_json_file(idgames_json)
 	if not isinstance(wads_data, list):
@@ -195,7 +195,7 @@ async def _run(args: argparse.Namespace) -> None:
 				except asyncio.TimeoutError:
 					pass
 
-		print(f"Dispatched {published} jobs to stream {STREAM_NAME}")
+		print(f"📨 Dispatched {published} jobs to stream {STREAM_NAME}")
 	finally:
 		if fast_exit:
 			try:

@@ -103,7 +103,7 @@ iam:
 wadinfo:
   image: thavlik/dorch-wadinfo:latest
   imagePullPolicy: Always
-  replicas: 6
+  replicas: 3
   logLevel: debug
   resources:
     requests:
@@ -193,7 +193,7 @@ screenshot:
 archiver:
   image: thavlik/dorch-archiver:latest
   imagePullPolicy: Always
-  replicas: 24
+  replicas: 32
   logLevel: debug
   init:
     image: thavlik/dorch-archiver-init:latest

@@ -31,13 +31,13 @@ from natsutil import connect_nats, ensure_stream, nats_flush_timeout_seconds
 from screenshots import RenderConfig, render_screenshots
 from concurrent.futures import ThreadPoolExecutor
 
-_REDIS_EXECUTOR = ThreadPoolExecutor(max_workers=1)
+_REDIS_EXECUTOR = ThreadPoolExecutor(max_workers=2)
 
 def _cache_redis_file_sync(redis_client, redis_key, buf):
     try:
         redis_client.set(redis_key, buf, ex=90 * 60)
     except Exception as ex:
-        meta.eprint(f"Redis SET failed for {redis_key}: {type(ex).__name__}: {ex}")
+        meta.eprint(f"⚠️ Redis SET failed for {redis_key}: {type(ex).__name__}: {ex}")
 
 _REDIS_CLIENT: Any = None
 
@@ -213,7 +213,7 @@ def _get_redis_client() -> Optional[Any]:
 		_REDIS_CLIENT = client
 		return client
 	except Exception as ex:
-		meta.eprint(f"Redis disabled (connect failed): {type(ex).__name__}: {ex}")
+		meta.eprint(f"⚠️ Redis disabled (connect failed): {type(ex).__name__}: {ex}")
 		_REDIS_CLIENT = False
 		return None
 
@@ -313,7 +313,7 @@ def analyze_one_wad(
 				with open(file_path, "wb") as f:
 					f.write(cached_bytes)
 			else:
-				print(f"Downloading s3://{wad_bucket}/{s3_key}", file=sys.stderr)
+				print(f"📥 Downloading s3://{wad_bucket}/{s3_key}", file=sys.stderr)
 				meta.download_s3_to_path(s3_wads, wad_bucket, s3_key, gz_path)
 				meta.gunzip_file(gz_path, file_path)
 				if redis_client is not None:
@@ -378,7 +378,7 @@ def analyze_one_wad(
 							endpoint=images_endpoint,
 						)
 				except Exception as ex:
-					meta.eprint(f"Screenshot rendering/upload failed for {sha1}: {type(ex).__name__}: {ex}")
+					meta.eprint(f"⚠️ Screenshot rendering/upload failed for {sha1}: {type(ex).__name__}: {ex}")
 		except Exception as ex:
 			extracted = {
 				"format": "unknown",
@@ -413,7 +413,7 @@ def signal_ready() -> None:
 			with open(ready_file, "w", encoding="utf-8") as f:
 				f.write(f"ready {time.time()}\n")
 		except Exception as ex:
-			meta.eprint(f"Could not write ready file {ready_file}: {type(ex).__name__}: {ex}")
+			meta.eprint(f"⚠️ Could not write ready file {ready_file}: {type(ex).__name__}: {ex}")
 			
 async def _run(args: argparse.Namespace) -> None:
 	shutdown = asyncio.Event()
@@ -442,15 +442,15 @@ async def _run(args: argparse.Namespace) -> None:
 	wad_endpoint = _env_str("DORCH_WAD_ENDPOINT", "https://nyc3.digitaloceanspaces.com")
 	images_bucket = _env_str("DORCH_IMAGES_BUCKET", "wadimages2")
 	images_endpoint = _env_str("DORCH_IMAGES_ENDPOINT", "https://nyc3.digitaloceanspaces.com")
-	print(f'region_name: {region_name}', file=sys.stderr)
-	print(f'wad_endpoint: {wad_endpoint}', file=sys.stderr)
-	print(f'wad_bucket: {wad_bucket}', file=sys.stderr)
-	print(f'images_endpoint: {images_endpoint}', file=sys.stderr)
-	print(f'images_bucket: {images_bucket}', file=sys.stderr)
+	print(f'🧪 region_name: {region_name}', file=sys.stderr)
+	print(f'🧪 wad_endpoint: {wad_endpoint}', file=sys.stderr)
+	print(f'🧪 wad_bucket: {wad_bucket}', file=sys.stderr)
+	print(f'🧪 images_endpoint: {images_endpoint}', file=sys.stderr)
+	print(f'🧪 images_bucket: {images_bucket}', file=sys.stderr)
 
 	post_to_wadinfo = _env_bool("DORCH_POST_TO_WADINFO", True)
 	wadinfo_base_url = _env_str("WADINFO_BASE_URL", "http://localhost:8000")
-	print(f'wadinfo_base_url: {wadinfo_base_url}', file=sys.stderr)
+	print(f'🧪 wadinfo_base_url: {wadinfo_base_url}', file=sys.stderr)
 
 	render_screens = _env_bool("DORCH_RENDER_SCREENSHOTS", False)
 	upload_screens = _env_bool("DORCH_UPLOAD_SCREENSHOTS", False)
@@ -458,12 +458,12 @@ async def _run(args: argparse.Namespace) -> None:
 	screenshot_height = _env_int("DORCH_SCREENSHOT_HEIGHT", 600)
 	screenshot_count = _env_int("DORCH_SCREENSHOT_COUNT", 5)
 	panorama = _env_bool("DORCH_PANORAMA", False)
-	print(f'render_screens: {render_screens}', file=sys.stderr)
-	print(f'upload_screens: {upload_screens}', file=sys.stderr)
-	print(f'screenshot_width: {screenshot_width}', file=sys.stderr)
-	print(f'screenshot_height: {screenshot_height}', file=sys.stderr)
-	print(f'screenshot_count: {screenshot_count}', file=sys.stderr)
-	print(f'panorama: {panorama}', file=sys.stderr)
+	print(f'🧪 render_screens: {render_screens}', file=sys.stderr)
+	print(f'🧪 upload_screens: {upload_screens}', file=sys.stderr)
+	print(f'🧪 screenshot_width: {screenshot_width}', file=sys.stderr)
+	print(f'🧪 screenshot_height: {screenshot_height}', file=sys.stderr)
+	print(f'🧪 screenshot_count: {screenshot_count}', file=sys.stderr)
+	print(f'🧪 panorama: {panorama}', file=sys.stderr)
 
 	_maybe_start_prometheus_http_server(worker="meta-worker")
 
@@ -485,7 +485,7 @@ async def _run(args: argparse.Namespace) -> None:
 			stream=STREAM_NAME,
 		)
 		signal_ready()
-		meta.eprint(f"Consuming from stream={STREAM_NAME} durable={durable}")
+		meta.eprint(f"🚀 Consuming from stream={STREAM_NAME} durable={durable}")
 		while not shutdown.is_set():
 			fetch_task = asyncio.create_task(sub.fetch(args.batch, timeout=args.fetch_timeout))
 			shutdown_task = asyncio.create_task(shutdown.wait())
@@ -578,9 +578,9 @@ async def _run(args: argparse.Namespace) -> None:
 					await msg.ack()
 					if _PROM_AVAILABLE:
 						_META_JOBS_TOTAL.labels("success").inc()
-					print(f"Processed metadata for wad {sha1}", file=sys.stderr)
+					print(f"✅ Processed metadata for {sha1}", file=sys.stderr)
 				except meta.S3KeyResolutionError:
-					meta.eprint(f"Skipping entry because S3 key was not found for wad {sha1}")
+					meta.eprint(f"⚠️ Skipping entry because S3 key was not found for {sha1}")
 					if _PROM_AVAILABLE:
 						_META_JOBS_TOTAL.labels("failure").inc()
 						_META_JOBS_TOTAL.labels("S3KeyResolutionError").inc()
@@ -589,7 +589,7 @@ async def _run(args: argparse.Namespace) -> None:
 					except Exception:
 						pass
 				except Exception as ex:
-					meta.eprint(f"Failed to process wad {sha1}: {type(ex).__name__}: {ex}")
+					meta.eprint(f"💥 Failed to process {sha1}: {type(ex).__name__}: {ex}")
 					if _PROM_AVAILABLE:
 						_META_JOBS_TOTAL.labels("failure").inc()
 						_META_EXCEPTIONS_TOTAL.labels(type(ex).__name__).inc()

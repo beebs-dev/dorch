@@ -130,7 +130,6 @@ spec:
 {{- end }}
 {{ include "dorch.metrics-env" . | indent 8 }}
 {{ include "dorch.nats-env" . | indent 8 }}
-{{ include "dorch.redis-env" . | indent 8 }}
         volumeMounts:
         - name: data
           mountPath: /data

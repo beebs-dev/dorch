@@ -1185,7 +1185,7 @@ def _save_image(arr: np.ndarray, out_path: Path, fmt: str, quality: int) -> None
 		img.save(out_path, format="WEBP", quality=quality, method=6)
 	else:
 		raise ValueError(f"Unknown format: {fmt}")
-	print(f"Saved image: {out_path}")
+	print(f"🖼️ Saved image: {out_path}")
 
 
 def _signed_angle_delta_deg(target: float, current: float) -> float:
@@ -1544,7 +1544,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 		raise NoMapsError()
 	if int(config.num) <= 0:
 		raise ScreenshotsError("num must be > 0")
-	print(f"Detected {len(maps)} maps to render screenshots for.")
+	print(f"🔍 Detected {len(maps)} maps to render screenshots for.")
 
 	# Import VizDoom only when actually rendering.
 	import vizdoom  # noqa: F401
@@ -1652,7 +1652,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 								quality=pano_quality,
 							)
 						except Exception as e:
-							print(f"{map_name}: panorama capture failed for shot {idx}: {e}", file=sys.stderr)
+							print(f"⚠️ {map_name}: panorama capture failed for shot {idx}: {e}", file=sys.stderr)
 					saved += 1
 					idx += 1
 
@@ -1705,7 +1705,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 									quality=pano_quality,
 								)
 							except Exception as e:
-								print(f"{map_name}: panorama capture failed for shot {j}: {e}", file=sys.stderr)
+								print(f"⚠️ {map_name}: panorama capture failed for shot {j}: {e}", file=sys.stderr)
 						saved += 1
 			else:
 				# Fallback to exploration if the map has no parseable pickups.
@@ -1755,7 +1755,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 								quality=pano_quality,
 							)
 						except Exception as e:
-							print(f"{map_name}: panorama capture failed for shot {i}: {e}", file=sys.stderr)
+							print(f"⚠️ {map_name}: panorama capture failed for shot {i}: {e}", file=sys.stderr)
 					saved += 1
 
 			results[map_name] = int(saved)
@@ -1856,10 +1856,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 		return 0
 
 	if not maps:
-		print("No maps detected in IWAD/--files (WAD/PK3 map detection found none).", file=sys.stderr)
+		print("🕳️ No maps detected in IWAD/--files (WAD/PK3 map detection found none).", file=sys.stderr)
 		return 2
 	if int(args.num) <= 0:
-		print("--num must be > 0", file=sys.stderr)
+		print("🚫 --num must be > 0", file=sys.stderr)
 		return 2
 
 	config = RenderConfig(
