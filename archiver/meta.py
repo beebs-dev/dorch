@@ -104,7 +104,7 @@ def deduce_iwad_path_from_meta(wad_entry: Dict[str, Any], extracted: Dict[str, A
     def _first_existing(*paths: Path) -> Optional[Path]:
         for p in paths:
             try:
-                if p.exists():
+                if p.is_file() and os.access(p, os.R_OK):
                     return p
             except OSError:
                 continue

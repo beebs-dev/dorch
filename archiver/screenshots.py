@@ -1584,6 +1584,32 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 	out_root = Path(config.output)
 	out_root.mkdir(parents=True, exist_ok=True)
 
+	# Fail early with a clear error if the IWAD isn't readable.
+	# When this check is skipped, VizDoom may fall back to searching for doom.wad/etc
+	# and emit a misleading "Cannot find a game IWAD" message.
+	try:
+		st = iwad.stat()
+		exists = True
+		mode = oct(int(st.st_mode) & 0o777)
+		uid = int(getattr(st, "st_uid", -1))
+		gid = int(getattr(st, "st_gid", -1))
+		size = int(getattr(st, "st_size", -1))
+		readable = os.access(iwad, os.R_OK)
+	except FileNotFoundError:
+		exists = False
+		mode = "?"
+		uid = -1
+		gid = -1
+		size = -1
+		readable = False
+	if (not exists) or (not iwad.is_file()) or (not readable):
+		raise ScreenshotsError(
+			"IWAD is missing or not readable: "
+			f"path={iwad} exists={exists} file={iwad.is_file() if exists else False} readable={readable} "
+			f"mode={mode} uid={uid} gid={gid} size={size} "
+			f"(IWADS_DIR={os.getenv('IWADS_DIR')!r})"
+		)
+
 	maps = _maps_to_render(iwad, files)
 	if not maps:
 		if files:

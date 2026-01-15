@@ -30,6 +30,9 @@ while IFS= read -r key; do
 	redis_key="dorch:iwad:${name}"
 	# If another concurrent process already populated the file, skip.
 	if [[ -s "$dest" ]]; then
+		# Ensure readability for the main container. mktemp creates 0600 files,
+		# and those permissions can persist across pod restarts on hostPath.
+		chmod a+r "$dest" 2>/dev/null || true
 		continue
 	fi
 	exists="$(redis-cli "${redis_args[@]}" EXISTS "$redis_key")"
@@ -40,6 +43,7 @@ while IFS= read -r key; do
 		# If the redis value was empty/missing, fall back to S3.
 		if [[ -s "$tmp" ]]; then
 			if mv -n "$tmp" "$dest" 2>/dev/null; then
+				chmod a+r "$dest" 2>/dev/null || true
 				trap - RETURN
 				continue
 			fi
@@ -53,6 +57,7 @@ while IFS= read -r key; do
 	aws "${aws_args[@]}" s3 cp "s3://$IWAD_BUCKET/$key" "$tmp"
 	# Atomic publish into place (avoid clobbering if another process won the race).
 	if mv -n "$tmp" "$dest" 2>/dev/null; then
+		chmod a+r "$dest" 2>/dev/null || true
 		trap - RETURN
 		redis-cli "${redis_args[@]}" -x SET "$redis_key" < "$dest" > /dev/null
 		continue
