@@ -17,6 +17,11 @@ mod sql {
         left join wad_dispatch_images d
             on d.wad_id = w.wad_id
         where d.wad_id is null
+          and exists (
+              select 1
+              from wad_maps m
+              where m.wad_id = w.wad_id
+          )
         order by w.created_at asc
         limit 1
         for update of w skip locked
