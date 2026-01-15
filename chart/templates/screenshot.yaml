@@ -119,6 +119,8 @@ spec:
           value: info,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info
         - name: LOG_LEVEL
           value: {{ .Values.screenshot.logLevel }}
+        - name: DOOMWADDIR
+          value: /data/iwads
 {{- if .Values.prometheus.enabled }}
         - name: DORCH_METRICS_ENABLED
           value: "true"
