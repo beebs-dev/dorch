@@ -60,7 +60,7 @@ pub async fn run(args: DispatchImagesArgs) -> Result<()> {
 
         db.mark_dispatched_images(&tx, wad_id)
             .await
-            .context("Failed to mark dispatched_images_at")?;
+            .context("Failed to mark images dispatched")?;
         tx.commit().await.context("commit dispatch-images tx")?;
     }
 

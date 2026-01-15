@@ -60,7 +60,7 @@ pub async fn run(args: DispatchAnalysisArgs) -> Result<()> {
 
         db.mark_dispatched_analysis(&tx, wad_id)
             .await
-            .context("Failed to mark dispatched_analysis_at")?;
+            .context("Failed to mark analysis dispatched")?;
         tx.commit().await.context("commit dispatch-analysis tx")?;
     }
 

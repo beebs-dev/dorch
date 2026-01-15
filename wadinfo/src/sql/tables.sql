@@ -38,10 +38,7 @@ create table if not exists wads (
   meta_json           jsonb not null,
 
   created_at          timestamptz not null default now(),
-  updated_at          timestamptz not null default now(),
-
-  dispatched_images_at   timestamptz,
-  dispatched_analysis_at timestamptz
+  updated_at          timestamptz not null default now()
 );
 
 create index if not exists idx_wads_title_trgm

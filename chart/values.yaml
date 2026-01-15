@@ -167,7 +167,7 @@ party:
 screenshot:
   image: thavlik/dorch-archiver:latest
   imagePullPolicy: Always
-  replicas: 0
+  replicas: 1
   logLevel: debug
   resources:
     requests: 

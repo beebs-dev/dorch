@@ -3,24 +3,30 @@ use dorch_common::postgres::strip_sql_comments;
 use uuid::Uuid;
 
 mod sql {
-    pub const TABLES: &str = include_str!("../../sql/tables.sql");
+    pub const TABLES: &str = concat!(
+        include_str!("../../sql/tables.sql"),
+        "\n",
+        include_str!("tables.sql")
+    );
 
     // Lock one undispatched row and return its wad_id.
     // SKIP LOCKED ensures multiple dispatchers can run concurrently.
     pub const PULL_ONE: &str = r#"
-		select wad_id
-		from wads
-		where dispatched_images_at is null
-		order by created_at asc
-		limit 1
-		for update skip locked
-	"#;
+        select w.wad_id
+        from wads w
+        left join wad_dispatch_images d
+            on d.wad_id = w.wad_id
+        where d.wad_id is null
+        order by w.created_at asc
+        limit 1
+        for update of w skip locked
+    "#;
 
     pub const MARK_DISPATCHED: &str = r#"
-		update wads
-		set dispatched_images_at = now()
-		where wad_id = $1
-	"#;
+        insert into wad_dispatch_images (wad_id)
+        values ($1)
+        on conflict (wad_id) do nothing
+    "#;
 }
 
 #[derive(Clone)]
