@@ -257,22 +257,50 @@ async def _run_renderer_subprocess(*, wad_id: str) -> Dict[str, Any]:
 		stdout=asyncio.subprocess.PIPE,
 		stderr=asyncio.subprocess.PIPE,
 	)
+
+	async def _stream_and_capture_tail(
+		stream: asyncio.StreamReader,
+		*,
+		max_chars: int = 4000,
+	) -> str:
+		tail = ""
+		while True:
+			chunk = await stream.read(4096)
+			if not chunk:
+				break
+			text = chunk.decode("utf-8", errors="replace")
+			sys.stderr.write(text)
+			sys.stderr.flush()
+			tail += text
+			if len(tail) > max_chars:
+				tail = tail[-max_chars:]
+		return tail
+
+	stdout_task = asyncio.create_task(proc.stdout.read() if proc.stdout is not None else asyncio.sleep(0, result=b""))
+	stderr_task = asyncio.create_task(_stream_and_capture_tail(proc.stderr) if proc.stderr is not None else asyncio.sleep(0, result=""))
+	wait_task = asyncio.create_task(proc.wait())
 	try:
-		stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=_render_timeout_seconds())
+		stdout_b, stderr_tail, _ = await asyncio.wait_for(
+			asyncio.gather(stdout_task, stderr_task, wait_task),
+			timeout=_render_timeout_seconds(),
+		)
 	except asyncio.TimeoutError:
 		with contextlib.suppress(ProcessLookupError):
 			proc.kill()
-		stdout_b, stderr_b = await proc.communicate()
+		# Drain streams after kill so we can return useful output.
+		with contextlib.suppress(Exception):
+			await proc.wait()
+		stdout_b, stderr_tail = await asyncio.gather(stdout_task, stderr_task, return_exceptions=False)
 		return {
 			"ok": False,
 			"retry": True,
 			"kind": "Timeout",
 			"message": f"renderer timed out after {_render_timeout_seconds()}s",
-			"stderr": (stderr_b or b"").decode("utf-8", errors="replace")[-4000:],
+			"stderr": (stderr_tail or "")[-4000:],
 			"returncode": proc.returncode,
 		}
 
-	stderr = (stderr_b or b"").decode("utf-8", errors="replace")
+	stderr = stderr_tail or ""
 	stdout = (stdout_b or b"").decode("utf-8", errors="replace").strip()
 
 	# Non-zero returncode includes crashes (e.g., SIGSEGV => -11).
