@@ -172,11 +172,6 @@ screenshot:
   init:
     image: thavlik/dorch-archiver-init:latest
     imagePullPolicy: Always
-    resources:
-      requests:
-        memory: "256Mi"
-      limits:
-        memory: "512Mi"
     s3:
       accessKeyId: {}
       secretAccessKey: {}
