@@ -1,10 +1,10 @@
-{{- $image := printf "%s%s" .Values.registry .Values.party.router.image -}}
+{{- $image := printf "%s%s" .Values.registry .Values.auth.image -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-auth
 spec:
-  replicas: {{ .Values.party.router.replicas }}
+  replicas: {{ .Values.auth.replicas }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}-auth
@@ -19,11 +19,11 @@ spec:
     {{- end }}
       containers:
       - name: auth
-        imagePullPolicy: {{ .Values.party.router.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.auth.imagePullPolicy }}
         image: {{ $image }}
-    {{- if .Values.party.router.resources }}
+    {{- if .Values.auth.resources }}
         resources:
-{{ toYaml .Values.party.router.resources | indent 10 }}
+{{ toYaml .Values.auth.resources | indent 10 }}
     {{- end }}
         command:
           - dorch-auth
@@ -63,7 +63,7 @@ spec:
         - name: RUST_LOG
           value: info,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info
         - name: LOG_LEVEL
-          value: {{ .Values.party.router.logLevel }}
+          value: {{ .Values.auth.logLevel }}
 {{ include "dorch.metrics-env" . | indent 8 }}
 {{ include "dorch.redis-env" . | indent 8 }}
 ---
