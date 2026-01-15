@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use aws_credential_types::{provider::SharedCredentialsProvider, Credentials};
+use aws_credential_types::{Credentials, provider::SharedCredentialsProvider};
 use aws_types::region::Region;
 use std::{collections::HashSet, env};
 use uuid::Uuid;
@@ -24,13 +24,7 @@ fn env_credentials() -> Result<SharedCredentialsProvider> {
     let session_token = env::var("AWS_SESSION_TOKEN").ok();
 
     // Ensure creds come from env only.
-    let creds = Credentials::new(
-        access_key_id,
-        secret_access_key,
-        session_token,
-        None,
-        "env",
-    );
+    let creds = Credentials::new(access_key_id, secret_access_key, session_token, None, "env");
     Ok(SharedCredentialsProvider::new(creds))
 }
 
@@ -61,10 +55,7 @@ pub async fn list_wad_ids_in_bucket(args: &S3PruneArgs) -> Result<HashSet<Uuid>>
     let mut wad_ids: HashSet<Uuid> = HashSet::new();
     let mut continuation: Option<String> = None;
     loop {
-        let mut req = client
-            .list_objects_v2()
-            .bucket(&args.bucket)
-            .delimiter("/");
+        let mut req = client.list_objects_v2().bucket(&args.bucket).delimiter("/");
         if let Some(ref token) = continuation {
             req = req.continuation_token(token);
         }
@@ -95,7 +86,10 @@ pub async fn list_wad_ids_in_bucket(args: &S3PruneArgs) -> Result<HashSet<Uuid>>
             if let Some(ref token) = continuation {
                 req = req.continuation_token(token);
             }
-            let resp = req.send().await.context("S3 list_objects_v2 fallback failed")?;
+            let resp = req
+                .send()
+                .await
+                .context("S3 list_objects_v2 fallback failed")?;
             for obj in resp.contents() {
                 if let Some(key) = obj.key() {
                     if let Some(wad_id) = parse_wad_id_from_key(key) {
