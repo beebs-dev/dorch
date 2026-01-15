@@ -16,6 +16,15 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import boto3
 
+_PROM_AVAILABLE = False
+try:
+	from prometheus_client import Counter, Gauge, Histogram, start_http_server  # type: ignore
+
+	_PROM_AVAILABLE = True
+except Exception:
+	# Prometheus metrics are optional at runtime; dependency is declared in requirements.
+	_PROM_AVAILABLE = False
+
 import meta
 from meta_eda import STREAM_NAME, parse_meta_job, sha1_from_subject
 from natsutil import connect_nats, ensure_stream, nats_flush_timeout_seconds
@@ -26,6 +35,48 @@ _REDIS_CLIENT: Any = None
 
 
 _MAX_REDIS_CACHE_BYTES = 300 * 1024 * 1024  # 300MB
+
+
+def _maybe_start_prometheus_http_server(*, worker: str) -> None:
+	"""Best-effort Prometheus /metrics server.
+
+	Env:
+	- DORCH_METRICS_ENABLED: true/false (default true)
+	- DORCH_METRICS_ADDR: bind address (default 0.0.0.0)
+	- DORCH_METRICS_PORT: port (default 2112)
+	"""
+	if not _PROM_AVAILABLE:
+		return
+	if not _env_bool("DORCH_METRICS_ENABLED", True):
+		return
+	addr = _env_str("DORCH_METRICS_ADDR", "0.0.0.0")
+	port = _env_int("DORCH_METRICS_PORT", 2112)
+	try:
+		start_http_server(port, addr=addr)
+		meta.eprint(f"{worker}: prometheus metrics listening on http://{addr}:{port}/metrics")
+	except Exception as ex:
+		meta.eprint(f"{worker}: prometheus metrics disabled (failed to start): {type(ex).__name__}: {ex}")
+
+
+if _PROM_AVAILABLE:
+	_META_JOBS_TOTAL = Counter(
+		"dorch_meta_jobs_total",
+		"Meta jobs processed",
+		["result"],
+	)
+	_META_JOB_DURATION_SECONDS = Histogram(
+		"dorch_meta_job_duration_seconds",
+		"Meta job duration in seconds",
+	)
+	_META_IN_PROGRESS = Gauge(
+		"dorch_meta_in_progress",
+		"Meta jobs currently being processed",
+	)
+	_META_EXCEPTIONS_TOTAL = Counter(
+		"dorch_meta_exceptions_total",
+		"Exceptions while processing meta jobs",
+		["exception"],
+	)
 
 
 def _dedupe_per_map_stats_keep_last(
@@ -352,6 +403,8 @@ async def _run(args: argparse.Namespace) -> None:
 	print(f'screenshot_count: {screenshot_count}', file=sys.stderr)
 	print(f'panorama: {panorama}', file=sys.stderr)
 
+	_maybe_start_prometheus_http_server(worker="meta-worker")
+
 	s3_wads = boto3.client(
 		"s3",
 		endpoint_url=wad_endpoint,
@@ -402,6 +455,9 @@ async def _run(args: argparse.Namespace) -> None:
 						pass
 					continue
 
+				job_start = time.perf_counter()
+				if _PROM_AVAILABLE:
+					_META_IN_PROGRESS.inc()
 				try:
 					job = parse_meta_job(msg.data)
 					sha1 = job.sha1
@@ -445,6 +501,8 @@ async def _run(args: argparse.Namespace) -> None:
 							await msg.nak()
 						except Exception:
 							pass
+						if _PROM_AVAILABLE:
+							_META_JOBS_TOTAL.labels("aborted").inc()
 						# Cancel the worker task (it may be running in a thread).
 						work_task.cancel()
 						# Avoid noisy "Task exception was never retrieved" warnings.
@@ -455,13 +513,22 @@ async def _run(args: argparse.Namespace) -> None:
 					shutdown_task.cancel()
 					await work_task
 					await msg.ack()
+					if _PROM_AVAILABLE:
+						_META_JOBS_TOTAL.labels("success").inc()
 				except Exception as ex:
 					meta.eprint(f"meta-worker: job failed: {type(ex).__name__}: {ex}")
+				if _PROM_AVAILABLE:
+					_META_JOBS_TOTAL.labels("failure").inc()
+					_META_EXCEPTIONS_TOTAL.labels(type(ex).__name__).inc()
 					try:
 						# Requeue for retry (JetStream redeliver)
 						await msg.nak()
 					except Exception:
 						pass
+				finally:
+					if _PROM_AVAILABLE:
+						_META_IN_PROGRESS.dec()
+						_META_JOB_DURATION_SECONDS.observe(max(0.0, time.perf_counter() - job_start))
 
 				if shutdown.is_set():
 					break

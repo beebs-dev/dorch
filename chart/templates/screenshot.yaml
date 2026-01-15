@@ -49,24 +49,34 @@ spec:
           value: "true"
         - name: AWS_S3_FORCE_PATH_STYLE
           value: "true"
-    {{- if .Values.screenshot.init.resources }}
+{{- if .Values.screenshot.init.resources }}
         resources:
 {{ toYaml .Values.screenshot.init.resources | indent 10 }}
-    {{- end }}
+{{- end }}
       containers:
       - name: screenshot
         imagePullPolicy: {{ .Values.screenshot.imagePullPolicy }}
         image: {{ $image }}
-    {{- if .Values.screenshot.resources }}
+{{- if .Values.screenshot.resources }}
         resources:
 {{ toYaml .Values.screenshot.resources | indent 10 }}
-    {{- end }}
+{{- end }}
         command:
           - python
           - /app/screenshot-worker.py
         volumeMounts:
         - name: data
           mountPath: /data
+{{- if .Values.prometheus.enabled }}
+        ports:
+        - containerPort: 2112
+          protocol: TCP
+          name: metrics
+        livenessProbe:
+          httpGet:
+            path: /favicon.ico
+            port: 2112
+{{- end }}
         readinessProbe:
           exec:
             command:
@@ -103,6 +113,12 @@ spec:
           value: info,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info
         - name: LOG_LEVEL
           value: {{ .Values.screenshot.logLevel }}
+{{- if .Values.prometheus.enabled }}
+        - name: DORCH_METRICS_ENABLED
+          value: "true"
+        - name: DORCH_METRICS_PORT
+          value: "2112"
+{{- end }}
 {{- if .Values.nats.user }}
         - name: NATS_USER
 {{ tpl (toYaml .Values.nats.user) . | indent 10 }}
@@ -114,3 +130,18 @@ spec:
 {{ include "dorch.metrics-env" . | indent 8 }}
 {{ include "dorch.nats-env" . | indent 8 }}
 {{ include "dorch.redis-env" . | indent 8 }}
+---
+{{- if .Values.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ .Release.Name }}-screenshot
+  labels:
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-screenshot
+  podMetricsEndpoints:
+  - port: metrics
+{{- end }}

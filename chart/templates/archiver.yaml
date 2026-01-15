@@ -66,8 +66,6 @@ spec:
         command:
           - python
           - /app/meta-worker.py
-          - --durable
-          - meta-worker
         readinessProbe:
           exec:
             command:

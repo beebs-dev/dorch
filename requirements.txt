@@ -6,3 +6,4 @@ awscli
 boto3
 nats-py
 redis
+prometheus-client

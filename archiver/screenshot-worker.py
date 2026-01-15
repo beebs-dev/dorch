@@ -18,6 +18,15 @@ import uuid
 import boto3
 import requests
 
+_PROM_AVAILABLE = False
+try:
+	from prometheus_client import Counter, Gauge, Histogram, start_http_server  # type: ignore
+
+	_PROM_AVAILABLE = True
+except Exception:
+	# Prometheus metrics are optional at runtime; dependency is declared in requirements.
+	_PROM_AVAILABLE = False
+
 import meta
 from natsutil import connect_nats, ensure_stream, nats_flush_timeout_seconds
 from screenshots import NoMapsError, RenderConfig, render_screenshots
@@ -28,6 +37,52 @@ SUBJECT_PREFIX = os.getenv("DORCH_IMAGES_SUBJECT_PREFIX", "dorch.wad")
 SUBJECT_SUFFIX = os.getenv("DORCH_IMAGES_SUBJECT_SUFFIX", "img")
 
 WADINFO_BASE_URL = os.getenv("WADINFO_BASE_URL", "http://localhost:8000")
+
+
+def _maybe_start_prometheus_http_server(*, worker: str) -> None:
+	"""Best-effort Prometheus /metrics server.
+
+	Env:
+	- DORCH_METRICS_ENABLED: true/false (default true)
+	- DORCH_METRICS_ADDR: bind address (default 0.0.0.0)
+	- DORCH_METRICS_PORT: port (default 2112)
+	"""
+	if not _PROM_AVAILABLE:
+		return
+	if not _env_bool("DORCH_METRICS_ENABLED", True):
+		return
+	addr = _env_str("DORCH_METRICS_ADDR", "0.0.0.0")
+	port = _env_int("DORCH_METRICS_PORT", 2112)
+	try:
+		start_http_server(port, addr=addr)
+		meta.eprint(f"{worker}: prometheus metrics listening on http://{addr}:{port}/metrics")
+	except Exception as ex:
+		meta.eprint(f"{worker}: prometheus metrics disabled (failed to start): {type(ex).__name__}: {ex}")
+
+
+if _PROM_AVAILABLE:
+	_SCREENSHOT_JOBS_TOTAL = Counter(
+		"dorch_screenshot_jobs_total",
+		"Screenshot jobs processed",
+		["result"],
+	)
+	_SCREENSHOT_JOB_DURATION_SECONDS = Histogram(
+		"dorch_screenshot_job_duration_seconds",
+		"Screenshot job duration in seconds",
+	)
+	_SCREENSHOT_IN_PROGRESS = Gauge(
+		"dorch_screenshot_in_progress",
+		"Screenshot jobs currently being processed",
+	)
+	_SCREENSHOT_EXCEPTIONS_TOTAL = Counter(
+		"dorch_screenshot_exceptions_total",
+		"Exceptions while processing screenshot jobs",
+		["exception"],
+	)
+	_SCREENSHOT_NO_MAPS_TOTAL = Counter(
+		"dorch_screenshot_no_maps_total",
+		"Screenshot jobs that had no renderable maps",
+	)
 
 
 def subject_for_wad_id(wad_id: str) -> str:
@@ -221,6 +276,8 @@ def render_one_wad_screenshots(
 		try:
 			render_screenshots(config)
 		except NoMapsError as e:
+			if _PROM_AVAILABLE:
+				_SCREENSHOT_NO_MAPS_TOTAL.inc()
 			print(f"{wad_id}: {e}", file=sys.stderr)
 			return
 		meta.upload_screenshots(
@@ -269,6 +326,8 @@ async def _run(args: argparse.Namespace) -> None:
 	print(f"default_count: {default_count}", file=sys.stderr)
 	print(f"default_panorama: {default_panorama}", file=sys.stderr)
 	print(f"wadinfo_base_url: {wadinfo_base_url}", file=sys.stderr)
+
+	_maybe_start_prometheus_http_server(worker="screenshot-worker")
 
 	s3_wads = boto3.client(
 		"s3",
@@ -319,6 +378,9 @@ async def _run(args: argparse.Namespace) -> None:
 						pass
 					continue
 
+				job_start = time.perf_counter()
+				if _PROM_AVAILABLE:
+					_SCREENSHOT_IN_PROGRESS.inc()
 				try:
 					wad_id = msg.data.decode("utf-8").strip().strip('"')
 					sub_id = wad_id_from_subject(msg.subject)
@@ -353,6 +415,8 @@ async def _run(args: argparse.Namespace) -> None:
 							await msg.nak()
 						except Exception:
 							pass
+						if _PROM_AVAILABLE:
+							_SCREENSHOT_JOBS_TOTAL.labels("aborted").inc()
 						work_task.cancel()
 						work_task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
 						break
@@ -360,12 +424,21 @@ async def _run(args: argparse.Namespace) -> None:
 					shutdown_task.cancel()
 					await work_task
 					await msg.ack()
+					if _PROM_AVAILABLE:
+						_SCREENSHOT_JOBS_TOTAL.labels("success").inc()
 				except Exception as ex:
 					meta.eprint(f"screenshot-worker: job failed: {type(ex).__name__}: {ex}")
+				if _PROM_AVAILABLE:
+					_SCREENSHOT_JOBS_TOTAL.labels("failure").inc()
+					_SCREENSHOT_EXCEPTIONS_TOTAL.labels(type(ex).__name__).inc()
 					try:
 						await msg.nak()
 					except Exception:
 						pass
+				finally:
+					if _PROM_AVAILABLE:
+						_SCREENSHOT_IN_PROGRESS.dec()
+						_SCREENSHOT_JOB_DURATION_SECONDS.observe(max(0.0, time.perf_counter() - job_start))
 
 				if shutdown.is_set():
 					break
