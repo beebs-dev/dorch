@@ -167,13 +167,8 @@ party:
 screenshot:
   image: thavlik/dorch-archiver:latest
   imagePullPolicy: Always
-  replicas: 10
+  replicas: 1
   logLevel: debug
-  resources:
-    requests: 
-      memory: "2048Mi"
-    limits:
-      memory: "2048Mi"
   init:
     image: thavlik/dorch-archiver-init:latest
     imagePullPolicy: Always

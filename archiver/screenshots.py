@@ -519,6 +519,11 @@ def _init_game(
 
 	# Launch args.
 	args: List[str] = []
+	# Disable UI overlays for clean screenshots.
+	args.append("+show_messages 0")
+	args.append("+hud 0")
+	args.append("+crosshair 0")
+	args.append("+automap 0")
 	# Some builds don't expose a getter; still pass +map as a strong hint.
 	args.append(f"+map {map_name}")
 	args.append(f"-skill {int(skill)}")

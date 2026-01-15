@@ -379,7 +379,7 @@ async def _run(args: argparse.Namespace) -> None:
 	region_name = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 	wad_bucket = _env_str("DORCH_WAD_BUCKET", "wadarchive2")
 	wad_endpoint = _env_str("DORCH_WAD_ENDPOINT", "https://nyc3.digitaloceanspaces.com")
-	images_bucket = _env_str("DORCH_IMAGES_BUCKET", "wadimages")
+	images_bucket = _env_str("DORCH_IMAGES_BUCKET", "wadimages2")
 	images_endpoint = _env_str("DORCH_IMAGES_ENDPOINT", "https://nyc3.digitaloceanspaces.com")
 	print(f'region_name: {region_name}', file=sys.stderr)
 	print(f'wad_endpoint: {wad_endpoint}', file=sys.stderr)

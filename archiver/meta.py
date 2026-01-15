@@ -1782,7 +1782,7 @@ def main() -> None:
                     help="Number of screenshots to render (per map)")
     ap.add_argument("--panorama", action="store_true",
                     help="Render panorama screenshots")
-    ap.add_argument("--s3-bucket", default="wadimages",
+    ap.add_argument("--s3-bucket", default="wadimages2",
                     help="S3 bucket to upload screenshots to")
     ap.add_argument(
         "--s3-endpoint", default="https://nyc3.digitaloceanspaces.com", help="S3 endpoint URL")

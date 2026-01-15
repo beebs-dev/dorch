@@ -92,10 +92,6 @@ spec:
           value: "1"
         - name: DORCH_READY_FILE
           value: /etc/ready
-        - name: DORCH_PANORAMA
-          value: "1"
-        - name: DORCH_SCREENSHOT_COUNT
-          value: "5"
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:

@@ -393,12 +393,12 @@ async def _run(args: argparse.Namespace) -> None:
 	region_name = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 	wad_bucket = _env_str("DORCH_WAD_BUCKET", "wadarchive2")
 	wad_endpoint = _env_str("DORCH_WAD_ENDPOINT", "https://nyc3.digitaloceanspaces.com")
-	images_bucket = _env_str("DORCH_IMAGES_BUCKET", "wadimages")
+	images_bucket = _env_str("DORCH_IMAGES_BUCKET", "wadimages2")
 	images_endpoint = _env_str("DORCH_IMAGES_ENDPOINT", "https://nyc3.digitaloceanspaces.com")
 
 	default_width = _env_int("DORCH_SCREENSHOT_WIDTH", 800)
 	default_height = _env_int("DORCH_SCREENSHOT_HEIGHT", 600)
-	default_count = _env_int("DORCH_SCREENSHOT_COUNT", 5)
+	default_count = _env_int("DORCH_SCREENSHOT_COUNT", 3)
 	default_panorama = _env_bool("DORCH_PANORAMA", False)
 	wadinfo_base_url = _env_str("WADINFO_BASE_URL", WADINFO_BASE_URL)
 
