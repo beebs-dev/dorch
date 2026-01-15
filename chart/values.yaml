@@ -110,6 +110,27 @@ wadinfo:
       memory: "32Mi"
     limits:
       memory: "64Mi"
+  dispatch:
+    images:
+      image: thavlik/dorch-wadinfo:latest
+      imagePullPolicy: Always
+      replicas: 1
+      logLevel: debug
+      resources:
+        requests: 
+          memory: "32Mi"
+        limits:
+          memory: "64Mi"
+    analysis:
+      image: thavlik/dorch-wadinfo:latest
+      imagePullPolicy: Always
+      replicas: 1
+      logLevel: debug
+      resources:
+        requests: 
+          memory: "32Mi"
+        limits:
+          memory: "64Mi"
 
 master:
   image: thavlik/dorch-master:latest

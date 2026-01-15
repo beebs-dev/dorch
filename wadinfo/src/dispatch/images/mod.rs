@@ -31,6 +31,8 @@ pub async fn run(args: DispatchImagesArgs) -> Result<()> {
         }
     });
 
+    dorch_common::signal_ready();
+
     let mut empty_pulls: u32 = 0;
     while !cancel.is_cancelled() {
         let mut conn = db.get_conn().await?;

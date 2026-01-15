@@ -1,0 +1,77 @@
+{{- $image := printf "%s%s" .Values.registry .Values.wadinfo.dispatch.images.image -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-wadinfo-dispatch-images
+spec:
+  replicas: {{ .Values.wadinfo.dispatch.images.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-wadinfo-dispatch-images
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-wadinfo-dispatch-images
+    spec:
+    {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 10 }}
+    {{- end }}
+      containers:
+      - name: dispatch-images
+        imagePullPolicy: {{ .Values.wadinfo.dispatch.images.imagePullPolicy }}
+        image: {{ $image }}
+    {{- if .Values.wadinfo.dispatch.images.resources }}
+        resources:
+{{ toYaml .Values.wadinfo.dispatch.images.resources | indent 10 }}
+    {{- end }}
+        command:
+          - dorch-wadinfo
+          - dispatch-images
+{{- if .Values.prometheus.enabled }}
+        ports:
+        - containerPort: 2112
+          protocol: TCP
+          name: metrics
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 2112
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 2112
+{{- else }}
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /etc/ready
+          initialDelaySeconds: 5
+          periodSeconds: 5
+{{- end }}
+        env:
+        - name: SERVICE_NAME
+          value: wadinfo-dispatch-images
+        - name: RUST_LOG
+          value: info,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info
+        - name: LOG_LEVEL
+          value: {{ .Values.wadinfo.dispatch.images.logLevel }}
+{{ include "dorch.metrics-env" . | indent 8 }}
+{{ include "dorch.nats-env" . | indent 8 }}
+{{ include "dorch.postgres-env" . | indent 8 }}
+---
+{{- if .Values.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ .Release.Name }}-wadinfo-dispatch-images
+  labels:
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-wadinfo-dispatch-images
+  podMetricsEndpoints:
+  - port: metrics
+{{- end }}
