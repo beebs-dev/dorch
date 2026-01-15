@@ -20,6 +20,46 @@ async fn main() -> Result<()> {
     dorch_common::metrics::maybe_spawn_metrics_server();
     match cli.command {
         Commands::Server(args) => run_servers(args).await,
+        Commands::Dispatch(dispatch_args) => match dispatch_args.command {
+            crate::args::DispatchCommands::Images(cmd) => match cmd.action {
+                None => {
+                    let run_args = crate::args::DispatchImagesRunArgs {
+                        nats: cmd.nats,
+                        postgres: cmd.postgres,
+                    };
+                    dispatch::images::run(run_args).await
+                }
+                Some(crate::args::DispatchImagesAction::Clear) => {
+                    let deleted = dispatch::images::clear(cmd.postgres).await?;
+                    println!("Deleted {deleted} rows from wad_dispatch_images");
+                    Ok(())
+                }
+                Some(crate::args::DispatchImagesAction::Prune(s3)) => {
+                    let deleted = dispatch::images::prune(cmd.postgres, s3).await?;
+                    println!("Pruned {deleted} rows from wad_dispatch_images");
+                    Ok(())
+                }
+            },
+            crate::args::DispatchCommands::Analysis(cmd) => match cmd.action {
+                None => {
+                    let run_args = crate::args::DispatchAnalysisRunArgs {
+                        nats: cmd.nats,
+                        postgres: cmd.postgres,
+                    };
+                    dispatch::analysis::run(run_args).await
+                }
+                Some(crate::args::DispatchAnalysisAction::Clear) => {
+                    let deleted = dispatch::analysis::clear(cmd.postgres).await?;
+                    println!("Deleted {deleted} rows from wad_dispatch_analysis");
+                    Ok(())
+                }
+                Some(crate::args::DispatchAnalysisAction::Prune(s3)) => {
+                    let deleted = dispatch::analysis::prune(cmd.postgres, s3).await?;
+                    println!("Pruned {deleted} rows from wad_dispatch_analysis");
+                    Ok(())
+                }
+            },
+        },
         Commands::DispatchImages(args) => dispatch::images::run(args).await,
         Commands::DispatchAnalysis(args) => dispatch::analysis::run(args).await,
     }

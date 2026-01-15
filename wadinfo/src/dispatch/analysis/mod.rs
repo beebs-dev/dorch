@@ -4,19 +4,21 @@ use rand::Rng;
 use tokio::time::{Duration, sleep};
 use tokio_util::sync::CancellationToken;
 
-use crate::args::DispatchAnalysisArgs;
+use crate::args::{DispatchAnalysisRunArgs, S3PruneArgs};
 
 pub mod db;
 
-pub async fn run(args: DispatchAnalysisArgs) -> Result<()> {
+pub async fn run(args: DispatchAnalysisRunArgs) -> Result<()> {
     let pool = dorch_common::postgres::create_pool(args.postgres.clone()).await;
     let db = db::Database::new(pool)
         .await
         .context("Failed to create dispatch-analysis database")?;
 
+    let nats_args = args.nats.require()?;
+
     let nats = async_nats::connect_with_options(
-        &args.nats.nats_url,
-        ConnectOptions::new().user_and_password(args.nats.nats_user, args.nats.nats_password),
+        &nats_args.nats_url,
+        ConnectOptions::new().user_and_password(nats_args.nats_user, nats_args.nats_password),
     )
     .await
     .context("Failed to connect to NATS")?;
@@ -65,6 +67,56 @@ pub async fn run(args: DispatchAnalysisArgs) -> Result<()> {
     }
 
     Ok(())
+}
+
+pub async fn clear(postgres: dorch_common::args::PostgresArgs) -> Result<u64> {
+    let pool = dorch_common::postgres::create_pool(postgres).await;
+    // Ensure table exists.
+    _ = db::Database::new(pool.clone()).await?;
+
+    let conn = pool.get().await.context("failed to get connection")?;
+    let deleted = conn
+        .execute("delete from wad_dispatch_analysis", &[])
+        .await
+        .context("failed to delete from wad_dispatch_analysis")?;
+    Ok(deleted)
+}
+
+pub async fn prune(postgres: dorch_common::args::PostgresArgs, s3: S3PruneArgs) -> Result<u64> {
+    let pool = dorch_common::postgres::create_pool(postgres).await;
+    // Ensure table exists.
+    _ = db::Database::new(pool.clone()).await?;
+
+    let have_analysis = crate::dispatch::s3::list_wad_ids_in_bucket(&s3).await?;
+
+    let conn = pool.get().await.context("failed to get connection")?;
+    let rows = conn
+        .query("select wad_id from wad_dispatch_analysis", &[])
+        .await
+        .context("failed to select wad_id from wad_dispatch_analysis")?;
+
+    let mut to_delete = Vec::new();
+    for row in rows {
+        let wad_id: uuid::Uuid = row.try_get("wad_id")?;
+        if !have_analysis.contains(&wad_id) {
+            to_delete.push(wad_id);
+        }
+    }
+
+    let mut deleted_total: u64 = 0;
+    for chunk in to_delete.chunks(1000) {
+        let chunk_vec: Vec<uuid::Uuid> = chunk.to_vec();
+        let deleted = conn
+            .execute(
+                "delete from wad_dispatch_analysis where wad_id = any($1::uuid[])",
+                &[&chunk_vec],
+            )
+            .await
+            .context("failed to prune wad_dispatch_analysis")?;
+        deleted_total += deleted;
+    }
+
+    Ok(deleted_total)
 }
 
 fn backoff_delay(empty_pulls: u32) -> Duration {

@@ -272,6 +272,8 @@ def render_one_wad_screenshots(
 			height=int(height),
 			panorama=bool(panorama),
 			invulnerable=True,
+			format="webp",
+			panorama_format="webp",
 		)
 		try:
 			render_screenshots(config)
@@ -428,17 +430,17 @@ async def _run(args: argparse.Namespace) -> None:
 						_SCREENSHOT_JOBS_TOTAL.labels("success").inc()
 				except Exception as ex:
 					meta.eprint(f"screenshot-worker: job failed: {type(ex).__name__}: {ex}")
-				if _PROM_AVAILABLE:
-					_SCREENSHOT_JOBS_TOTAL.labels("failure").inc()
-					_SCREENSHOT_EXCEPTIONS_TOTAL.labels(type(ex).__name__).inc()
-					try:
-						await msg.nak()
-					except Exception:
-						pass
-				finally:
 					if _PROM_AVAILABLE:
-						_SCREENSHOT_IN_PROGRESS.dec()
-						_SCREENSHOT_JOB_DURATION_SECONDS.observe(max(0.0, time.perf_counter() - job_start))
+						_SCREENSHOT_JOBS_TOTAL.labels("failure").inc()
+						_SCREENSHOT_EXCEPTIONS_TOTAL.labels(type(ex).__name__).inc()
+						try:
+							await msg.nak()
+						except Exception:
+							pass
+						finally:
+							if _PROM_AVAILABLE:
+								_SCREENSHOT_IN_PROGRESS.dec()
+								_SCREENSHOT_JOB_DURATION_SECONDS.observe(max(0.0, time.perf_counter() - job_start))
 
 				if shutdown.is_set():
 					break

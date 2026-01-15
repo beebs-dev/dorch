@@ -27,7 +27,8 @@ spec:
     {{- end }}
         command:
           - dorch-wadinfo
-          - dispatch-images
+          - dispatch
+          - images
 {{- if .Values.prometheus.enabled }}
         ports:
         - containerPort: 2112

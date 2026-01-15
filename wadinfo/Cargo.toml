@@ -36,3 +36,7 @@ postgres = { workspace = true }
 deadpool-postgres = { workspace = true }
 chrono = { workspace = true }
 rand = { workspace = true }
+aws-config = { workspace = true }
+aws-sdk-s3 = { workspace = true }
+aws-types = { workspace = true }
+aws-credential-types = { workspace = true }
