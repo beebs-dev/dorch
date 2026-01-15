@@ -15,6 +15,12 @@ import numpy as np
 from PIL import Image
 
 
+def _iwads_dir() -> Path:
+    dir = os.getenv("IWADS_DIR", None)
+    if dir is not None:
+        return Path(dir).resolve()
+    return (Path(__file__).resolve().parent / "../../wads").resolve()
+
 class ScreenshotsError(RuntimeError):
 	pass
 
@@ -1414,6 +1420,10 @@ def list_maps(iwad: Path, files: Sequence[Path]) -> List[str]:
 	return _effective_map_list(Path(iwad), [Path(p) for p in files])
 
 
+class NoMapsError(ScreenshotsError):
+	def __init__(self) -> None:
+		super().__init__("No maps detected in IWAD/--files (WAD parsing heuristic found none).")
+
 def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 	"""Render screenshots for all maps and return {map_name: saved_count}.
 
@@ -1427,7 +1437,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 
 	maps = _effective_map_list(iwad, files)
 	if not maps:
-		raise ScreenshotsError("No maps detected in IWAD/--files (WAD parsing heuristic found none).")
+		raise NoMapsError()
 	if int(config.num) <= 0:
 		raise ScreenshotsError("num must be > 0")
 	print(f"Detected {len(maps)} maps to render screenshots for.")
@@ -1781,6 +1791,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 		for map_name in maps:
 			saved = int(results.get(map_name, 0))
 			print(f"{map_name}: saved {saved}/{int(args.num)} images")
+	except NoMapsError as e:
+		print(str(e), file=sys.stderr)
+		return 0
 	except ScreenshotsError as e:
 		print(str(e), file=sys.stderr)
 		return 2

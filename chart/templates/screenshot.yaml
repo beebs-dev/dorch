@@ -13,6 +13,11 @@ spec:
       labels:
         app: {{ .Release.Name }}-screenshot
     spec:
+      volumes:
+      - name: data
+        hostPath:
+          path: /data
+          type: DirectoryOrCreate
     {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 10 }}
@@ -23,6 +28,9 @@ spec:
         imagePullPolicy: {{ .Values.screenshot.init.imagePullPolicy }}
         command:
         - /download-iwads.sh
+        volumeMounts:
+        - name: data
+          mountPath: /data
         env:
 {{ include "dorch.redis-env" . | indent 8 }}
         - name: IWADS_DIR
@@ -56,6 +64,9 @@ spec:
         command:
           - python
           - /app/screenshot-worker.py
+        volumeMounts:
+        - name: data
+          mountPath: /data
         readinessProbe:
           exec:
             command:

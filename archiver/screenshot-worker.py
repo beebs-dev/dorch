@@ -20,7 +20,7 @@ import requests
 
 import meta
 from natsutil import connect_nats, ensure_stream, nats_flush_timeout_seconds
-from screenshots import RenderConfig, render_screenshots
+from screenshots import NoMapsError, RenderConfig, render_screenshots
 
 
 STREAM_NAME = os.getenv("DORCH_IMAGES_STREAM", "DORCH_IMAGES")
@@ -218,7 +218,11 @@ def render_one_wad_screenshots(
 			panorama=bool(panorama),
 			invulnerable=True,
 		)
-		render_screenshots(config)
+		try:
+			render_screenshots(config)
+		except NoMapsError as e:
+			print(f"{wad_id}: {e}", file=sys.stderr)
+			return
 		meta.upload_screenshots(
 			sha1=sha1,
 			path=output_path,
