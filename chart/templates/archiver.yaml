@@ -17,6 +17,8 @@ spec:
       - key: dorch
         operator: Exists
         effect: NoSchedule
+      nodeSelector:
+        dorch: "true"
     {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 10 }}

@@ -342,6 +342,7 @@ def render_one_wad_screenshots(
 
 		os.makedirs(output_path, exist_ok=True)
 		config = RenderConfig(
+			wad_id=wad_id,
 			iwad=iwad_path,
 			files=files_for_render,
 			output=Path(output_path),

@@ -1173,7 +1173,7 @@ def _gather_candidates(
 	return candidates
 
 
-def _save_image(arr: np.ndarray, out_path: Path, fmt: str, quality: int) -> None:
+def _save_image(arr: np.ndarray, out_path: Path, fmt: str, quality: int, wad_id: Optional[str], map_name: str) -> None:
 	_ensure_parent_dir(out_path)
 	img = Image.fromarray(arr, mode="RGB")
 	fmt_u = fmt.upper()
@@ -1185,8 +1185,10 @@ def _save_image(arr: np.ndarray, out_path: Path, fmt: str, quality: int) -> None
 		img.save(out_path, format="WEBP", quality=quality, method=6)
 	else:
 		raise ValueError(f"Unknown format: {fmt}")
-	print(f"🖼️ Saved image: {out_path}")
-
+	if wad_id is not None:
+		print(f"🖼️  Saved image for {wad_id} {map_name}: {out_path}")
+	else:
+		print(f"🖼️  Saved image for {map_name}: {out_path}")
 
 def _signed_angle_delta_deg(target: float, current: float) -> float:
 	# Return signed delta in [-180, 180].
@@ -1517,6 +1519,7 @@ class RenderConfig:
 	frame_skip: int = 4
 	keep_every: int = 6
 	prefer_gpu: bool = False
+	wad_id: Optional[str] = None
 
 
 def list_maps(iwad: Path, files: Sequence[Path]) -> List[str]:
@@ -1626,7 +1629,12 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 					)
 					if best is None:
 						continue
-					_save_image(best.screen, map_dir / "images" / f"{idx}.{ext}", fmt=str(config.format), quality=quality)
+					_save_image(best.screen,
+				 				map_dir / "images" / f"{idx}.{ext}",
+								fmt=str(config.format),
+								quality=quality,
+								wad_id=config.wad_id,
+								map_name=map_name)
 					if bool(config.panorama):
 						try:
 							front, right, back, left, up, down = _capture_panorama_bundle(
@@ -1650,6 +1658,8 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 								map_dir / "pano" / f"pano_{idx}.{str(config.panorama_format)}",
 								fmt=str(config.panorama_format),
 								quality=pano_quality,
+								wad_id=config.wad_id,
+								map_name=map_name
 							)
 						except Exception as e:
 							print(f"⚠️ {map_name}: panorama capture failed for shot {idx}: {e}", file=sys.stderr)
@@ -1673,7 +1683,12 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 					selected = _select_diverse(candidates, n=int(config.num) - saved)
 					for j, cand in enumerate(selected, start=idx):
 						out_path = map_dir / "images" / f"{j}.{ext}"
-						_save_image(cand.screen, out_path, fmt=str(config.format), quality=quality)
+						_save_image(cand.screen,
+				  					out_path,
+									fmt=str(config.format),
+									quality=quality,
+									wad_id=config.wad_id,
+									map_name=map_name)
 						if bool(config.panorama):
 							try:
 								front, right, back, left, up, down = _capture_panorama_bundle(
@@ -1703,6 +1718,8 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 									map_dir / "pano" / f"pano_{j}.{str(config.panorama_format)}",
 									fmt=str(config.panorama_format),
 									quality=pano_quality,
+									wad_id=config.wad_id,
+									map_name=map_name
 								)
 							except Exception as e:
 								print(f"⚠️ {map_name}: panorama capture failed for shot {j}: {e}", file=sys.stderr)
@@ -1723,7 +1740,12 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 				selected = _select_diverse(candidates, n=int(config.num))
 				for i, cand in enumerate(selected):
 					out_path = map_dir / "images" / f"{i}.{ext}"
-					_save_image(cand.screen, out_path, fmt=str(config.format), quality=quality)
+					_save_image(cand.screen,
+				 				out_path,
+								fmt=str(config.format),
+								quality=quality,
+								wad_id=config.wad_id,
+								map_name=map_name)
 					if bool(config.panorama):
 						try:
 							front, right, back, left, up, down = _capture_panorama_bundle(
@@ -1753,6 +1775,8 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 								map_dir / "pano" / f"pano_{i}.{str(config.panorama_format)}",
 								fmt=str(config.panorama_format),
 								quality=pano_quality,
+								wad_id=config.wad_id,
+								map_name=map_name
 							)
 						except Exception as e:
 							print(f"⚠️ {map_name}: panorama capture failed for shot {i}: {e}", file=sys.stderr)

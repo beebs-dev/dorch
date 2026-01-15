@@ -13,6 +13,8 @@ spec:
       labels:
         app: {{ .Release.Name }}-screenshot
     spec:
+      nodeSelector:
+        dorch: "true"
       tolerations:
       - key: dorch
         operator: Exists
