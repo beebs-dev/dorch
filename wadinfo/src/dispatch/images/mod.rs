@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use async_nats::ConnectOptions;
+use dorch_common::streams::subjects;
 use rand::Rng;
 use tokio::time::{Duration, sleep};
 use tokio_util::sync::CancellationToken;
@@ -39,7 +40,6 @@ pub async fn run(args: DispatchImagesRunArgs) -> Result<()> {
     while !cancel.is_cancelled() {
         let mut conn = db.get_conn().await?;
         let tx = conn.transaction().await.context("begin tx")?;
-
         let Some(wad_id) = db.pull_one(&tx).await? else {
             tx.commit().await.context("commit empty pull tx")?;
             empty_pulls = empty_pulls.saturating_add(1);
@@ -48,18 +48,12 @@ pub async fn run(args: DispatchImagesRunArgs) -> Result<()> {
                 _ = cancel.cancelled() => break,
             }
         };
-
         empty_pulls = 0;
-
-        let wad_id_str = wad_id.to_string();
-        let subject = format!("dorch.wad.{wad_id_str}.img");
-
         let publish_ack = js
-            .publish(subject, wad_id_str.clone().into())
+            .publish(subjects::images(wad_id), wad_id.to_string().into())
             .await
             .context("JetStream publish failed")?;
         publish_ack.await.context("JetStream publish ack failed")?;
-
         db.mark_dispatched_images(&tx, wad_id)
             .await
             .context("Failed to mark images dispatched")?;
