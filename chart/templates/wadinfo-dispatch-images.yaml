@@ -36,7 +36,7 @@ spec:
           name: metrics
         livenessProbe:
           httpGet:
-            path: /favicon.ico
+            path: /healthz
             port: 2112
 {{- end }}
         readinessProbe:

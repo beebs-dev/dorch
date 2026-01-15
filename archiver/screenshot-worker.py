@@ -338,7 +338,7 @@ def render_one_wad_screenshots(
 			if extracted is None:
 				extracted = meta.extract_metadata_from_file(file_path, ext)
 			iwad_path = meta.deduce_iwad_path_from_meta(wad_entry, extracted)
-			files_for_render = [Path(file_path)]
+			files_for_render = extracted
 
 		os.makedirs(output_path, exist_ok=True)
 		config = RenderConfig(

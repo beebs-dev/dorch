@@ -243,18 +243,19 @@ def analyze_one_wad(
 
 		try:
 			cached_bytes: Optional[bytes] = None
-			if redis_client is not None:
-				try:
-					v = redis_client.get(redis_key)
-					if v is not None:
-						cached_bytes = bytes(v)
-				except Exception as ex:
-					meta.eprint(f"Redis GET failed for {redis_key}: {type(ex).__name__}: {ex}")
+			#if redis_client is not None:
+			#	try:
+			#		v = redis_client.get(redis_key)
+			#		if v is not None:
+			#			cached_bytes = bytes(v)
+			#	except Exception as ex:
+			#		meta.eprint(f"Redis GET failed for {redis_key}: {type(ex).__name__}: {ex}")
 
 			if cached_bytes is not None:
 				with open(file_path, "wb") as f:
 					f.write(cached_bytes)
 			else:
+				print(f"Downloading s3://{wad_bucket}/{s3_key}", file=sys.stderr)
 				meta.download_s3_to_path(s3_wads, wad_bucket, s3_key, gz_path)
 				meta.gunzip_file(gz_path, file_path)
 				if redis_client is not None:
@@ -423,7 +424,7 @@ async def _run(args: argparse.Namespace) -> None:
 			stream=STREAM_NAME,
 		)
 		signal_ready()
-		meta.eprint(f"meta-worker: consuming from stream={STREAM_NAME} durable={durable}")
+		meta.eprint(f"Consuming from stream={STREAM_NAME} durable={durable}")
 		while not shutdown.is_set():
 			fetch_task = asyncio.create_task(sub.fetch(args.batch, timeout=args.fetch_timeout))
 			shutdown_task = asyncio.create_task(shutdown.wait())
@@ -516,6 +517,7 @@ async def _run(args: argparse.Namespace) -> None:
 					await msg.ack()
 					if _PROM_AVAILABLE:
 						_META_JOBS_TOTAL.labels("success").inc()
+					print(f"Processed metadata for wad {sha1}", file=sys.stderr)
 				except meta.S3KeyResolutionError:
 					meta.eprint(f"Skipping entry because S3 key was not found for wad {sha1}")
 					if _PROM_AVAILABLE:
@@ -526,7 +528,7 @@ async def _run(args: argparse.Namespace) -> None:
 					except Exception:
 						pass
 				except Exception as ex:
-					meta.eprint(f"meta-worker: job failed: {type(ex).__name__}: {ex}")
+					meta.eprint(f"Failed to process wad {sha1}: {type(ex).__name__}: {ex}")
 					if _PROM_AVAILABLE:
 						_META_JOBS_TOTAL.labels("failure").inc()
 						_META_EXCEPTIONS_TOTAL.labels(type(ex).__name__).inc()

@@ -7,6 +7,7 @@ import math
 import os
 import struct
 import sys
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
@@ -102,38 +103,41 @@ def _parse_wad_map_names(wad_path: Path) -> List[str]:
 	typical required lumps (THINGS and LINEDEFS). This is intentionally simple
 	and robust for many WADs.
 	"""
+	return _parse_wad_map_names_bytes(wad_path.read_bytes(), source=str(wad_path))
 
-	data = wad_path.read_bytes()
+
+def _is_map_marker(name: str) -> bool:
+	name = (name or "").upper()
+	if len(name) == 5 and name[0] == "E" and name[2] == "M" and name[1].isdigit() and name[3].isdigit() and name[4].isdigit():
+		return True
+	if len(name) == 5 and name.startswith("MAP") and name[3:].isdigit():
+		return True
+	return False
+
+
+def _parse_wad_map_names_bytes(data: bytes, *, source: str) -> List[str]:
 	if len(data) < 12:
-		raise ValueError(f"WAD too small: {wad_path}")
+		raise ValueError(f"WAD too small: {source}")
 
 	ident = data[0:4]
 	if ident not in (b"IWAD", b"PWAD"):
-		raise ValueError(f"Not a WAD file (bad header {ident!r}): {wad_path}")
+		raise ValueError(f"Not a WAD file (bad header {ident!r}): {source}")
 
 	num_lumps, dir_offset = struct.unpack_from("<II", data, 4)
 	if dir_offset + num_lumps * 16 > len(data):
-		raise ValueError(f"WAD directory out of range: {wad_path}")
+		raise ValueError(f"WAD directory out of range: {source}")
 
 	names: List[str] = []
 	for i in range(num_lumps):
 		entry_off = dir_offset + i * 16
-		# <ii8s : filepos, size, name
 		_filepos, _size, raw_name = struct.unpack_from("<II8s", data, entry_off)
 		name = raw_name.split(b"\x00", 1)[0].decode("ascii", errors="ignore").upper()
 		names.append(name)
 
-	def is_map_marker(n: str) -> bool:
-		if len(n) == 5 and n[0] == "E" and n[2] == "M" and n[1].isdigit() and n[3].isdigit() and n[4].isdigit():
-			return True
-		if len(n) == 5 and n.startswith("MAP") and n[3:].isdigit():
-			return True
-		return False
-
 	# A very lightweight heuristic: map marker followed soon by THINGS and LINEDEFS.
 	out: List[str] = []
 	for i, n in enumerate(names):
-		if not is_map_marker(n):
+		if not _is_map_marker(n):
 			continue
 		window = names[i + 1 : i + 15]
 		if "THINGS" in window and "LINEDEFS" in window:
@@ -141,19 +145,47 @@ def _parse_wad_map_names(wad_path: Path) -> List[str]:
 	return out
 
 
+def _parse_pk3_map_names(pk3_path: Path) -> List[str]:
+	"""Return map names found in a PK3 (ZIP) by scanning embedded *.wad entries."""
+	from collections import OrderedDict
+
+	ordered = OrderedDict()
+	with zipfile.ZipFile(pk3_path) as zf:
+		for info in zf.infolist():
+			if getattr(info, "is_dir", lambda: False)():
+				continue
+			name = str(info.filename)
+			if not name.lower().endswith(".wad"):
+				continue
+			try:
+				data = zf.read(info)
+				maps = _parse_wad_map_names_bytes(data, source=f"{pk3_path}:{name}")
+			except Exception:
+				continue
+			for m in maps:
+				if m in ordered:
+					ordered.pop(m)
+				ordered[m] = True
+	return list(ordered.keys())
+
+
 def _read_wad_directory(wad_path: Path) -> List[Tuple[int, int, str]]:
 	"""Return list of (filepos, size, name) for each lump."""
 	data = wad_path.read_bytes()
+	return _read_wad_directory_bytes(data, source=str(wad_path))
+
+
+def _read_wad_directory_bytes(data: bytes, *, source: str) -> List[Tuple[int, int, str]]:
 	if len(data) < 12:
-		raise ValueError(f"WAD too small: {wad_path}")
+		raise ValueError(f"WAD too small: {source}")
 
 	ident = data[0:4]
 	if ident not in (b"IWAD", b"PWAD"):
-		raise ValueError(f"Not a WAD file (bad header {ident!r}): {wad_path}")
+		raise ValueError(f"Not a WAD file (bad header {ident!r}): {source}")
 
 	num_lumps, dir_offset = struct.unpack_from("<II", data, 4)
 	if dir_offset + num_lumps * 16 > len(data):
-		raise ValueError(f"WAD directory out of range: {wad_path}")
+		raise ValueError(f"WAD directory out of range: {source}")
 
 	out: List[Tuple[int, int, str]] = []
 	for i in range(num_lumps):
@@ -166,27 +198,37 @@ def _read_wad_directory(wad_path: Path) -> List[Tuple[int, int, str]]:
 
 def _extract_map_lump_bytes(wad_path: Path, map_name: str, lump_name: str) -> Optional[bytes]:
 	"""Extract a map-associated lump (e.g., THINGS) from a WAD for a given map marker."""
+	data = wad_path.read_bytes()
+	found_map, lump = _extract_map_lump_bytes_from_wad_bytes(data, map_name=map_name, lump_name=lump_name, source=str(wad_path))
+	return lump if found_map else None
+
+
+def _extract_map_lump_bytes_from_wad_bytes(
+	data: bytes,
+	*,
+	map_name: str,
+	lump_name: str,
+	source: str,
+) -> Tuple[bool, Optional[bytes]]:
+	"""Return (found_map, lump_bytes) for a given map in a WAD byte blob."""
 	map_name = map_name.upper()
 	lump_name = lump_name.upper()
-	data = wad_path.read_bytes()
-	directory = _read_wad_directory(wad_path)
+	directory = _read_wad_directory_bytes(data, source=source)
 	names = [n for _, _, n in directory]
 	try:
 		start = names.index(map_name)
 	except ValueError:
-		return None
+		return False, None
 
 	# Map lumps follow the marker until the next marker or end.
 	for filepos, size, n in directory[start + 1 :]:
 		if n == lump_name:
 			if filepos + size > len(data):
-				return None
-			return data[filepos : filepos + size]
-		if (len(n) == 5 and n.startswith("MAP") and n[3:].isdigit()) or (
-			len(n) == 4 and n.startswith("E") and n[1].isdigit() and n[2] == "M" and n[3].isdigit()
-		):
+				return True, None
+			return True, data[filepos : filepos + size]
+		if _is_map_marker(n):
 			break
-	return None
+	return True, None
 
 
 def _parse_things(things_bytes: bytes) -> List[Thing]:
@@ -245,14 +287,66 @@ def _pickup_points_for_map(iwad: Path, files: Sequence[Path], map_name: str) -> 
 	"""Return pickup coordinates from the WAD that provides this map (load-order aware)."""
 	load_order = [iwad, *files]
 	# Prefer the last WAD in load order that contains the map's THINGS lump.
-	for wad in reversed(load_order):
-		things_bytes = _extract_map_lump_bytes(wad, map_name, "THINGS")
-		if things_bytes is None:
+	for src in reversed(load_order):
+		suffix = str(src.suffix).lower()
+		if suffix == ".pk3":
+			found_map, points = _pickup_points_for_map_from_pk3(src, map_name)
+			if found_map:
+				return points
 			continue
-		things = _parse_things(things_bytes)
-		points = [(float(t.x), float(t.y)) for t in things if _is_pickup_thing_type(t.type)]
-		return points
+		try:
+			data = src.read_bytes()
+			found_map, things_bytes = _extract_map_lump_bytes_from_wad_bytes(
+				data,
+				map_name=map_name,
+				lump_name="THINGS",
+				source=str(src),
+			)
+			if not found_map:
+				continue
+			if things_bytes is None:
+				return []
+			things = _parse_things(things_bytes)
+			points = [(float(t.x), float(t.y)) for t in things if _is_pickup_thing_type(t.type)]
+			return points
+		except Exception:
+			# Non-WADs (or corrupted WADs) can appear in load order; ignore safely.
+			continue
 	return []
+
+
+def _pickup_points_for_map_from_pk3(pk3_path: Path, map_name: str) -> Tuple[bool, List[Tuple[float, float]]]:
+	"""Return (found_map, pickup_points) by scanning embedded *.wad entries in a PK3."""
+	try:
+		with zipfile.ZipFile(pk3_path) as zf:
+			# Later entries should win; search in reverse order.
+			infos = list(zf.infolist())
+			for info in reversed(infos):
+				if getattr(info, "is_dir", lambda: False)():
+					continue
+				name = str(info.filename)
+				if not name.lower().endswith(".wad"):
+					continue
+				try:
+					data = zf.read(info)
+					found_map, things_bytes = _extract_map_lump_bytes_from_wad_bytes(
+						data,
+						map_name=map_name,
+						lump_name="THINGS",
+						source=f"{pk3_path}:{name}",
+					)
+				except Exception:
+					continue
+				if not found_map:
+					continue
+				if things_bytes is None:
+					return True, []
+				things = _parse_things(things_bytes)
+				points = [(float(t.x), float(t.y)) for t in things if _is_pickup_thing_type(t.type)]
+				return True, points
+		return False, []
+	except Exception:
+		return False, []
 
 
 def _spread_out_points(points: Sequence[Tuple[float, float]], n: int, seed: int) -> List[Tuple[float, float]]:
@@ -279,12 +373,17 @@ def _effective_map_list(iwad: Path, files: Sequence[Path]) -> List[str]:
 	from collections import OrderedDict
 
 	ordered = OrderedDict()
-	for wad in [iwad, *files]:
+	for p in [iwad, *files]:
+		maps: List[str] = []
 		try:
-			maps = _parse_wad_map_names(wad)
+			suffix = str(p.suffix).lower()
+			if suffix == ".pk3":
+				maps = _parse_pk3_map_names(p)
+			else:
+				maps = _parse_wad_map_names(p)
 		except Exception:
-			# Non-WADs could appear in -file for some ports; ignore safely.
-			continue
+			# Non-WADs / non-PK3s could appear in -file; ignore safely.
+			maps = []
 		for m in maps:
 			if m in ordered:
 				ordered.pop(m)
@@ -1422,7 +1521,7 @@ def list_maps(iwad: Path, files: Sequence[Path]) -> List[str]:
 
 class NoMapsError(ScreenshotsError):
 	def __init__(self) -> None:
-		super().__init__("No maps detected in IWAD/--files (WAD parsing heuristic found none).")
+		super().__init__("No maps detected in IWAD/--files (WAD/PK3 map detection found none).")
 
 def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 	"""Render screenshots for all maps and return {map_name: saved_count}.
@@ -1752,7 +1851,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 		return 0
 
 	if not maps:
-		print("No maps detected in IWAD/--files (WAD parsing heuristic found none).", file=sys.stderr)
+		print("No maps detected in IWAD/--files (WAD/PK3 map detection found none).", file=sys.stderr)
 		return 2
 	if int(args.num) <= 0:
 		print("--num must be > 0", file=sys.stderr)
