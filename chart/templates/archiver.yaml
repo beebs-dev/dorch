@@ -13,6 +13,10 @@ spec:
       labels:
         app: {{ .Release.Name }}-archiver
     spec:
+      tolerations:
+      - key: dorch
+        operator: Exists
+        effect: NoSchedule
     {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 10 }}
@@ -48,10 +52,10 @@ spec:
           value: "true"
         - name: AWS_S3_FORCE_PATH_STYLE
           value: "true"
-    {{- if .Values.archiver.init.resources }}
+{{- if .Values.archiver.init.resources }}
         resources:
 {{ toYaml .Values.archiver.init.resources | indent 10 }}
-    {{- end }}
+{{- end }}
         volumeMounts:
         - name: data
           mountPath: /data

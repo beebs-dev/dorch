@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use aws_config::BehaviorVersion;
 use aws_credential_types::{Credentials, provider::SharedCredentialsProvider};
 use aws_types::region::Region;
 use std::{collections::HashSet, env};
@@ -31,7 +32,7 @@ fn env_credentials() -> Result<SharedCredentialsProvider> {
 async fn load_shared_config(args: &S3PruneArgs) -> Result<aws_config::SdkConfig> {
     let creds_provider = env_credentials()?;
     let region = Region::new(args.s3_region.clone());
-    Ok(aws_config::from_env()
+    Ok(aws_config::defaults(BehaviorVersion::latest())
         .region(region)
         .credentials_provider(creds_provider)
         .load()

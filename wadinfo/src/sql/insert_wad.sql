@@ -1,6 +1,6 @@
 -- Upsert the main WAD row by sha1 and return wad_id.
 --
--- NOTE: WadMeta includes an `id: Uuid` field. We store that as wads.wad_id,
+-- NOTE: InsertWadMeta includes an `id: Uuid` field. We store that as wads.wad_id,
 -- and also ensure meta_json.id is set to the effective wad_id.
 with input as (
   select

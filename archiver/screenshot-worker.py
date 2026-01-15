@@ -383,10 +383,14 @@ async def _run(args: argparse.Namespace) -> None:
 		fast_exit = True
 		shutdown.set()
 
+	def _immediate_shutdown() -> None:
+		print("screenshot-worker: immediate shutdown requested", file=sys.stderr)
+		sys.exit(1)
+
 	try:
 		loop = asyncio.get_running_loop()
-		loop.add_signal_handler(signal.SIGTERM, _request_shutdown)
-		loop.add_signal_handler(signal.SIGINT, _request_shutdown)
+		loop.add_signal_handler(signal.SIGTERM, _immediate_shutdown)
+		loop.add_signal_handler(signal.SIGINT, _immediate_shutdown)
 	except NotImplementedError:
 		pass
 

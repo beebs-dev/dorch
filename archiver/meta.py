@@ -882,9 +882,7 @@ def guess_names_authors_descriptions_from_text(text_blobs: Dict[str, str]) -> Tu
         for m in re.finditer(r'(?i)\btitle\s*=\s*"([^"]+)"', t):
             names.append(m.group(1).strip())
 
-        # DEHACKED often includes "Patch File for DeHackEd v..." and sometimes comments; treat as a description-ish blob.
-        if k in {"DEHACKED", "BEX"} and t:
-            descs.append(t[:4000].strip())
+        # Intentionally do NOT treat DEHACKED/BEX/etc as player-facing descriptions.
 
         # UMAPINFO can contain "levelname" too; already covered
         # SNDINFO/DECORATE/etc not usually author/title, but can be hints.
@@ -923,13 +921,317 @@ def extract_from_wad_bytes(buf: bytes) -> Dict[str, Any]:
 
 TEXTLIKE_EXTS = {
     ".txt", ".md",
-    ".mapinfo", ".umapinfo",
-    ".deh", ".bex",
-    ".decorate", ".zs", ".zc", ".zsc",
-    ".acs", ".cfg", ".ini",
-    ".json", ".yaml", ".yml",
+}
+
+
+# -----------------------------
+# Player-facing description policy
+# -----------------------------
+
+
+PLAYER_DESC_MAX_BYTES = 4096
+PLAYER_DESC_MAX_ENTRIES = 3
+PLAYER_DESC_MIN_CHARS = 80
+
+
+_DOC_NAME_HINTS = {
+    "readme",
+    "credits",
+    "story",
+    "manual",
+    "changelog",
+    "history",
+    "license",
+    "copying",
+    "info",
+    "about",
+    "description",
+}
+
+
+_DENY_DIR_FRAGMENTS = {
+    "/acs/",
+    "/actors/",
+    "/zscript/",
+    "/decorate/",
+    "/animdefs/",
+    "/textures/",
+    "/language/",
+    "/gldefs/",
+    "/models/",
+}
+
+
+_DENY_EXTS = {
+    ".acs",
+    ".deh",
+    ".bex",
+    ".decorate",
+    ".zs",
+    ".zc",
+    ".zsc",
+    ".cfg",
+    ".ini",
+    ".json",
+    ".yaml",
+    ".yml",
     ".pk3info",
 }
+
+
+_DENY_NAMES_EXACT = {
+    "behavior",
+    "decorate",
+    "zscript",
+    "animdefs",
+    "textures",
+    "language",
+    "sbarinfo",
+    "keyconf",
+    "menudef",
+    "gldefs",
+    "modeldef",
+    "cvarinfo",
+    "sndinfo",
+    # MAPINFO/UMAPINFO are only allowed via special-case content check in pick_best_description
+    "mapinfo",
+    "umapinfo",
+}
+
+
+def is_player_facing_doc(path_or_lumpname: str) -> bool:
+    """Return True if the name/path *could* be a player-facing document.
+
+    This is a strict allow/deny filter intended to exclude Doom engine/config/script
+    artifacts (ACS/DECORATE/ZSCRIPT/etc.) and keep only README/credits/story/etc.
+    """
+    if not isinstance(path_or_lumpname, str):
+        return False
+
+    p = (path_or_lumpname or "").strip()
+    if not p:
+        return False
+
+    p_norm = p.replace("\\", "/")
+    lower = p_norm.lower()
+    base = os.path.basename(lower)
+    base_no_ext = base.rsplit(".", 1)[0]
+
+    # Directory-based exclusions
+    lower_padded = f"/{lower.strip('/')}/"
+    for frag in _DENY_DIR_FRAGMENTS:
+        if frag in lower_padded:
+            return False
+
+    # Exact-name exclusions (common lumps / script/config names)
+    if base in _DENY_NAMES_EXACT or base_no_ext in _DENY_NAMES_EXACT:
+        return False
+
+    # Extension exclusions
+    ext = os.path.splitext(base)[1]
+    if ext in _DENY_EXTS:
+        return False
+
+    # Allow typical doc extensions
+    if ext in {".txt", ".md"}:
+        return True
+
+    # Allow no-extension docs if they look like docs
+    for hint in _DOC_NAME_HINTS:
+        if hint in base:
+            return True
+
+    # Allow MAPINFO/UMAPINFO only as a candidate; content will be filtered later.
+    if base in {"mapinfo", "umapinfo"} or ext in {".mapinfo", ".umapinfo"}:
+        return True
+
+    return False
+
+
+_CODELIKE_PATTERNS = [
+    r"#include\s+\"zcommon\.acs\"",
+    r"\bscript\s+\d+\b",
+    r"\bscript\s+\"",
+    r"\bactor\s+\w+",
+    r"\bstates\b",
+    r"\bspawnid\b",
+    r"\btics\b",
+    r"\btexture\b",
+    r"\bdefault:\b",
+]
+
+
+def is_code_like(text: str) -> bool:
+    """Heuristically detect script/config/code blobs.
+
+    We bias towards false positives to keep descriptions player-facing.
+    """
+    if not isinstance(text, str):
+        return False
+
+    t = text.replace("\x00", "")
+    tl = t.lower()
+    if not tl.strip():
+        return False
+
+    for pat in _CODELIKE_PATTERNS:
+        if re.search(pat, tl, flags=re.IGNORECASE):
+            return True
+
+    brace = tl.count("{") + tl.count("}")
+    semi = tl.count(";")
+    eq = tl.count("=")
+    n = max(len(tl), 1)
+    density = (brace + semi + eq) / n
+    if density > 0.01 and (brace >= 4 or semi >= 8 or eq >= 12):
+        return True
+    if brace >= 20 or semi >= 40:
+        return True
+
+    lines = [ln.strip() for ln in tl.splitlines() if ln.strip()]
+    if len(lines) >= 8:
+        assign_like = 0
+        for ln in lines[:200]:
+            if "=" in ln and not ln.startswith("http"):
+                assign_like += 1
+            if ln.endswith(";"):
+                assign_like += 1
+            if ln.startswith("//") or ln.startswith("/*"):
+                assign_like += 1
+        if assign_like >= max(8, len(lines) // 2):
+            return True
+
+    return False
+
+
+def _trim_utf8_bytes(s: str, max_bytes: int) -> str:
+    b = s.encode("utf-8", errors="ignore")
+    if len(b) <= max_bytes:
+        return s
+    return b[:max_bytes].decode("utf-8", errors="ignore")
+
+
+def _normalize_player_facing_text(text: str, *, max_bytes: int) -> Optional[str]:
+    if not isinstance(text, str):
+        return None
+    t = text.replace("\x00", " ")
+    t = normalize_whitespace(t)
+    if not t:
+        return None
+    t = _trim_utf8_bytes(t, max_bytes)
+    t = t.strip()
+    if len(t) < PLAYER_DESC_MIN_CHARS:
+        return None
+    if is_code_like(t):
+        return None
+    return t
+
+
+def _looks_like_mapinfo_human_blurb(text: str) -> bool:
+    """Very conservative MAPINFO acceptance: allow only short prose-like text."""
+    if not isinstance(text, str):
+        return False
+    t = normalize_whitespace(text.replace("\x00", " "))
+    if not t:
+        return False
+    if len(t) > 1200:
+        return False
+    if is_code_like(t):
+        return False
+    for ln in (text or "").splitlines():
+        s = ln.strip()
+        if not s:
+            continue
+        if any(ch in s for ch in "{};="):
+            continue
+        letters = sum(1 for ch in s if ch.isalpha())
+        if letters >= 30 and len(s) >= 40:
+            return True
+    return False
+
+
+def _decode_latin1ish_text(s: Optional[str]) -> Optional[str]:
+    if not isinstance(s, str) or not s.strip():
+        return None
+    return normalize_whitespace(safe_text_decode(s.encode("latin-1", errors="replace")))
+
+
+def pick_best_description(candidates: List[Dict[str, Any]]) -> Optional[List[str]]:
+    """Pick up to PLAYER_DESC_MAX_ENTRIES description blobs from candidates.
+
+    Candidate item shape: {"source": str, "name": Optional[str], "text": str}
+    """
+    if not isinstance(candidates, list) or not candidates:
+        return None
+
+    source_pri = {
+        "idgames.description": 1000,
+        "idgames.textfile": 900,
+        "readmes": 800,
+        "pk3": 700,
+        "wad_archive": 100,
+    }
+
+    def _name_score(name: Optional[str]) -> int:
+        if not isinstance(name, str) or not name:
+            return 0
+        lower = name.lower()
+        score = 0
+        if "readme" in lower:
+            score += 200
+        if "story" in lower:
+            score += 120
+        if "credits" in lower:
+            score += 80
+        if "manual" in lower:
+            score += 60
+        if "changelog" in lower or "history" in lower:
+            score += 20
+        if "license" in lower or "copying" in lower:
+            score -= 10
+        return score
+
+    scored: List[Tuple[int, str]] = []
+    for c in candidates:
+        if not isinstance(c, dict):
+            continue
+        text = c.get("text")
+        if not isinstance(text, str):
+            continue
+        name = c.get("name")
+        source = c.get("source")
+        if not isinstance(source, str) or not source:
+            source = "unknown"
+
+        # MAPINFO/UMAPINFO: only accept if it looks like short prose.
+        if isinstance(name, str) and name:
+            base = os.path.basename(name.replace("\\", "/").lower())
+            ext = os.path.splitext(base)[1]
+            if base in {"mapinfo", "umapinfo"} or ext in {".mapinfo", ".umapinfo"}:
+                if not _looks_like_mapinfo_human_blurb(text):
+                    continue
+
+        norm = _normalize_player_facing_text(text, max_bytes=PLAYER_DESC_MAX_BYTES)
+        if not norm:
+            continue
+
+        pri = source_pri.get(source, 0)
+        pri += _name_score(name if isinstance(name, str) else None)
+        pri += min(len(norm), PLAYER_DESC_MAX_BYTES) // 50
+        scored.append((pri, norm))
+
+    if not scored:
+        return None
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    out: List[str] = []
+    for _pri, text in scored:
+        if any(text in existing or existing in text for existing in out):
+            continue
+        out.append(text)
+        if len(out) >= PLAYER_DESC_MAX_ENTRIES:
+            break
+    return out or None
 
 
 def extract_from_zip_bytes(buf: bytes, max_text_files: int = 20, max_text_each: int = 200_000) -> Dict[str, Any]:

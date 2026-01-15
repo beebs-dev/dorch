@@ -1,6 +1,6 @@
 use dorch_common::{
     Pagination,
-    types::wad::{MapStat, WadMeta},
+    types::wad::{InsertWadMeta, MapStat},
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -46,7 +46,7 @@ pub struct ListWadsRequest {
 pub struct GetWadMapResponse {
     #[serde(flatten)]
     pub map: MapStat,
-    pub wad_meta: WadMeta,
+    pub wad_meta: InsertWadMeta,
 }
 
 #[derive(Deserialize)]
@@ -64,7 +64,7 @@ pub struct WadSearchRequest {
 #[derive(Serialize, Deserialize)]
 pub struct WadSearchResults {
     pub query: String,
-    pub items: Vec<WadMeta>,
+    pub items: Vec<InsertWadMeta>,
     pub full_count: i64,
     pub offset: i64,
     pub limit: i64,
@@ -72,8 +72,8 @@ pub struct WadSearchResults {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct WadListResults {
-    pub items: Vec<WadMeta>,
+pub struct ListWadsResponse {
+    pub items: Vec<InsertWadMeta>,
     pub full_count: i64,
     pub offset: i64,
     pub limit: i64,

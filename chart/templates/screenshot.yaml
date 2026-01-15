@@ -13,6 +13,10 @@ spec:
       labels:
         app: {{ .Release.Name }}-screenshot
     spec:
+      tolerations:
+      - key: dorch
+        operator: Exists
+        effect: NoSchedule
       volumes:
       - name: data
         hostPath:

@@ -103,18 +103,18 @@ iam:
 wadinfo:
   image: thavlik/dorch-wadinfo:latest
   imagePullPolicy: Always
-  replicas: 5
+  replicas: 4
   logLevel: debug
   resources:
-    requests: 
-      memory: "128Mi"
+    requests:
+      memory: "32Mi"
     limits:
-      memory: "256Mi"
+      memory: "64Mi"
   dispatch:
     images:
       image: thavlik/dorch-wadinfo:latest
       imagePullPolicy: Always
-      replicas: 1
+      replicas: 0
       logLevel: debug
       resources:
         requests: 
@@ -124,7 +124,7 @@ wadinfo:
     analysis:
       image: thavlik/dorch-wadinfo:latest
       imagePullPolicy: Always
-      replicas: 1
+      replicas: 0
       logLevel: debug
       resources:
         requests: 
@@ -182,21 +182,11 @@ screenshot:
 archiver:
   image: thavlik/dorch-archiver:latest
   imagePullPolicy: Always
-  replicas: 0
+  replicas: 1
   logLevel: debug
-  resources:
-    requests: 
-      memory: "2048Mi"
-    limits:
-      memory: "2048Mi"
   init:
     image: thavlik/dorch-archiver-init:latest
     imagePullPolicy: Always
-    resources:
-      requests:
-        memory: "256Mi"
-      limits:
-        memory: "512Mi"
     s3:
       accessKeyId: {}
       secretAccessKey: {}

@@ -111,6 +111,57 @@ def _dedupe_per_map_stats_keep_last(
 	return out_rev
 
 
+def _dedupe_text_files_by_stripped_contents(
+	text_files: Any,
+) -> Optional[List[Dict[str, Any]]]:
+	"""De-duplicate meta.text_files by contents.strip() (stable).
+
+	Rules:
+	- De-dupe exact duplicates based on stripped contents.
+	- If the same stripped contents are present from idgames *and* another source
+	  (e.g. pk3/readmes), omit the idgames entry specifically.
+	"""
+	if not isinstance(text_files, list) or not text_files:
+		return None
+
+	def _key(tf: Dict[str, Any]) -> str:
+		contents = tf.get("contents")
+		return contents.strip() if isinstance(contents, str) else ""
+
+	def _source(tf: Dict[str, Any]) -> str:
+		s = tf.get("source")
+		return str(s or "").strip().lower()
+
+	# First pass: figure out which keys have a non-idgames version.
+	has_non_idgames: set[str] = set()
+	for tf in text_files:
+		if not isinstance(tf, dict):
+			continue
+		k = _key(tf)
+		if not k:
+			continue
+		if _source(tf) != "idgames":
+			has_non_idgames.add(k)
+
+	seen: set[str] = set()
+	out: List[Dict[str, Any]] = []
+	for tf in text_files:
+		if not isinstance(tf, dict):
+			continue
+		k = _key(tf)
+		if not k:
+			continue
+		src = _source(tf)
+		if src == "idgames" and k in has_non_idgames:
+			continue
+		if k in seen:
+			continue
+		seen.add(k)
+		out.append(tf)
+
+	return out or None
+
+
 def _get_redis_client() -> Optional[Any]:
 	"""Best-effort Redis client from env.
 
@@ -343,6 +394,8 @@ def analyze_one_wad(
 		readmes=readmes_entry,
 		integrity=integrity,
 	)
+	if isinstance(meta_obj, dict):
+		meta_obj["text_files"] = _dedupe_text_files_by_stripped_contents(meta_obj.get("text_files"))
 	out_obj = {"meta": meta_obj, "maps": per_map_stats}
 	if post_to_wadinfo:
 		meta.post_to_wadinfo(out_obj, sha1, wadinfo_base_url=wadinfo_base_url)
@@ -367,10 +420,14 @@ async def _run(args: argparse.Namespace) -> None:
 		fast_exit = True
 		shutdown.set()
 
+	def _immediate_shutdown() -> None:
+		print("meta-worker: immediate shutdown requested", file=sys.stderr)
+		sys.exit(1)
+
 	try:
 		loop = asyncio.get_running_loop()
-		loop.add_signal_handler(signal.SIGTERM, _request_shutdown)
-		loop.add_signal_handler(signal.SIGINT, _request_shutdown)
+		loop.add_signal_handler(signal.SIGTERM, _immediate_shutdown)
+		loop.add_signal_handler(signal.SIGINT, _immediate_shutdown)
 	except NotImplementedError:
 		# add_signal_handler is not available on some platforms (e.g. Windows)
 		pass

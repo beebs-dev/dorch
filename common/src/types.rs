@@ -119,13 +119,41 @@ pub mod wad {
     use uuid::Uuid;
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct WadMergedOut {
-        pub meta: WadMeta,
+    pub struct ReadWad {
+        pub meta: ReadWadMeta,
         pub maps: Vec<MapStat>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct WadMeta {
+    pub struct InsertWad {
+        pub meta: InsertWadMeta,
+        pub maps: Vec<MapStat>,
+    }
+
+    impl From<InsertWad> for ReadWad {
+        fn from(insert: InsertWad) -> Self {
+            ReadWad {
+                meta: insert.meta.into(),
+                maps: insert.maps,
+            }
+        }
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct ReadWadMeta {
+        #[serde(default)]
+        pub id: Uuid,
+        pub sha1: String,
+        #[serde(default)]
+        pub sha256: Option<String>,
+        #[serde(default)]
+        pub title: Option<String>,
+        pub file: FileMeta,
+        pub content: ContentMeta,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct InsertWadMeta {
         #[serde(default)]
         pub id: Uuid,
 
@@ -147,6 +175,19 @@ pub mod wad {
         pub file: FileMeta,
         pub content: ContentMeta,
         pub sources: SourcesMeta,
+    }
+
+    impl From<InsertWadMeta> for ReadWadMeta {
+        fn from(insert: InsertWadMeta) -> Self {
+            ReadWadMeta {
+                id: insert.id,
+                sha1: insert.sha1,
+                sha256: insert.sha256,
+                title: insert.title,
+                file: insert.file,
+                content: insert.content,
+            }
+        }
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]

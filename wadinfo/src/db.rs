@@ -1,8 +1,10 @@
-use crate::client::{GetWadMapResponse, WadImage, WadListResults, WadMapImages, WadSearchResults};
+use crate::client::{
+    GetWadMapResponse, ListWadsResponse, WadImage, WadMapImages, WadSearchResults,
+};
 use anyhow::{Context, Result};
 use dorch_common::{
     postgres::strip_sql_comments,
-    types::wad::{MapStat, WadMergedOut, WadMeta},
+    types::wad::{InsertWad, InsertWadMeta, MapStat, ReadWad, ReadWadMeta},
 };
 use owo_colors::OwoColorize;
 use serde_json::Value;
@@ -204,7 +206,7 @@ impl Database {
         Ok(Self { pool })
     }
 
-    pub async fn get_wad(&self, wad_id: Uuid) -> Result<Option<WadMergedOut>> {
+    pub async fn get_wad(&self, wad_id: Uuid) -> Result<Option<ReadWad>> {
         let conn = self.pool.get().await.context("failed to get connection")?;
 
         let get_wad = conn
@@ -222,7 +224,8 @@ impl Database {
 
         let row_wad_id: Uuid = row.try_get("wad_id")?;
         let meta_json: serde_json::Value = row.try_get("meta_json")?;
-        let mut meta: WadMeta = serde_json::from_value(meta_json).context("deserialize WadMeta")?;
+        let mut meta: ReadWadMeta =
+            serde_json::from_value(meta_json).context("deserialize ReadWadMeta")?;
         if meta.id.is_nil() {
             meta.id = row_wad_id;
         }
@@ -243,7 +246,7 @@ impl Database {
             maps.push(map);
         }
 
-        Ok(Some(WadMergedOut { meta, maps }))
+        Ok(Some(ReadWad { meta, maps }))
     }
 
     pub async fn get_wad_map(
@@ -268,8 +271,8 @@ impl Database {
 
         let row_wad_id: Uuid = row.try_get("wad_id")?;
         let meta_json: serde_json::Value = row.try_get("meta_json")?;
-        let mut wad_meta: WadMeta =
-            serde_json::from_value(meta_json).context("deserialize WadMeta")?;
+        let mut wad_meta: InsertWadMeta =
+            serde_json::from_value(meta_json).context("deserialize InsertWadMeta")?;
         if wad_meta.id.is_nil() {
             wad_meta.id = row_wad_id;
         }
@@ -403,14 +406,14 @@ impl Database {
                 let row_wad_id: Uuid = row.try_get("wad_id")?;
                 let meta_json: serde_json::Value = row.try_get("meta_json")?;
                 let mut meta =
-                    serde_json::from_value::<dorch_common::types::wad::WadMeta>(meta_json)
-                        .context("deserialize WadMeta from meta_json")?;
+                    serde_json::from_value::<dorch_common::types::wad::InsertWadMeta>(meta_json)
+                        .context("deserialize InsertWadMeta from meta_json")?;
                 if meta.id.is_nil() {
                     meta.id = row_wad_id;
                 }
                 Ok(meta)
             })
-            .collect::<Result<Vec<dorch_common::types::wad::WadMeta>>>()?;
+            .collect::<Result<Vec<dorch_common::types::wad::InsertWadMeta>>>()?;
 
         tx.commit().await.context("failed to commit transaction")?;
         Ok(WadSearchResults {
@@ -428,7 +431,7 @@ impl Database {
         offset: i64,
         limit: i64,
         sort_desc: bool,
-    ) -> Result<WadListResults> {
+    ) -> Result<ListWadsResponse> {
         let mut conn = self.pool.get().await.context("failed to get connection")?;
         let tx = conn
             .transaction()
@@ -462,17 +465,17 @@ impl Database {
             .map(|row| {
                 let row_wad_id: Uuid = row.try_get("wad_id")?;
                 let meta_json: serde_json::Value = row.try_get("meta_json")?;
-                let mut meta = serde_json::from_value::<WadMeta>(meta_json)
-                    .context("deserialize WadMeta from meta_json")?;
+                let mut meta = serde_json::from_value::<InsertWadMeta>(meta_json)
+                    .context("deserialize InsertWadMeta from meta_json")?;
                 if meta.id.is_nil() {
                     meta.id = row_wad_id;
                 }
                 Ok(meta)
             })
-            .collect::<Result<Vec<WadMeta>>>()?;
+            .collect::<Result<Vec<InsertWadMeta>>>()?;
 
         tx.commit().await.context("failed to commit transaction")?;
-        Ok(WadListResults {
+        Ok(ListWadsResponse {
             items,
             full_count,
             offset,
@@ -481,22 +484,22 @@ impl Database {
         })
     }
 
-    pub async fn upsert_wad(&self, merged: &WadMergedOut) -> Result<Uuid> {
+    pub async fn upsert_wad(&self, merged: &InsertWad) -> Result<Uuid> {
         let mut conn = self.pool.get().await.context("failed to get connection")?;
         let tx = conn
             .transaction()
             .await
             .context("failed to begin transaction")?;
-
-        let mut meta_json = serde_json::to_value(&merged.meta).context("serialize merged.meta")?;
-        let meta_nul_count = escape_nul_in_json(&mut meta_json);
-        if meta_nul_count > 0 {
+        let read_meta: ReadWadMeta = merged.meta.clone().into();
+        let mut read_meta_json = serde_json::to_value(&read_meta).context("serialize read_meta")?;
+        let read_meta_nul_count = escape_nul_in_json(&mut read_meta_json);
+        if read_meta_nul_count > 0 {
             eprintln!(
                 "{}{}{}{}",
-                "⚠️  Escaped embedded NULLs in merged.meta • sha1=".yellow(),
-                merged.meta.sha1.yellow().dimmed(),
+                "⚠️  Escaped embedded NULLs in read_meta • sha1=".yellow(),
+                read_meta.sha1.yellow().dimmed(),
                 " • strings_touched=".yellow(),
-                meta_nul_count.yellow().dimmed(),
+                read_meta_nul_count.yellow().dimmed(),
             );
         }
         let wa_updated_ts = parse_updated_ts(&merged.meta.sources.wad_archive.updated);
@@ -548,7 +551,7 @@ impl Database {
                     &engines_guess_param,
                     &iwads_guess_param,
                     &wa_updated_ts,
-                    &Json(meta_json),
+                    &Json(read_meta_json),
                 ],
             )
             .await
