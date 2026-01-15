@@ -11,6 +11,7 @@ import signal
 import sys
 import tempfile
 import time
+from urllib.parse import urlparse
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
@@ -37,6 +38,85 @@ SUBJECT_PREFIX = os.getenv("DORCH_IMAGES_SUBJECT_PREFIX", "dorch.wad")
 SUBJECT_SUFFIX = os.getenv("DORCH_IMAGES_SUBJECT_SUFFIX", "img")
 
 WADINFO_BASE_URL = os.getenv("WADINFO_BASE_URL", "http://localhost:8000")
+
+
+def _spaces_public_base_url(*, bucket: str, endpoint: str) -> str:
+	"""Return public base URL like https://{bucket}.{region}.digitaloceanspaces.com
+
+	We intentionally use virtual-hosted-style URLs because that's the canonical
+	public form for DigitalOcean Spaces.
+	"""
+	bucket = (bucket or "").strip()
+	if not bucket:
+		raise ValueError("bucket must be non-empty")
+	parsed = urlparse((endpoint or "").strip())
+	host = (parsed.netloc or parsed.path or "").strip()
+	if not host:
+		raise ValueError(f"invalid endpoint (missing host): {endpoint!r}")
+	# Always use https for public URLs.
+	return f"https://{bucket}.{host.rstrip('/')}"
+
+
+def _collect_map_image_payloads(
+	*,
+	sha1: str,
+	output_root: str,
+	public_base_url: str,
+) -> Dict[str, List[Dict[str, Any]]]:
+	"""Build {map_name: [wadimage-json]} from local render output.
+
+	Expected directory structure under output_root:
+	- {map}/images/{n}.webp
+	- {map}/pano/pano_{n}.webp
+
+	Returned items intentionally omit `id`.
+	- regular screenshots: {"url": ...}
+	- panos: {"url": ..., "type": "pano"}
+	"""
+	sha1 = (sha1 or "").strip().lower()
+	if not _valid_sha1(sha1):
+		raise ValueError("sha1 must be 40 hex chars")
+	root = Path(output_root).expanduser().resolve()
+	if not root.exists() or not root.is_dir():
+		raise FileNotFoundError(f"output_root is not a directory: {root}")
+	public_base_url = public_base_url.rstrip("/")
+
+	out: Dict[str, List[Dict[str, Any]]] = {}
+	for p in sorted(root.rglob("*")):
+		if not p.is_file():
+			continue
+		rel = p.relative_to(root).as_posix()
+		parts = rel.split("/")
+		# Require at least: MAP01/images/0.webp
+		if len(parts) < 3:
+			continue
+		map_name, kind_dir = parts[0], parts[1]
+		if kind_dir not in {"images", "pano"}:
+			continue
+		key = f"{sha1}/{rel}"
+		item: Dict[str, Any] = {"url": f"{public_base_url}/{key}"}
+		if kind_dir == "pano":
+			item["type"] = "pano"
+		out.setdefault(map_name, []).append(item)
+
+	return out
+
+
+def put_wad_map_images_to_wadinfo(
+	*,
+	wadinfo_base_url: str,
+	wad_id: str,
+	map_name: str,
+	items: List[Dict[str, Any]],
+) -> None:
+	if not _valid_uuid(wad_id):
+		raise ValueError(f"invalid wad_id uuid: {wad_id}")
+	map_name = (map_name or "").strip()
+	if not map_name:
+		raise ValueError("map_name must be non-empty")
+	url = f"{wadinfo_base_url.rstrip('/')}/wad/{wad_id}/maps/{map_name}/images"
+	r = requests.put(url, json=items, timeout=_wadinfo_timeout_seconds())
+	r.raise_for_status()
 
 
 def _maybe_start_prometheus_http_server(*, worker: str) -> None:
@@ -223,7 +303,7 @@ def render_one_wad_screenshots(
 	height: int,
 	count: int,
 	panorama: bool,
-) -> None:
+) -> Optional[Dict[str, List[Dict[str, Any]]]]:
 	if not _valid_uuid(wad_id):
 		raise ValueError("wad_id must be a UUID")
 	obj = fetch_wad_from_wadinfo(wad_id=wad_id, wadinfo_base_url=wadinfo_base_url)
@@ -281,12 +361,18 @@ def render_one_wad_screenshots(
 			if _PROM_AVAILABLE:
 				_SCREENSHOT_NO_MAPS_TOTAL.inc()
 			print(f"{wad_id}: {e}", file=sys.stderr)
-			return
+			return None
 		meta.upload_screenshots(
 			sha1=sha1,
 			path=output_path,
 			bucket=images_bucket,
 			endpoint=images_endpoint,
+		)
+		public_base_url = _spaces_public_base_url(bucket=images_bucket, endpoint=images_endpoint)
+		return _collect_map_image_payloads(
+			sha1=sha1,
+			output_root=output_path,
+			public_base_url=public_base_url,
 		)
 
 
@@ -424,7 +510,16 @@ async def _run(args: argparse.Namespace) -> None:
 						break
 
 					shutdown_task.cancel()
-					await work_task
+					map_images = await work_task
+					if map_images is not None:
+						for map_name, items in map_images.items():
+							# Must succeed before ack; wadinfo owns image IDs.
+							put_wad_map_images_to_wadinfo(
+								wadinfo_base_url=wadinfo_base_url,
+								wad_id=wad_id,
+								map_name=map_name,
+								items=items,
+							)
 					await msg.ack()
 					if _PROM_AVAILABLE:
 						_SCREENSHOT_JOBS_TOTAL.labels("success").inc()
