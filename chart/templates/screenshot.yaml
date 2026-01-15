@@ -78,10 +78,6 @@ spec:
         - containerPort: 2112
           protocol: TCP
           name: metrics
-        livenessProbe:
-          httpGet:
-            path: /favicon.ico
-            port: 2112
 {{- end }}
         readinessProbe:
           exec:

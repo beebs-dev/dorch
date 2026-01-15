@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import json
 import os
 import re
 import signal
@@ -18,6 +19,7 @@ import uuid
 
 import boto3
 import requests
+from nats.errors import TimeoutError as NatsTimeoutError
 
 _PROM_AVAILABLE = False
 try:
@@ -230,6 +232,86 @@ def _wadinfo_timeout_seconds() -> float:
 		return 10.0
 
 
+def _render_timeout_seconds() -> float:
+	v = os.getenv("DORCH_SCREENSHOT_RENDER_TIMEOUT")
+	if v is None or not v.strip():
+		return 900.0
+	try:
+		return float(v)
+	except ValueError:
+		return 900.0
+
+
+def _max_deliveries() -> int:
+	# Cap retries for render crashes / deterministic failures.
+	return _env_int("DORCH_SCREENSHOT_MAX_DELIVERIES", 3)
+
+
+async def _run_renderer_subprocess(*, wad_id: str) -> Dict[str, Any]:
+	print(f"running renderer for wad_id={wad_id}", file=sys.stderr)
+	proc = await asyncio.create_subprocess_exec(
+		sys.executable,
+		"/app/screenshot-renderer.py",
+		"--wad-id",
+		wad_id,
+		stdout=asyncio.subprocess.PIPE,
+		stderr=asyncio.subprocess.PIPE,
+	)
+	try:
+		stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=_render_timeout_seconds())
+	except asyncio.TimeoutError:
+		with contextlib.suppress(ProcessLookupError):
+			proc.kill()
+		stdout_b, stderr_b = await proc.communicate()
+		return {
+			"ok": False,
+			"retry": True,
+			"kind": "Timeout",
+			"message": f"renderer timed out after {_render_timeout_seconds()}s",
+			"stderr": (stderr_b or b"").decode("utf-8", errors="replace")[-4000:],
+			"returncode": proc.returncode,
+		}
+
+	stderr = (stderr_b or b"").decode("utf-8", errors="replace")
+	stdout = (stdout_b or b"").decode("utf-8", errors="replace").strip()
+
+	# Non-zero returncode includes crashes (e.g., SIGSEGV => -11).
+	if proc.returncode != 0:
+		return {
+			"ok": False,
+			"retry": True,
+			"kind": "RendererCrashed",
+			"message": f"renderer exit={proc.returncode}",
+			"stderr": stderr[-4000:],
+			"stdout": stdout[-4000:],
+			"returncode": proc.returncode,
+		}
+
+	try:
+		obj = json.loads(stdout) if stdout else None
+	except Exception as ex:
+		return {
+			"ok": False,
+			"retry": True,
+			"kind": "BadRendererOutput",
+			"message": f"invalid renderer JSON: {type(ex).__name__}: {ex}",
+			"stderr": stderr[-4000:],
+			"stdout": stdout[-4000:],
+		}
+	if not isinstance(obj, dict):
+		return {
+			"ok": False,
+			"retry": True,
+			"kind": "BadRendererOutput",
+			"message": "renderer JSON must be an object",
+			"stderr": stderr[-4000:],
+			"stdout": stdout[-4000:],
+		}
+	if stderr.strip():
+		obj.setdefault("stderr", stderr[-4000:])
+	return obj
+
+
 def fetch_wad_from_wadinfo(*, wad_id: str, wadinfo_base_url: str) -> Dict[str, Any]:
 	if not _valid_uuid(wad_id):
 		raise ValueError(f"invalid wad_id uuid: {wad_id}")
@@ -338,7 +420,9 @@ def render_one_wad_screenshots(
 			if extracted is None:
 				extracted = meta.extract_metadata_from_file(file_path, ext)
 			iwad_path = meta.deduce_iwad_path_from_meta(wad_entry, extracted)
-			files_for_render = extracted
+			# Render the downloaded PWAD/PK3 itself. (Passing the extracted metadata
+			# dict here breaks map detection and makes jobs look like "no maps".)
+			files_for_render = [Path(file_path)]
 
 		os.makedirs(output_path, exist_ok=True)
 		config = RenderConfig(
@@ -458,7 +542,13 @@ async def _run(args: argparse.Namespace) -> None:
 			shutdown_task.cancel()
 			try:
 				msgs = await fetch_task
-			except Exception:
+			except (asyncio.TimeoutError, NatsTimeoutError):
+				# Fetch timeout is normal; loop and try again.
+				continue
+			except Exception as ex:
+				# Don't silently swallow auth/consumer/config errors.
+				meta.eprint(f"screenshot-worker: fetch failed: {type(ex).__name__}: {ex}")
+				await asyncio.sleep(0.5)
 				continue
 
 			for msg in msgs:
@@ -481,21 +571,7 @@ async def _run(args: argparse.Namespace) -> None:
 					if not _valid_uuid(wad_id):
 						raise ValueError(f"invalid wad_id uuid: {wad_id}")
 
-					work_task = asyncio.create_task(
-						asyncio.to_thread(
-							render_one_wad_screenshots,
-							wad_id=wad_id,
-							wadinfo_base_url=wadinfo_base_url,
-							s3_wads=s3_wads,
-							wad_bucket=wad_bucket,
-							images_bucket=images_bucket,
-							images_endpoint=images_endpoint,
-							width=int(default_width),
-							height=int(default_height),
-							count=int(default_count),
-							panorama=bool(default_panorama),
-						)
-					)
+					work_task = asyncio.create_task(_run_renderer_subprocess(wad_id=wad_id))
 					shutdown_task = asyncio.create_task(shutdown.wait())
 					done, _pending = await asyncio.wait(
 						{work_task, shutdown_task},
@@ -514,28 +590,45 @@ async def _run(args: argparse.Namespace) -> None:
 						break
 
 					shutdown_task.cancel()
-					map_images = await work_task
-					if map_images is not None:
-						for map_name, items in map_images.items():
-							# Must succeed before ack; wadinfo owns image IDs.
-							put_wad_map_images_to_wadinfo(
-								wadinfo_base_url=wadinfo_base_url,
-								wad_id=wad_id,
-								map_name=map_name,
-								items=items,
-							)
-					await msg.ack()
-					if _PROM_AVAILABLE:
-						_SCREENSHOT_JOBS_TOTAL.labels("success").inc()
-				except meta.S3KeyResolutionError:
-					meta.eprint(f"WAD S3 object not found for wad_id={wad_id}")
-					if _PROM_AVAILABLE:
-						_SCREENSHOT_JOBS_TOTAL.labels("failure").inc()
-						_SCREENSHOT_EXCEPTIONS_TOTAL.labels("S3KeyResolutionError").inc()
-					try:
+					result = await work_task
+					if result.get("ok") is True:
+						map_images = result.get("map_images")
+						if map_images is None:
+							if _PROM_AVAILABLE:
+								_SCREENSHOT_NO_MAPS_TOTAL.inc()
+						else:
+							for map_name, items in map_images.items():
+								put_wad_map_images_to_wadinfo(
+									wadinfo_base_url=wadinfo_base_url,
+									wad_id=wad_id,
+									map_name=map_name,
+									items=items,
+								)
 						await msg.ack()
-					except Exception:
-						pass
+						if _PROM_AVAILABLE:
+							_SCREENSHOT_JOBS_TOTAL.labels("success").inc()
+					else:
+						retry = bool(result.get("retry", True))
+						kind = str(result.get("kind") or "RendererError")
+						message = str(result.get("message") or "")
+						stderr_tail = str(result.get("stderr") or "")
+						meta.eprint(f"screenshot-worker: renderer failed kind={kind} retry={retry} wad_id={wad_id} msg={message}")
+						if stderr_tail.strip():
+							meta.eprint(f"screenshot-worker: renderer stderr (tail): {stderr_tail[-4000:]}")
+						if _PROM_AVAILABLE:
+							_SCREENSHOT_JOBS_TOTAL.labels("failure").inc()
+							_SCREENSHOT_EXCEPTIONS_TOTAL.labels(kind).inc()
+
+						delivered = None
+						with contextlib.suppress(Exception):
+							delivered = getattr(getattr(msg, "metadata", None), "num_delivered", None)
+						max_deliveries = _max_deliveries()
+						too_many = isinstance(delivered, int) and delivered >= max_deliveries
+						if (not retry) or too_many:
+							await msg.ack()
+						else:
+							with contextlib.suppress(Exception):
+								await msg.nak()
 				except Exception as ex:
 					meta.eprint(f"screenshot-worker: job failed: {type(ex).__name__}: {ex}")
 					if _PROM_AVAILABLE:
@@ -545,10 +638,10 @@ async def _run(args: argparse.Namespace) -> None:
 							await msg.nak()
 						except Exception:
 							pass
-						finally:
-							if _PROM_AVAILABLE:
-								_SCREENSHOT_IN_PROGRESS.dec()
-								_SCREENSHOT_JOB_DURATION_SECONDS.observe(max(0.0, time.perf_counter() - job_start))
+				finally:
+					if _PROM_AVAILABLE:
+						_SCREENSHOT_IN_PROGRESS.dec()
+						_SCREENSHOT_JOB_DURATION_SECONDS.observe(max(0.0, time.perf_counter() - job_start))
 
 				if shutdown.is_set():
 					break

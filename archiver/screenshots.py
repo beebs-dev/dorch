@@ -563,6 +563,10 @@ def _init_game(
 	args: List[str] = []
 	# Disable UI overlays for clean screenshots.
 	args.append("+show_messages 0")
+	# Some ZDoom-derived HUD notifications are controlled by separate CVARs.
+	# Force-disable secret reveal messages so they never appear in captures.
+	args.append("+hud_showsecrets 0")
+	args.append("+cl_showsecretmessage 0")
 	args.append("+hud 0")
 	args.append("+crosshair 0")
 	args.append("+automap 0")
@@ -1618,6 +1622,14 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 	if int(config.num) <= 0:
 		raise ScreenshotsError("num must be > 0")
 	print(f"🔍 Detected {len(maps)} maps to render screenshots for.")
+
+	# Headless safety: ViZDoom uses SDL under the hood and some builds can segfault
+	# in containerized environments without a display/audio device.
+	# Only apply defaults when not rendering visibly, and don't override user config.
+	if not bool(config.visible):
+		os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+		os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+		os.environ.setdefault("XDG_RUNTIME_DIR", "/tmp")
 
 	# Import VizDoom only when actually rendering.
 	import vizdoom  # noqa: F401
