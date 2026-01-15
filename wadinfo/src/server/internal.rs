@@ -5,7 +5,7 @@ use crate::{
 use anyhow::{Context, Result};
 use axum::{
     Json, Router,
-    extract::{Path, Query, State},
+    extract::{DefaultBodyLimit, Path, Query, State},
     http::StatusCode,
     middleware,
     response::IntoResponse,
@@ -25,8 +25,12 @@ pub async fn run_server(
     let health_router = Router::new()
         .route("/healthz", get(health))
         .route("/readyz", get(health));
-    let router = Router::new()
+    let upsert_router = Router::new()
         .route("/upsert_wad", post(upsert_wad))
+        .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 100 MiB
+        .with_state(app_state.clone())
+        .layer(middleware::from_fn(access_log::internal));
+    let router = Router::new()
         .route("/wad", get(list_wads))
         .route("/wad/{id}", get(get_wad))
         .route("/wad/{id}/images", get(list_wad_images))
@@ -49,7 +53,7 @@ pub async fn run_server(
         port.green().dimmed()
     );
     let start = std::time::Instant::now();
-    axum::serve(listener, router.merge(health_router))
+    axum::serve(listener, upsert_router.merge(router).merge(health_router))
         .with_graceful_shutdown(async move {
             cancel.cancelled().await;
         })

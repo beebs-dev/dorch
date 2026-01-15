@@ -107,9 +107,9 @@ wadinfo:
   logLevel: debug
   resources:
     requests: 
-      memory: "32Mi"
+      memory: "128Mi"
     limits:
-      memory: "64Mi"
+      memory: "256Mi"
   dispatch:
     images:
       image: thavlik/dorch-wadinfo:latest
@@ -167,7 +167,7 @@ party:
 screenshot:
   image: thavlik/dorch-archiver:latest
   imagePullPolicy: Always
-  replicas: 15
+  replicas: 19
   logLevel: debug
   resources:
     requests: 
@@ -192,7 +192,7 @@ screenshot:
 archiver:
   image: thavlik/dorch-archiver:latest
   imagePullPolicy: Always
-  replicas: 5
+  replicas: 1
   logLevel: debug
   resources:
     requests: 
