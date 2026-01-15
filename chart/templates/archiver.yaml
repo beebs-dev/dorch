@@ -66,6 +66,16 @@ spec:
         command:
           - python
           - /app/meta-worker.py
+{{- if .Values.prometheus.enabled }}
+        ports:
+        - containerPort: 2112
+          protocol: TCP
+          name: metrics
+        livenessProbe:
+          httpGet:
+            path: /favicon.ico
+            port: 2112
+{{- end }}
         readinessProbe:
           exec:
             command:
@@ -104,6 +114,12 @@ spec:
           value: info,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info
         - name: LOG_LEVEL
           value: {{ .Values.archiver.logLevel }}
+{{- if .Values.prometheus.enabled }}
+        - name: DORCH_METRICS_ENABLED
+          value: "true"
+        - name: DORCH_METRICS_PORT
+          value: "2112"
+{{- end }}
 {{- if .Values.nats.user }}
         - name: NATS_USER
 {{ tpl (toYaml .Values.nats.user) . | indent 10 }}
@@ -118,3 +134,18 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /data
+---
+{{- if .Values.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ .Release.Name }}-archiver
+  labels:
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-archiver
+  podMetricsEndpoints:
+  - port: metrics
+{{- end }}

@@ -319,8 +319,6 @@ def render_one_wad_screenshots(
 	ext = meta.TYPE_TO_EXT.get(wad_type, None) or "wad"
 
 	s3_key = meta.resolve_s3_key(s3_wads, wad_bucket, sha1, ext)
-	if not s3_key:
-		raise FileNotFoundError(f"Could not resolve S3 object key for sha1={sha1} ext={ext}")
 
 	with tempfile.TemporaryDirectory(prefix="dorch_img_") as td:
 		gz_path = os.path.join(td, f"{sha1}.{ext}.gz")
@@ -469,6 +467,7 @@ async def _run(args: argparse.Namespace) -> None:
 				job_start = time.perf_counter()
 				if _PROM_AVAILABLE:
 					_SCREENSHOT_IN_PROGRESS.inc()
+				wad_id = None
 				try:
 					wad_id = msg.data.decode("utf-8").strip().strip('"')
 					sub_id = wad_id_from_subject(msg.subject)
@@ -523,6 +522,15 @@ async def _run(args: argparse.Namespace) -> None:
 					await msg.ack()
 					if _PROM_AVAILABLE:
 						_SCREENSHOT_JOBS_TOTAL.labels("success").inc()
+				except meta.S3KeyResolutionError:
+					meta.eprint(f"WAD S3 object not found for wad_id={wad_id}")
+					if _PROM_AVAILABLE:
+						_SCREENSHOT_JOBS_TOTAL.labels("failure").inc()
+						_SCREENSHOT_EXCEPTIONS_TOTAL.labels("S3KeyResolutionError").inc()
+					try:
+						await msg.ack()
+					except Exception:
+						pass
 				except Exception as ex:
 					meta.eprint(f"screenshot-worker: job failed: {type(ex).__name__}: {ex}")
 					if _PROM_AVAILABLE:

@@ -1190,6 +1190,9 @@ def candidate_prefixes(wad_entry: Dict[str, Any]) -> List[str]:
     return out
 
 
+class S3KeyResolutionError(Exception):
+    pass
+
 def resolve_s3_key(
     s3,
     bucket: str,
@@ -1226,7 +1229,10 @@ def resolve_s3_key(
                 s3.head_object(Bucket=bucket, Key=fallback)
                 return key
             except ClientError:
-                pass
+                err = (e.response or {}).get("Error") or {}
+                code = str(err.get("Code") or "")
+                if code in {"404", "NoSuchKey", "NotFound"}:
+                    raise S3KeyResolutionError()
             raise ValueError(f"s3://{bucket}/{key} not found") from e
         raise ValueError(
             f"Error checking s3://{bucket}/{key}: {code or type(e).__name__}: {err.get('Message') or e}"

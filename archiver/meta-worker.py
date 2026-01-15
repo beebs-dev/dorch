@@ -458,6 +458,7 @@ async def _run(args: argparse.Namespace) -> None:
 				job_start = time.perf_counter()
 				if _PROM_AVAILABLE:
 					_META_IN_PROGRESS.inc()
+				sha1 = None
 				try:
 					job = parse_meta_job(msg.data)
 					sha1 = job.sha1
@@ -515,20 +516,29 @@ async def _run(args: argparse.Namespace) -> None:
 					await msg.ack()
 					if _PROM_AVAILABLE:
 						_META_JOBS_TOTAL.labels("success").inc()
-				except Exception as ex:
-					meta.eprint(f"meta-worker: job failed: {type(ex).__name__}: {ex}")
-				if _PROM_AVAILABLE:
-					_META_JOBS_TOTAL.labels("failure").inc()
-					_META_EXCEPTIONS_TOTAL.labels(type(ex).__name__).inc()
+				except meta.S3KeyResolutionError:
+					meta.eprint(f"Skipping entry because S3 key was not found for wad {sha1}")
+					if _PROM_AVAILABLE:
+						_META_JOBS_TOTAL.labels("failure").inc()
+						_META_JOBS_TOTAL.labels("S3KeyResolutionError").inc()
 					try:
-						# Requeue for retry (JetStream redeliver)
-						await msg.nak()
+						await msg.ack()
 					except Exception:
 						pass
-				finally:
+				except Exception as ex:
+					meta.eprint(f"meta-worker: job failed: {type(ex).__name__}: {ex}")
 					if _PROM_AVAILABLE:
-						_META_IN_PROGRESS.dec()
-						_META_JOB_DURATION_SECONDS.observe(max(0.0, time.perf_counter() - job_start))
+						_META_JOBS_TOTAL.labels("failure").inc()
+						_META_EXCEPTIONS_TOTAL.labels(type(ex).__name__).inc()
+						try:
+							# Requeue for retry (JetStream redeliver)
+							await msg.nak()
+						except Exception:
+							pass
+						finally:
+							if _PROM_AVAILABLE:
+								_META_IN_PROGRESS.dec()
+								_META_JOB_DURATION_SECONDS.observe(max(0.0, time.perf_counter() - job_start))
 
 				if shutdown.is_set():
 					break
