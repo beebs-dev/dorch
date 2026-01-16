@@ -4,6 +4,7 @@
 	"version": "0.0.1",
 	"type": "module",
 	"dependencies": {
+		"@fontsource-variable/geist-mono": "^5.2.7",
 		"three": "^0.160.0"
 	},
 	"scripts": {

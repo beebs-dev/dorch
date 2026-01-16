@@ -1,2 +1,9 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
+
+@import '@fontsource-variable/geist-mono';
+
+:root {
+	--dorch-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+		'Liberation Mono', 'Courier New', monospace;
+}
