@@ -60,6 +60,16 @@
 		}
 		return init;
 	});
+
+	const textFiles = $derived(() => data.wad.meta.text_files ?? []);
+	let selectedTextFileIndex = $state(0);
+
+	function textFileLabel(tf: any, idx: number): string {
+		const name = tf?.name as string | null | undefined;
+		if (name && name.trim()) return name;
+		const source = (tf?.source as string | null | undefined) ?? 'text';
+		return `${source} #${idx + 1}`;
+	}
 </script>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
@@ -156,6 +166,54 @@
 				</div>
 			</div>
 		</section>
+
+		{#if textFiles().length > 0}
+			<section class="mt-4 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
+				<h2 class="text-sm font-semibold text-zinc-200">Text files</h2>
+				<div class="mt-3 flex flex-wrap gap-2">
+					{#each textFiles() as tf, idx (idx)}
+						<button
+							type="button"
+							onclick={() => (selectedTextFileIndex = idx)}
+							class={`inline-flex items-center gap-2 px-3 py-2 text-sm ring-1 ring-inset ring-zinc-800 hover:bg-zinc-900 ${
+								idx === selectedTextFileIndex ? 'bg-zinc-900 text-zinc-100' : 'text-zinc-300'
+							}`}
+						>
+							<svg
+								viewBox="0 0 24 24"
+								class="h-4 w-4 text-zinc-400"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+								<path d="M14 2v6h6" />
+								<path d="M8 13h8" />
+								<path d="M8 17h8" />
+								<path d="M8 9h2" />
+							</svg>
+							<span class="truncate">{textFileLabel(tf, idx)}</span>
+						</button>
+					{/each}
+				</div>
+
+				{#if textFiles()[selectedTextFileIndex]}
+					<div class="mt-4 overflow-hidden rounded-lg ring-1 ring-inset ring-zinc-800">
+						<div class="flex flex-wrap items-center justify-between gap-2 bg-zinc-950 px-3 py-2 text-xs text-zinc-500">
+							<div class="min-w-0 truncate">
+								{textFileLabel(textFiles()[selectedTextFileIndex], selectedTextFileIndex)}
+							</div>
+							<div class="shrink-0">
+								{textFiles()[selectedTextFileIndex].source}
+							</div>
+						</div>
+						<pre class="max-h-[420px] overflow-auto bg-zinc-950 p-3 text-xs text-zinc-200">{textFiles()[selectedTextFileIndex].contents}</pre>
+					</div>
+				{/if}
+			</section>
+		{/if}
 	{:else if data.tab === 'maps'}
 		<section class="mt-6">
 			<div class="overflow-hidden rounded-xl ring-1 ring-inset ring-zinc-800">

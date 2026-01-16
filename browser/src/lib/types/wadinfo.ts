@@ -16,6 +16,15 @@ export interface WadContentMeta {
 	iwads_guess?: string[] | null;
 }
 
+export interface WadTextFile {
+	/** Where this text file came from (e.g. "pk3" | "idgames"). */
+	source: string;
+	/** Optional filename/path. */
+	name?: string | null;
+	/** Normalized text contents. */
+	contents: string;
+}
+
 export interface WadMeta {
 	id: Uuid;
 	sha1: string;
@@ -23,6 +32,8 @@ export interface WadMeta {
 	title?: string | null;
 	file: WadFileMeta;
 	content: WadContentMeta;
+	/** Optional, may be omitted by some producers. */
+	text_files?: WadTextFile[] | null;
 }
 
 export interface MapStats {

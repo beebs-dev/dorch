@@ -1,6 +1,6 @@
 use dorch_common::{
     Pagination,
-    types::wad::{MapStat, ReadWadMeta},
+    types::wad::{MapStat, ReadWadMeta, TextFile},
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -32,8 +32,17 @@ pub struct ReadMapStat {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ReadWad {
+pub struct ReadWadMetaWithTextFiles {
+    #[serde(flatten)]
     pub meta: ReadWadMeta,
+
+    #[serde(default)]
+    pub text_files: Option<Vec<TextFile>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ReadWad {
+    pub meta: ReadWadMetaWithTextFiles,
     pub maps: Vec<ReadMapStat>,
 }
 

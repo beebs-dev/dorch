@@ -1,10 +1,11 @@
 use crate::client::{
-    GetWadMapResponse, ListWadsResponse, ReadMapStat, ReadWad, WadImage, WadSearchResults,
+    GetWadMapResponse, ListWadsResponse, ReadMapStat, ReadWad, ReadWadMetaWithTextFiles, WadImage,
+    WadSearchResults,
 };
 use anyhow::{Context, Result};
 use dorch_common::{
     postgres::strip_sql_comments,
-    types::wad::{InsertWad, ReadWadMeta},
+    types::wad::{InsertWad, ReadWadMeta, TextFile},
 };
 use owo_colors::OwoColorize;
 use serde_json::Value;
@@ -85,6 +86,7 @@ mod sql {
     pub const INSERT_WAD_MAP_ITEM: &str = include_str!("sql/insert_wad_map_item.sql");
 
     pub const LIST_WAD_MAP_IMAGES: &str = include_str!("sql/list_wad_map_images.sql");
+    pub const LIST_WAD_TEXT_FILES: &str = include_str!("sql/list_wad_text_files.sql");
     pub const DELETE_WAD_MAP_IMAGES: &str = include_str!("sql/delete_wad_map_images.sql");
     pub const INSERT_WAD_MAP_IMAGE: &str = include_str!("sql/insert_wad_map_image.sql");
 }
@@ -195,6 +197,11 @@ impl Database {
             .prepare(sql::LIST_WAD_MAP_IMAGES)
             .await
             .context("failed to prepare LIST_WAD_MAP_IMAGES")?;
+
+        _ = conn
+            .prepare(sql::LIST_WAD_TEXT_FILES)
+            .await
+            .context("failed to prepare LIST_WAD_TEXT_FILES")?;
         _ = conn
             .prepare(sql::DELETE_WAD_MAP_IMAGES)
             .await
@@ -231,6 +238,36 @@ impl Database {
         if meta.id.is_nil() {
             meta.id = row_wad_id;
         }
+
+        // Only GET /wad/{id} returns `text_files`.
+        let list_text_files = conn
+            .prepare_cached(sql::LIST_WAD_TEXT_FILES)
+            .await
+            .context("failed to prepare LIST_WAD_TEXT_FILES")?;
+        let text_file_rows = conn
+            .query(&list_text_files, &[&wad_id])
+            .await
+            .context("failed to execute LIST_WAD_TEXT_FILES")?;
+        let mut text_files: Vec<TextFile> = Vec::with_capacity(text_file_rows.len());
+        for row in text_file_rows {
+            let source: String = row.try_get("source")?;
+            let name: Option<String> = row.try_get("name")?;
+            let contents: String = row.try_get("contents")?;
+            text_files.push(TextFile {
+                source,
+                name,
+                contents,
+            });
+        }
+
+        let meta = ReadWadMetaWithTextFiles {
+            meta,
+            text_files: if text_files.is_empty() {
+                None
+            } else {
+                Some(text_files)
+            },
+        };
 
         let get_maps = conn
             .prepare_cached(sql::GET_WAD_MAPS)
