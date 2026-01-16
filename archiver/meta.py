@@ -48,6 +48,25 @@ from botocore.exceptions import ClientError, NoCredentialsError
 import requests
 
 
+_DEDUPE_README_ALNUM_RE = re.compile(r"[^0-9a-z]+")
+
+
+def normalize_readme_for_dedupe(s: Any) -> str:
+    """Aggressive normalization for README/text-file de-duplication.
+
+    - Lowercase
+    - Remove all whitespace
+    - Remove all characters that aren't ASCII letters or numbers
+
+    This is intentionally lossy and should only be used for de-duplication.
+    """
+    if not isinstance(s, str):
+        return ""
+    # Lowercase first, then drop anything outside ASCII a-z/0-9.
+    s = s.lower()
+    return _DEDUPE_README_ALNUM_RE.sub("", s)
+
+
 def _iwads_dir() -> Path:
     dir = os.getenv("IWADS_DIR", None)
     if dir is not None:

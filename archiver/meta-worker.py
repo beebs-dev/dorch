@@ -122,10 +122,10 @@ def _dedupe_per_map_stats_keep_last(
 def _dedupe_text_files_by_stripped_contents(
 	text_files: Any,
 ) -> Optional[List[Dict[str, Any]]]:
-	"""De-duplicate meta.text_files by contents.strip() (stable).
+	"""De-duplicate meta.text_files by aggressively-normalized contents (stable).
 
 	Rules:
-	- De-dupe exact duplicates based on stripped contents.
+	- De-dupe exact duplicates based on normalized contents.
 	- If the same stripped contents are present from idgames *and* another source
 	  (e.g. pk3/readmes), omit the idgames entry specifically.
 	"""
@@ -134,7 +134,7 @@ def _dedupe_text_files_by_stripped_contents(
 
 	def _key(tf: Dict[str, Any]) -> str:
 		contents = tf.get("contents")
-		return contents.strip() if isinstance(contents, str) else ""
+		return meta.normalize_readme_for_dedupe(contents)
 
 	def _source(tf: Dict[str, Any]) -> str:
 		s = tf.get("source")
