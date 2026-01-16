@@ -247,6 +247,33 @@ def _max_deliveries() -> int:
 	return _env_int("DORCH_SCREENSHOT_MAX_DELIVERIES", 3)
 
 
+def _progress_interval_seconds() -> float:
+	# How often to send JetStream "in progress" acks for long-running work.
+	# Must be less than the consumer's ack_wait (currently 30s by default) to
+	# prevent redelivery while rendering/uploading/updating wadinfo.
+	#
+	# If the client library doesn't support in-progress acks, we noop.
+	v = os.getenv("DORCH_IMAGES_PROGRESS_INTERVAL")
+	if v is None or not v.strip():
+		return 10.0
+	try:
+		return max(1.0, float(v))
+	except ValueError:
+		return 10.0
+
+
+async def _keep_message_alive(*, msg, shutdown: asyncio.Event, interval: float) -> None:
+	"""Periodically tell JetStream we're still working on this message."""
+	# NATS Python exposes this as `msg.in_progress()` on JetStream messages.
+	in_progress = getattr(msg, "in_progress", None)
+	if in_progress is None:
+		return
+	while not shutdown.is_set():
+		await asyncio.sleep(interval)
+		with contextlib.suppress(Exception):
+			await in_progress()
+
+
 async def _run_renderer_subprocess(*, wad_id: str) -> Dict[str, Any]:
 	print(f"running renderer for wad_id={wad_id}", file=sys.stderr)
 	proc = await asyncio.create_subprocess_exec(
@@ -608,6 +635,7 @@ async def _run(args: argparse.Namespace) -> int:
 				if _PROM_AVAILABLE:
 					_SCREENSHOT_IN_PROGRESS.inc()
 				wad_id = None
+				keepalive_task: Optional[asyncio.Task[None]] = None
 				try:
 					wad_id = msg.data.decode("utf-8").strip().strip('"')
 					sub_id = wad_id_from_subject(msg.subject)
@@ -615,6 +643,15 @@ async def _run(args: argparse.Namespace) -> int:
 						wad_id = sub_id
 					if not _valid_uuid(wad_id):
 						raise ValueError(f"invalid wad_id uuid: {wad_id}")
+
+					# Keep the message from being redelivered while we do long work.
+					keepalive_task = asyncio.create_task(
+						_keep_message_alive(
+							msg=msg,
+							shutdown=shutdown,
+							interval=_progress_interval_seconds(),
+						)
+					)
 
 					work_task = asyncio.create_task(_run_renderer_subprocess(wad_id=wad_id))
 					shutdown_task = asyncio.create_task(shutdown.wait())
@@ -679,11 +716,15 @@ async def _run(args: argparse.Namespace) -> int:
 					if _PROM_AVAILABLE:
 						_SCREENSHOT_JOBS_TOTAL.labels("failure").inc()
 						_SCREENSHOT_EXCEPTIONS_TOTAL.labels(type(ex).__name__).inc()
-						try:
-							await msg.nak()
-						except Exception:
-							pass
+					try:
+						await msg.nak()
+					except Exception:
+						pass
 				finally:
+					if keepalive_task is not None:
+						keepalive_task.cancel()
+						with contextlib.suppress(Exception):
+							await keepalive_task
 					if _PROM_AVAILABLE:
 						_SCREENSHOT_IN_PROGRESS.dec()
 						_SCREENSHOT_JOB_DURATION_SECONDS.observe(max(0.0, time.perf_counter() - job_start))
