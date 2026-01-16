@@ -284,6 +284,20 @@ async def _run_renderer_subprocess(*, wad_id: str) -> Dict[str, Any]:
 			asyncio.gather(stdout_task, stderr_task, wait_task),
 			timeout=_render_timeout_seconds(),
 		)
+	except asyncio.CancelledError:
+		# Ensure the subprocess and its pipes are torn down before the loop closes.
+		with contextlib.suppress(ProcessLookupError):
+			proc.kill()
+		with contextlib.suppress(Exception):
+			await proc.wait()
+		for t in (stdout_task, stderr_task, wait_task):
+			t.cancel()
+		with contextlib.suppress(Exception):
+			await asyncio.wait_for(
+				asyncio.gather(stdout_task, stderr_task, wait_task, return_exceptions=True),
+				timeout=1.0,
+			)
+		raise
 	except asyncio.TimeoutError:
 		with contextlib.suppress(ProcessLookupError):
 			proc.kill()
@@ -487,7 +501,7 @@ def render_one_wad_screenshots(
 		)
 
 
-async def _run(args: argparse.Namespace) -> None:
+async def _run(args: argparse.Namespace) -> int:
 	shutdown = asyncio.Event()
 	fast_exit = False
 
@@ -497,8 +511,11 @@ async def _run(args: argparse.Namespace) -> None:
 		shutdown.set()
 
 	def _immediate_shutdown() -> None:
-		print("screenshot-worker: immediate shutdown requested", file=sys.stderr)
-		sys.exit(1)
+		# Do not call sys.exit() from inside the event loop callback.
+		# Instead, request shutdown and let main exit with a non-zero status
+		# *after* asyncio.run() returns.
+		print("screenshot-worker: fast shutdown requested", file=sys.stderr)
+		_request_shutdown()
 
 	try:
 		loop = asyncio.get_running_loop()
@@ -675,13 +692,13 @@ async def _run(args: argparse.Namespace) -> None:
 					break
 	finally:
 		if fast_exit:
-			try:
-				await nc.flush(timeout=int(nats_flush_timeout_seconds()))
-			except Exception:
-				pass
-			await nc.close()
+			# Fast shutdown: skip drain (which flushes) and just close.
+			with contextlib.suppress(Exception):
+				await nc.close()
 		else:
 			await nc.drain()
+
+	return 1 if fast_exit else 0
 
 
 def main() -> None:
@@ -706,7 +723,8 @@ def main() -> None:
 	args = ap.parse_args()
 
 	try:
-		asyncio.run(_run(args))
+		code = asyncio.run(_run(args))
+		raise SystemExit(code)
 	except KeyboardInterrupt:
 		raise SystemExit(130)
 
