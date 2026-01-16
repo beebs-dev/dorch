@@ -150,12 +150,40 @@ pub async fn search(
     State(state): State<App>,
     Query(req): Query<WadSearchRequest>,
 ) -> impl IntoResponse {
+    let request_id = Uuid::new_v4();
+    let offset = req.offset.max(0);
+    let limit = req.limit.unwrap_or(10).min(100);
+    println!(
+        "{}{}{}{}{}{}{}{}",
+        "🔍 Searching wads • query=".green(),
+        req.query.green().dimmed(),
+        " • offset=".green(),
+        offset.green().dimmed(),
+        " • limit=".green(),
+        limit.green().dimmed(),
+        " • request_id=".green(),
+        request_id.green().dimmed()
+    );
+    let start = std::time::Instant::now();
     match state
         .db
-        .search_wads(&req.query, req.offset, req.limit.unwrap_or(10).min(100))
+        .search_wads(request_id, &req.query, offset, limit)
         .await
     {
-        Ok(maps) => (StatusCode::OK, Json(maps)).into_response(),
+        Ok(resp) => {
+            println!(
+                "{}{}{}{}{}{}{}{}",
+                "✅ Searched WADs • query=".green(),
+                req.query.green().dimmed(),
+                " • elapsed=".green(),
+                humantime::format_duration(start.elapsed()).green().dimmed(),
+                " • results=".green(),
+                resp.items.len().green().dimmed(),
+                " • request_id=".green(),
+                request_id.green().dimmed()
+            );
+            (StatusCode::OK, Json(resp)).into_response()
+        }
         Err(e) => response::error(e.context("Failed to search wads")),
     }
 }

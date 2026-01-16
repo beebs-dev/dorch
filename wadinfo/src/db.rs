@@ -271,8 +271,8 @@ impl Database {
 
         let row_wad_id: Uuid = row.try_get("wad_id")?;
         let meta_json: serde_json::Value = row.try_get("meta_json")?;
-        let mut wad_meta: InsertWadMeta =
-            serde_json::from_value(meta_json).context("deserialize InsertWadMeta")?;
+        let mut wad_meta: ReadWadMeta =
+            serde_json::from_value(meta_json).context("deserialize ReadWadMeta")?;
         if wad_meta.id.is_nil() {
             wad_meta.id = row_wad_id;
         }
@@ -376,6 +376,7 @@ impl Database {
 
     pub async fn search_wads(
         &self,
+        request_id: Uuid,
         query: &str,
         offset: i64,
         limit: i64,
@@ -416,6 +417,7 @@ impl Database {
 
         tx.commit().await.context("failed to commit transaction")?;
         Ok(WadSearchResults {
+            request_id,
             query: query.to_string(),
             items,
             full_count,

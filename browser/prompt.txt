@@ -1,265 +1,41 @@
-Help me write a prompt for copilot to create a matchmaking / level browser GUI for Doom. I'm using a Svelte 5 scaffold as a starting point.
-
-Requirements:
-
-### Login Page
-- Username and password
-- Sign Up (implement click handler as stub; don't implement a Sign Up page)
-- Forgot your password? (also implement as a stub)
+Help me write a prompt for copilot to create a matchmaking / level browser GUI for Doom. I'm using a Svelte 5 scaffold as a starting point. Use server side rendering as much as possible.
 
 ### WAD Browser
-- This is the root page for the app. Login is only required for play features; browsing doesn't require login.
+- This is the root page for the app.
 - Stylized "DORCH" logo with CSS in the header on the left 
 - Search bar in the page header (centered, reasonable max width)
-- Show login status in the page header on the right
+- Show WADs in a list with some basic information (but not too verbose)
 - Sort by: Featured, Release Date,  Most Played, Alphabetical
 - When no search query, show hero thumbnails from featured WADs that lead to the wad details page
 
 ### WAD Details
-- Individual pages for each WAD, e.g. /wad/{sha1_hash}
-- Any available screenshots
-- If not in a party or the party leader:
-    - "Add to Game" button that becomes "Remove from Game" when pressed. This button adds or removes the wad reference "${sha1}:${filename}"from the `wads` field of GameConfig.
-- For all users in a party:
-    - A button for "Vote" that becomed "Withdraw Vote" when pressed
-- If not logged in:
-    - A single "Login to Play" button which initiates login page auth flow that leads back to the wad page
-- Map listings (and screenshots for individual maps, when available)
-- Show an average rating (1 to 5 stars) with the total review count
-- Show text reviews (where available)
-- The ability to rate/review a wad (text not required, star rating only is acceptable, but provide a multiline text input and a submit button)
-- Individual pages for each map, e.g. /wad/{sha1_hash}/maps/{map_name}
+- Individual pages for each WAD, at /wad/[wadId]
+- Show an average rating (1 to 5 stars) with the total review count for the WAD
+- Header with basic info up top, tabs below
+- The tabs needs to accomodate the info, any available screenshots, and any available README/notes. See the schema for details on everything that needs to be accounted for. I want *all* of the information present in the schema to be visible to the user. Decide on which tabs are appropriate and what goes where.
+- For the Maps tab, show the listing of the maps (and a screenshot for each map, when available)
+- Show an average rating (1 to 5 stars) with the total review count for the map
+- Individual pages for each map at /wad/[wadId]/maps/[mapName]
     - Show the map title
     - Show any available screenshots
-    - Show the same review/rating information from the parent WAD
 
-    
-### Party management
-- "Party" page implemented as its own route, containing management features (create party, join existing party, kick a party member, invite a member, leave a party, etc).
-- A player can only be in one party a time
-- The creator of the party is the "leader" and makes decisions about which maps to play
-- The party leader can give leader status to another member
-- There can only be one party leader a time
-- When a player is in a party and not the leader, the "Play" buttons are changed to "Nominate" or "Vote" (if already nominated). When a player is the leader, show both "Play (Party)" and "Nominate" / "Vote" (depending on state)
-- When the "Nominate" button is pressed, the wad shows up as a card on the party screen. The button grays out and changed to "Nominated" for the player that nominated it.
-- If a map is already Nominated by another player, it should instead have a button for "Vote" on the wad details screen.
-- When a player votes on a WAD, the "Vote" button should change to "Voted". Pressing the button again retracts the vote.
-- The map cards on the party screen have "Vote" buttons on top of them so other members of the party can easily vote on maps that were already nominated.
-- If not in a party, show pending party invites
-- An "Invite" button that grants the ability to invite a user to the directly by username
-- Party chat
-  - Basic IRC-like features, e.g. chat history
-  - "User is typing..." notifications above the text input
+### SCHEMA NOTES
+- Refer to the internal server in wadinfo/ to see what all you can read from the database and what schema is returned.
+- Note that the /wad/{wad_id}/map/{map_name} endpoint returns more detailed information about the specific map as well as the WAD meta. Use the WAD meta to provide additional context about the map itself.
 
-### Infrastructure
+Just so you get an idea of the character length of each field in the schema, here is an example response:
 
-#### Authentication
+#### Example response from GET http://dorch-wadinfo/wad
 
-JWT is used to manage user authentication. Here is known-good code for this system written in dart:
-
-```dart
-const apiHost = 'api.slopindustries.com';
-
-class JwtLike {
-  final String accessToken;
-  final String? refreshToken;
-  final String? tokenType;
-  final int? expiresIn;
-  final int? refreshExpiresIn;
-  final String? idToken;
-  final String? scope;
-  final String? sessionState;
-
-  JwtLike({
-    required this.accessToken,
-    required this.refreshToken,
-    required this.tokenType,
-    required this.expiresIn,
-    required this.refreshExpiresIn,
-    required this.idToken,
-    required this.scope,
-    required this.sessionState,
-  });
-
-  static JwtLike fromMap(Map<dynamic, dynamic> m) => JwtLike(
-    accessToken: m['access_token'],
-    refreshToken: m['refresh_token'],
-    tokenType: m['token_type'],
-    expiresIn: m['expires_in'],
-    refreshExpiresIn: m['refresh_expires_in'],
-    idToken: m['id_token'],
-    scope: m['scope'],
-    sessionState: m['session_state'],
-  );
-
-  Map<String, dynamic> toMap() => {
-    'access_token': accessToken,
-    'refresh_token': refreshToken,
-    'token_type': tokenType,
-    'expires_in': expiresIn,
-    'refresh_expires_in': refreshExpiresIn,
-    'id_token': idToken,
-    'scope': scope,
-    'session_state': sessionState,
-  };
-}
-
-class UserCredentials {
-  final String id;
-  final String username;
-  final String? email;
-  final String? firstName;
-  final String? lastName;
-  final JwtLike jwt;
-
-  UserCredentials({
-    required this.id,
-    required this.username,
-    required this.email,
-    required this.firstName,
-    required this.lastName,
-    required this.jwt,
-  });
-
-  String get bearer => "Bearer ${jwt.accessToken}";
-
-  String get base64AccessToken => base64UrlEncode(utf8.encode(jwt.accessToken));
-
-  static UserCredentials fromMap(Map<dynamic, dynamic> m) => UserCredentials(
-    id: m['id'],
-    username: m['username'],
-    email: m['email'],
-    firstName: m['first_name'],
-    lastName: m['last_name'],
-    jwt: JwtLike.fromMap(m['jwt']),
-  );
-
-  Map<String, dynamic> toMap() => {
-    'id': id,
-    'username': username,
-    'email': email,
-    'firstName': firstName,
-    'lastName': lastName,
-    'jwt': jwt.toMap(),
-  };
-}
+{"items":[{"id":"00005ab1-d48f-4f4d-ad11-d369a7365dc2","sha1":"06e8f08b07193a50174c36cd1e6526587426d50c","sha256":"26baabbf5c70095bd57c0b4cd104da6d7a94742665106759920c0c857fafd73f","title":null,"file":{"type":"PWAD","size":117523,"url":"s3://wadarchive2/06e8f08b07193a50174c36cd1e6526587426d50c/06e8f08b07193a50174c36cd1e6526587426d50c.wad.gz","corrupt":false,"corruptMessage":null},"content":{"maps":["MAP01"],"counts":{"endoom":0,"graphics":0,"lumps":11,"maps":1,"palettes":0},"engines_guess":null,"iwads_guess":null}},{"id":"0000d988-0e5e-4bc9-acff-b615e82c4f2d","sha1":"e7555b2829986875dc3867ef5e3e3e27e9c3f599","sha256":"4ab3d76568d401c8ed639d1f4ffda16d45d12755b8024d2de97efeff6293ce95","title":null,"file":{"type":"PWAD","size":6883108,"url":"s3://wadarchive2/e7555b2829986875dc3867ef5e3e3e27e9c3f599/e7555b2829986875dc3867ef5e3e3e27e9c3f599.wad.gz","corrupt":false,"corruptMessage":null},"content":{"maps":["MAP01","MAP00","MAP07","MAP08"],"counts":{"endoom":0,"graphics":1,"lumps":1253,"maps":4,"palettes":0},"engines_guess":null,"iwads_guess":null}},{"id":"000111d9-d6bd-44de-b846-cbdae2c21da9","sha1":"3015b983e32abbe0b0d8307db48bf0ee20cd89c6","sha256":"9b09e8024640a65b4e2dc04f6da0550dbb2dcf8a4b1f92e975ea65836e921b2a","title":null,"file":{"type":"PK3","size":15381682,"url":"s3://wadarchive2/3015b983e32abbe0b0d8307db48bf0ee20cd89c6/3015b983e32abbe0b0d8307db48bf0ee20cd89c6.pk3.gz","corrupt":true,"corruptMessage":"1 lump(s) are corrupt"},"content":{"maps":null,"counts":{"endoom":0,"graphics":0,"lumps":858,"maps":0,"palettes":0},"engines_guess":null,"iwads_guess":null}},{"id":"00032d59-1c8e-4cb2-96ee-a6663209befe","sha1":"720bfc3f80d7c787df839e9da5629cc7ebd63d33","sha256":"7c821c872bf9b55269fa7cca51b642d8b0bc82edd1b9af5bb1b15aca86fecd7d","title":null,"file":{"type":"PK3","size":792,"url":"s3://wadarchive2/720bfc3f80d7c787df839e9da5629cc7ebd63d33/720bfc3f80d7c787df839e9da5629cc7ebd63d33.pk3.gz","corrupt":false,"corruptMessage":null},"content":{"maps":null,"counts":{"endoom":0,"graphics":0,"lumps":1,"maps":0,"palettes":0},"engines_guess":null,"iwads_guess":null}},{"id":"00033a19-f357-4e97-8a9d-a23eb2ae8fd1","sha1":"000a8e875e33a9c71eb506888ec8a8cb97b5b810","sha256":"248d49464b140fee83e19f75b1f400f8954e38defaec7333a0577fc5310ed2c5","title":null,"file":{"type":"PK3","size":68238108,"url":"s3://wadarchive2/000a8e875e33a9c71eb506888ec8a8cb97b5b810/000a8e875e33a9c71eb506888ec8a8cb97b5b810.pk3.gz","corrupt":false,"corruptMessage":null},"content":{"maps":["TITLEMAP","RO_titlemap"],"counts":{"endoom":0,"graphics":2,"lumps":4359,"maps":2,"palettes":0},"engines_guess":null,"iwads_guess":null}},{"id":"00064fb0-5612-4497-987a-7154fb6f54ef","sha1":"20e8086d1c18bbeb488071b5749375948e983db9","sha256":"e2be8da7678dfa4aba98cdc511afa06e74f6ed5a7787706a41569140d2a16c4d","title":null,"file":{"type":"PWAD","size":93481,"url":"s3://wadarchive2/20e8086d1c18bbeb488071b5749375948e983db9/20e8086d1c18bbeb488071b5749375948e983db9.wad.gz","corrupt":false,"corruptMessage":null},"content":{"maps":["MAP12"],"counts":{"endoom":0,"graphics":0,"lumps":11,"maps":1,"palettes":0},"engines_guess":null,"iwads_guess":null}},{"id":"000806ac-9d3d-4aba-8183-479bd7fcb085","sha1":"126bb6e5d9eecdfd4a2cb501ae9ff491362f0363","sha256":"ed30d63d403b4fbddd33cf735ee67fc140a82670f8aaaa1b3db79c5ada48f5ab","title":null,"file":{"type":"PK3","size":6384643,"url":"s3://wadarchive2/126bb6e5d9eecdfd4a2cb501ae9ff491362f0363/126bb6e5d9eecdfd4a2cb501ae9ff491362f0363.pk3.gz","corrupt":false,"corruptMessage":null},"content":{"maps":null,"counts":{"endoom":0,"graphics":0,"lumps":540,"maps":0,"palettes":0},"engines_guess":null,"iwads_guess":null}},{"id":"00086687-eedb-4953-8bc7-2d725a68fa5f","sha1":"b3bdcb58fca1ebb40322eb8737cc816d0fb841b0","sha256":"e88897c4062c4221ff926240f27027b4490207e08a3e8c1b3a2be099f68aba3c","title":null,"file":{"type":"PWAD","size":45855,"url":"s3://wadarchive2/b3bdcb58fca1ebb40322eb8737cc816d0fb841b0/b3bdcb58fca1ebb40322eb8737cc816d0fb841b0.wad.gz","corrupt":false,"corruptMessage":null},"content":{"maps":["MAP01"],"counts":{"endoom":0,"graphics":0,"lumps":12,"maps":1,"palettes":0},"engines_guess":null,"iwads_guess":null}},{"id":"0009348a-134e-4d0d-9e42-6dc0a20ee831","sha1":"022ed326ded3b39397c1091b1ac06337781bfa0d","sha256":"d5a59def9ec662c3dee4fba91b6061ff9fba7da67c6aba41c904443560c07249","title":null,"file":{"type":"PK3","size":43534749,"url":"s3://wadarchive2/022ed326ded3b39397c1091b1ac06337781bfa0d/022ed326ded3b39397c1091b1ac06337781bfa0d.pk3.gz","corrupt":false,"corruptMessage":null},"content":{"maps":["NUT00","NUT01","CBM_TEST","000-nutshackfinal","001-NUT01","CBM_TEST_map"],"counts":{"endoom":0,"graphics":2,"lumps":10829,"maps":6,"palettes":0},"engines_guess":null,"iwads_guess":null}},{"id":"0009d829-7937-4063-84cd-f7221b1d85a5","sha1":"a9923bb27e9988fe77fea4ed01b1df8edcd33281","sha256":"e975df6170abf59f43ac6e1e08c4adbc65c7b5e9e9126dfa587db3de52684db2","title":null,"file":{"type":"PK3","size":10823452,"url":"s3://wadarchive2/a9923bb27e9988fe77fea4ed01b1df8edcd33281/a9923bb27e9988fe77fea4ed01b1df8edcd33281.pk3.gz","corrupt":false,"corruptMessage":null},"content":{"maps":null,"counts":{"endoom":0,"graphics":0,"lumps":2140,"maps":0,"palettes":0},"engines_guess":null,"iwads_guess":null}}],"full_count":87026,"offset":0,"limit":10,"truncated":true}
 
 
-Future<UserCredentials> userLogin(String username, String password) async {
-  final url = Uri.https(apiHost, 'user/login');
-  final response = await http.post(
-    url,
-    headers: {'Content-Type': 'application/json'},
-    body: json.encode({'username': username, 'password': password}),
-  );
-  if (response.statusCode == 401) {
-    throw InvalidCredentialsError();
-  } else if (response.statusCode != 200) {
-    throw ApiStatusError(response.statusCode, response.body);
-  }
-  final j = utf8.decode(response.bodyBytes);
-  debugPrint(j);
-  final decodedResponse = jsonDecode(j) as Map;
-  final creds = UserCredentials.fromMap(decodedResponse);
-  return creds;
-}
+#### Example response from GET http://dorch-wadinfo/wad/00005ab1-d48f-4f4d-ad11-d369a7365dc2
 
-/// For refereshing the access token once it expires
-Future<UserCredentials> userRefresh(UserCredentials creds) async {
-  final response = await http.post(
-    Uri.https(apiHost, 'user/refresh'),
-    headers: {'Content-Type': 'application/json'},
-    body: json.encode({'refresh_token': creds.jwt.refreshToken}),
-  );
-  if (response.statusCode != 200) {
-    throw ApiStatusError(response.statusCode, response.body);
-  }
-  return UserCredentials.fromMap(
-    jsonDecode(utf8.decode(response.bodyBytes)) as Map,
-  );
-}
-```
+{"meta":{"id":"00005ab1-d48f-4f4d-ad11-d369a7365dc2","sha1":"06e8f08b07193a50174c36cd1e6526587426d50c","sha256":"26baabbf5c70095bd57c0b4cd104da6d7a94742665106759920c0c857fafd73f","title":null,"file":{"type":"PWAD","size":117523,"url":"s3://wadarchive2/06e8f08b07193a50174c36cd1e6526587426d50c/06e8f08b07193a50174c36cd1e6526587426d50c.wad.gz","corrupt":false,"corruptMessage":null},"content":{"maps":["MAP01"],"counts":{"endoom":0,"graphics":0,"lumps":11,"maps":1,"palettes":0},"engines_guess":null,"iwads_guess":null}},"maps":[{"map":"MAP01","format":"doom","stats":{"things":325,"linedefs":956,"sidedefs":1326,"vertices":764,"sectors":242,"segs":1371,"ssectors":650,"nodes":649,"textures":["ASHWALL2","BIGDOOR2","BRICK1","BRICK2","BRICK3","BRICK5","BRICK7","BRONZE3","BROWN96","CEIL1_3","CEIL3_1","CEIL3_5","COMPBLUE","DEM1_5","DOOR1","DOOR3","DOORRED","DOORSTOP","DOORTRAK","DOORYEL","EXITDOOR","FLAT18","FLAT22","FLAT5_3","FLAT5_7","FLOOR0_5","FLOOR7_1","FWATER1","FWATER2","GATE3","GATE4","GRAY7","GSTONE1","LITE3","LITEBLU4","METAL2","MFLR8_2","RROCK03","RROCK09","RROCK12","RROCK14","RROCK16","RROCK17","RROCK18","SHAWN2","SILVER1","SKIN2","SKINEDGE","SPCDOOR1","SPCDOOR3","SW1BRN2","SW1COMP","SW1GRAY","SW1LION","TEKBRON1","TEKBRON2","TLITE6_5"]},"monsters":{"total":105,"by_type":{"archvile":1,"baron":3,"cacodemon":3,"chaingun_guy":9,"demon":3,"hell_knight":1,"imp":40,"lost_soul":4,"pain_elemental":2,"shotgun_guy":1,"spectre":2,"zombieman":36}},"items":{"total":129,"by_type":{"ammo_clip":2,"armor_bonus":20,"blue_armor":1,"cell":7,"invisibility":1,"medikit":35,"plasma_rifle":4,"rocket_box":1,"rocket_launcher":2,"shell_box":16,"shells":19,"shotgun":9,"soulsphere":1,"stimpack":1,"super_shotgun":10}},"mechanics":{"teleports":true,"keys":["blue","red","yellow"],"secret_exit":false},"difficulty":{"uv_monsters":105,"hmp_monsters":88,"htr_monsters":41,"uv_items":98,"hmp_items":118,"htr_items":126},"compatibility":"vanilla_or_boom","metadata":{"title":null,"music":null,"source":"marker"}}]}
 
+#### Example response from GET http://dorch-wadinfo/wad/00005ab1-d48f-4f4d-ad11-d369a7365dc2/maps/MAP01
 
-### WebSocket connection for live state updates
+{"map":"MAP01","format":"doom","stats":{"things":325,"linedefs":956,"sidedefs":1326,"vertices":764,"sectors":242,"segs":1371,"ssectors":650,"nodes":649,"textures":["ASHWALL2","BIGDOOR2","BRICK1","BRICK2","BRICK3","BRICK5","BRICK7","BRONZE3","BROWN96","CEIL1_3","CEIL3_1","CEIL3_5","COMPBLUE","DEM1_5","DOOR1","DOOR3","DOORRED","DOORSTOP","DOORTRAK","DOORYEL","EXITDOOR","FLAT18","FLAT22","FLAT5_3","FLAT5_7","FLOOR0_5","FLOOR7_1","FWATER1","FWATER2","GATE3","GATE4","GRAY7","GSTONE1","LITE3","LITEBLU4","METAL2","MFLR8_2","RROCK03","RROCK09","RROCK12","RROCK14","RROCK16","RROCK17","RROCK18","SHAWN2","SILVER1","SKIN2","SKINEDGE","SPCDOOR1","SPCDOOR3","SW1BRN2","SW1COMP","SW1GRAY","SW1LION","TEKBRON1","TEKBRON2","TLITE6_5"]},"monsters":{"total":105,"by_type":{"archvile":1,"baron":3,"cacodemon":3,"chaingun_guy":9,"demon":3,"hell_knight":1,"imp":40,"lost_soul":4,"pain_elemental":2,"shotgun_guy":1,"spectre":2,"zombieman":36}},"items":{"total":129,"by_type":{"ammo_clip":2,"armor_bonus":20,"blue_armor":1,"cell":7,"invisibility":1,"medikit":35,"plasma_rifle":4,"rocket_box":1,"rocket_launcher":2,"shell_box":16,"shells":19,"shotgun":9,"soulsphere":1,"stimpack":1,"super_shotgun":10}},"mechanics":{"teleports":true,"keys":["blue","red","yellow"],"secret_exit":false},"difficulty":{"uv_monsters":105,"hmp_monsters":88,"htr_monsters":41,"uv_items":98,"hmp_items":118,"htr_items":126},"compatibility":"vanilla_or_boom","metadata":{"title":null,"music":null,"source":"marker"},"wad_meta":{"id":"00005ab1-d48f-4f4d-ad11-d369a7365dc2","sha1":"06e8f08b07193a50174c36cd1e6526587426d50c","sha256":"26baabbf5c70095bd57c0b4cd104da6d7a94742665106759920c0c857fafd73f","title":null,"file":{"type":"PWAD","size":117523,"url":"s3://wadarchive2/06e8f08b07193a50174c36cd1e6526587426d50c/06e8f08b07193a50174c36cd1e6526587426d50c.wad.gz","corrupt":false,"corruptMessage":null},"content":{"maps":["MAP01"],"counts":{"endoom":0,"graphics":0,"lumps":11,"maps":1,"palettes":0},"engines_guess":null,"iwads_guess":null}}}
 
-First authenticate the user by hitting the ws/auth endpoint. This requires signing a request so a single-use connection can be authenticated.
-
-Here is some known-good code written in Dart that does this:
-
-```dart
-
-Future<WebSocketChannel> doConnectWebSock(UserCredentials creds) async {
-  // AES-GCM with 256-bit key (32 bytes), 12-byte nonce
-  final algorithm = crypto.AesGcm.with256bits();
-
-  // Generate key and nonce
-  final secretKey = await algorithm.newSecretKey();
-  final keyBytes = await secretKey.extractBytes(); // 32 bytes
-  final nonce = algorithm.newNonce(); // 12 bytes by default
-
-  final deviceId = await _getDeviceId(creds.id);
-
-  // These were previously key.base64 / iv.base64 -> normal base64 is fine here
-  final connId = await authWebSock(
-    creds: creds,
-    base64Key: base64Encode(keyBytes),
-    base64Nonce: base64Encode(nonce),
-    deviceId: deviceId,
-  );
-  debugPrint('WebSocket connId: $connId');
-
-  // Encrypt the JWT access token with AES-GCM
-  final plainBytes = utf8.encode(creds.jwt.accessToken);
-
-  final secretBox = await algorithm.encrypt(
-    plainBytes,
-    secretKey: secretKey,
-    nonce: nonce,
-  );
-
-  // `encrypt`'s AES-GCM output is ciphertext + tag.
-  // Recreate that layout: [cipherText || mac]
-  final cipherAndTag = <int>[...secretBox.cipherText, ...secretBox.mac.bytes];
-
-  // URL-safe base64 for putting into the query string
-  final payload = base64UrlEncode(cipherAndTag);
-
-  final uriBase = 'wss://${apiHost}/ws';
-  if (kDebugMode) {
-    print("Connecting to $uriBase as '${creds.username}' (connId=$connId)");
-  }
-
-  final uri = '$uriBase?c=${Uri.encodeQueryComponent(connId)}&p=$payload';
-  final ch = WebSocketChannel.connect(Uri.parse(uri));
-  await ch.ready;
-  return ch;
-}
-
-Future<String> authWebSock({
-  required UserCredentials creds,
-  required String base64Key,
-  required String base64Nonce,
-  required String deviceId,
-}) async {
-  final response = await http.post(
-    Uri.https(apiHost, 'ws/auth'),
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': creds.bearer,
-    },
-    body: jsonEncode({
-      'key': base64Key,
-      'nonce': base64Nonce,
-      'device_id': deviceId,
-    }),
-  );
-  if (response.statusCode == 401) {
-    throw InvalidCredentialsError();
-  }
-  if (response.statusCode != 200) {
-    throw ApiStatusError(response.statusCode, response.body);
-  }
-  return response.body;
-}
-```
+#### Example response from POST http://dorch-wadinfo/search

@@ -46,7 +46,7 @@ pub struct ListWadsRequest {
 pub struct GetWadMapResponse {
     #[serde(flatten)]
     pub map: MapStat,
-    pub wad_meta: InsertWadMeta,
+    pub wad_meta: ReadWadMeta,
 }
 
 #[derive(Deserialize)]
@@ -63,6 +63,7 @@ pub struct WadSearchRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct WadSearchResults {
+    pub request_id: Uuid,
     pub query: String,
     pub items: Vec<ReadWadMeta>,
     pub full_count: i64,
