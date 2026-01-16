@@ -22,26 +22,25 @@
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
 <div class="min-h-dvh bg-zinc-950 text-zinc-100">
-	<div class="flex min-h-dvh">
-		<aside
-			class="sticky top-0 hidden h-dvh w-56 shrink-0 border-r border-zinc-900 bg-zinc-950/80 backdrop-blur sm:block"
-			aria-label="Primary"
-		>
-			<nav class="flex h-full flex-col px-3 py-4">
-				{#each navItems as item (item.href)}
-					<a
-						href={item.href}
-						class={`font-[var(--dorch-mono)] px-4 py-3 text-base tracking-wide hover:bg-zinc-900/40 ${
-							isActive(item.href, $page.url.pathname) ? 'bg-zinc-900/50 text-zinc-100' : 'text-zinc-300'
-						}`}
-					>
-						{item.label}
-					</a>
-				{/each}
+	<div class="grid min-h-dvh grid-cols-[14rem_1fr]">
+		<aside class="sticky top-0 h-dvh bg-zinc-950/80 backdrop-blur" aria-label="Primary">
+			<nav class="flex h-full flex-col">
+				<div class="px-3 py-4">
+					{#each navItems as item (item.href)}
+						<a
+							href={item.href}
+							class={`font-[var(--dorch-mono)] block px-4 py-3 text-base tracking-wide hover:bg-zinc-900/40 ${
+								isActive(item.href, $page.url.pathname) ? 'bg-zinc-900/50 text-zinc-100' : 'text-zinc-300'
+							}`}
+						>
+							{item.label}
+						</a>
+					{/each}
+				</div>
 			</nav>
 		</aside>
 
-		<div class="min-w-0 flex-1">
+		<div class="min-w-0">
 			<header class="sticky top-0 z-10 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur">
 				<div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
 					<div class="flex-1">
@@ -65,7 +64,6 @@
 							</button>
 						</form>
 					</div>
-					<div class="flex flex-1 items-center justify-end"></div>
 				</div>
 			</header>
 			<main>{@render children()}</main>
