@@ -127,6 +127,9 @@
 				aria-current={data.tab === t.key ? 'page' : undefined}
 			>
 				{t.label}
+				{#if t.key === 'maps'}
+					<span class="ml-1 align-middle text-xs text-zinc-500">({data.wad.maps.length})</span>
+				{/if}
 			</a>
 		{/each}
 	</nav>

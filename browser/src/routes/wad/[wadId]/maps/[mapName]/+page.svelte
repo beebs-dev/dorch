@@ -213,7 +213,7 @@
 			class="absolute inset-0 bg-zinc-950/80"
 			onclick={closeModal}
 			aria-label="Close screenshot"
-		/>
+		></button>
 		<div
 			class="relative w-full max-w-5xl overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-inset ring-zinc-800"
 			role="dialog"
