@@ -5,6 +5,7 @@ use axum::{Json, http::HeaderMap, response::IntoResponse};
 use owo_colors::OwoColorize;
 use reqwest::StatusCode;
 use rustls::{ClientConfig, RootCertStore, pki_types::CertificateDer};
+use serde::de::{self, Deserializer, Visitor};
 use serde::{Deserialize, Serialize};
 use tokio_postgres_rustls::MakeRustlsConnect;
 
@@ -89,11 +90,129 @@ pub fn make_rustls(certs: Vec<CertificateDer<'_>>) -> Result<MakeRustlsConnect> 
 
 #[derive(Deserialize, Default, Clone, Debug)]
 pub struct Pagination {
-    #[serde(rename = "o", default)]
+    #[serde(
+        rename = "o",
+        default,
+        deserialize_with = "deserialize_i64_from_string_or_int"
+    )]
     pub offset: i64,
 
-    #[serde(rename = "l", default)]
+    #[serde(
+        rename = "l",
+        default,
+        deserialize_with = "deserialize_opt_i64_from_string_or_int"
+    )]
     pub limit: Option<i64>,
+}
+
+fn deserialize_i64_from_string_or_int<'de, D>(deserializer: D) -> Result<i64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct I64Visitor;
+
+    impl<'de> Visitor<'de> for I64Visitor {
+        type Value = i64;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("an integer or a string containing an integer")
+        }
+
+        fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E> {
+            Ok(v)
+        }
+
+        fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            i64::try_from(v).map_err(|_| E::custom("integer out of range"))
+        }
+
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            v.trim()
+                .parse::<i64>()
+                .map_err(|e| E::custom(format!("invalid integer: {e}")))
+        }
+
+        fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            self.visit_str(&v)
+        }
+    }
+
+    deserializer.deserialize_any(I64Visitor)
+}
+
+fn deserialize_opt_i64_from_string_or_int<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct OptI64Visitor;
+
+    impl<'de> Visitor<'de> for OptI64Visitor {
+        type Value = Option<i64>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("an optional integer or a string containing an integer")
+        }
+
+        fn visit_none<E>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_unit<E>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_some<D2>(self, deserializer: D2) -> Result<Self::Value, D2::Error>
+        where
+            D2: Deserializer<'de>,
+        {
+            deserialize_i64_from_string_or_int(deserializer).map(Some)
+        }
+
+        fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E> {
+            Ok(Some(v))
+        }
+
+        fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(Some(
+                i64::try_from(v).map_err(|_| E::custom("integer out of range"))?,
+            ))
+        }
+
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            let trimmed = v.trim();
+            if trimmed.is_empty() {
+                return Ok(None);
+            }
+            trimmed
+                .parse::<i64>()
+                .map(Some)
+                .map_err(|e| E::custom(format!("invalid integer: {e}")))
+        }
+
+        fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            self.visit_str(&v)
+        }
+    }
+
+    deserializer.deserialize_any(OptI64Visitor)
 }
 
 pub mod response {
