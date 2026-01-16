@@ -29,22 +29,24 @@
 
 	const mapsWithAnyImages = $derived(() => data.wad.maps.filter((m) => (m.images?.length ?? 0) > 0));
 
-	const allScreenshotImages = $derived(() => {
-		const imgs: WadImage[] = [];
+	type ScreenshotPick = { mapName: string; image: WadImage };
+
+	const allScreenshotPicks = $derived(() => {
+		const picks: ScreenshotPick[] = [];
 		for (const m of data.wad.maps) {
 			for (const img of m.images ?? []) {
 				if (!img?.url) continue;
 				if (isPano(img)) continue;
-				imgs.push(img);
+				picks.push({ mapName: m.map, image: img });
 			}
 		}
-		return imgs;
+		return picks;
 	});
 
-	let randomScreenshot = $state<WadImage | null>(null);
+	let randomScreenshot = $state<ScreenshotPick | null>(null);
 	$effect(() => {
-		const imgs = allScreenshotImages();
-		randomScreenshot = imgs.length ? imgs[Math.floor(Math.random() * imgs.length)] : null;
+		const picks = allScreenshotPicks();
+		randomScreenshot = picks.length ? picks[Math.floor(Math.random() * picks.length)] : null;
 	});
 
 	const countEntries = $derived(() => {
@@ -189,14 +191,27 @@
 				</div>
 			</div>
 
-			<div class="overflow-hidden rounded-lg ring-1 ring-inset ring-zinc-800">
-				{#if randomScreenshot?.url}
-					<img
-						src={randomScreenshot.url}
-						alt=""
-						class="aspect-[16/9] w-full object-cover"
-						loading="lazy"
-					/>
+			<div class="group relative overflow-hidden rounded-lg ring-1 ring-inset ring-zinc-800">
+				{#if randomScreenshot?.image?.url}
+					<a
+						href={`/wad/${encodeURIComponent(data.wad.meta.id)}/maps/${encodeURIComponent(
+							randomScreenshot.mapName
+						)}`}
+						class="block"
+						aria-label={`View ${randomScreenshot.mapName} details`}
+					>
+						<img
+							src={randomScreenshot.image.url}
+							alt=""
+							class="aspect-[16/9] w-full object-cover"
+							loading="lazy"
+						/>
+						<div class="pointer-events-none absolute inset-0 flex items-end opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+							<div class="w-full bg-zinc-950/70 px-3 py-2 text-sm font-medium text-zinc-100">
+								{randomScreenshot.mapName}
+							</div>
+						</div>
+					</a>
 				{:else}
 					<div class="aspect-[16/9] w-full bg-gradient-to-br from-zinc-900 to-zinc-800"></div>
 				{/if}
