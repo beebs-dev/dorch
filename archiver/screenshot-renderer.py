@@ -11,7 +11,7 @@ from typing import Any, Dict
 import boto3
 
 import meta
-from screenshot_job import render_one_wad_screenshots
+from screenshot_job import TempSpaceExceededError, render_one_wad_screenshots
 
 
 def _env_int(name: str, default: int) -> int:
@@ -85,6 +85,9 @@ def main() -> int:
 		return 0
 	except meta.S3KeyResolutionError as ex:
 		_print_json({"ok": False, "retry": False, "kind": "S3KeyResolutionError", "message": str(ex)})
+		return 0
+	except TempSpaceExceededError as ex:
+		_print_json({"ok": False, "retry": False, "kind": "TempSpaceExceeded", "message": str(ex)})
 		return 0
 	except Exception as ex:
 		# Treat as retryable by default; worker will cap retries.

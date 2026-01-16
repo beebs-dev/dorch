@@ -14,6 +14,10 @@ import meta
 from screenshots import NoMapsError, RenderConfig, render_screenshots
 
 
+class TempSpaceExceededError(RuntimeError):
+	pass
+
+
 def _spaces_public_base_url(*, bucket: str, endpoint: str) -> str:
 	"""Return public base URL like https://{bucket}.{region}.digitaloceanspaces.com."""
 	bucket = (bucket or "").strip()
@@ -161,13 +165,21 @@ def render_one_wad_screenshots(
 
 	s3_key = meta.resolve_s3_key(s3_wads, wad_bucket, sha1, ext)
 
+	# Use the process temp dir (TMPDIR) so deployments can choose where temp
+	# storage lives (e.g. tmpfs via emptyDir{medium: Memory}).
 	with tempfile.TemporaryDirectory(prefix="dorch_img_") as td:
 		gz_path = os.path.join(td, f"{sha1}.{ext}.gz")
 		file_path = os.path.join(td, f"{sha1}.{ext}")
 		output_path = os.path.join(td, "output_screenshots")
 
-		meta.download_s3_to_path(s3_wads, wad_bucket, s3_key, gz_path)
-		meta.gunzip_file(gz_path, file_path)
+		try:
+			meta.download_s3_to_path(s3_wads, wad_bucket, s3_key, gz_path)
+			meta.gunzip_file(gz_path, file_path)
+		except OSError as ex:
+			# Most common when tmpfs/ephemeral is intentionally capped.
+			if getattr(ex, "errno", None) == 28:
+				raise TempSpaceExceededError("temporary storage exhausted while downloading/unpacking") from ex
+			raise
 
 		wad_type_upper = str(wad_entry.get("type") or "").upper()
 		if wad_type_upper == "IWAD" and ext == "wad":
@@ -200,13 +212,22 @@ def render_one_wad_screenshots(
 				render_screenshots(config)
 		except NoMapsError:
 			return None
+		except OSError as ex:
+			if getattr(ex, "errno", None) == 28:
+				raise TempSpaceExceededError("temporary storage exhausted while rendering") from ex
+			raise
 
-		meta.upload_screenshots(
-			sha1=sha1,
-			path=output_path,
-			bucket=images_bucket,
-			endpoint=images_endpoint,
-		)
+		try:
+			meta.upload_screenshots(
+				sha1=sha1,
+				path=output_path,
+				bucket=images_bucket,
+				endpoint=images_endpoint,
+			)
+		except OSError as ex:
+			if getattr(ex, "errno", None) == 28:
+				raise TempSpaceExceededError("temporary storage exhausted while uploading") from ex
+			raise
 		public_base_url = _spaces_public_base_url(bucket=images_bucket, endpoint=images_endpoint)
 		return _collect_map_image_payloads(
 			sha1=sha1,

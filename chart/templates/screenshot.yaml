@@ -24,6 +24,10 @@ spec:
         hostPath:
           path: /data
           type: DirectoryOrCreate
+      - name: tmp
+        emptyDir:
+          medium: Memory
+          sizeLimit: 1Gi
     {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 10 }}
@@ -73,6 +77,8 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /data
+        - name: tmp
+          mountPath: /tmp
 {{- if .Values.prometheus.enabled }}
         ports:
         - containerPort: 2112
@@ -89,6 +95,8 @@ spec:
         env:
         - name: PYTHONUNBUFFERED
           value: "1"
+        - name: TMPDIR
+          value: /tmp
         - name: DORCH_READY_FILE
           value: /etc/ready
         - name: WADINFO_BASE_URL

@@ -62,7 +62,7 @@ pub async fn run(args: DispatchImagesRunArgs) -> Result<()> {
             .context("Failed to mark images dispatched")?;
         tx.commit().await.context("commit dispatch-images tx")?;
         tokio::select! { // prevent tight loop
-            _ = sleep(Duration::from_millis(431)) => continue,
+            _ = sleep(Duration::from_millis(1431)) => continue,
             _ = cancel.cancelled() => break,
         }
     }
