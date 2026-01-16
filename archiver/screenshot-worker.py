@@ -280,7 +280,7 @@ async def _run_renderer_subprocess(*, wad_id: str) -> Dict[str, Any]:
 	timeout_s = float(_render_timeout_seconds())
 	proc = await asyncio.create_subprocess_exec(
 		sys.executable,
-		"/app/screenshot-renderer.py",
+		"./screenshot-renderer.py",
 		"--wad-id",
 		wad_id,
 		stdout=asyncio.subprocess.PIPE,
@@ -608,7 +608,7 @@ async def _run(args: argparse.Namespace) -> int:
 		# Instead, request shutdown and let main exit with a non-zero status
 		# *after* asyncio.run() returns.
 		print("screenshot-worker: fast shutdown requested", file=sys.stderr)
-		_request_shutdown()
+		sys.exit(1)
 
 	try:
 		loop = asyncio.get_running_loop()

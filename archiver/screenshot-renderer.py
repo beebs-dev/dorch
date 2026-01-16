@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import sys
 from typing import Any, Dict
 
@@ -46,7 +47,13 @@ def _print_json(obj: Dict[str, Any]) -> None:
 	sys.stdout.flush()
 
 
+def _shutdown():
+	sys.exit(1)
+
 def main() -> int:
+	signal.signal(signal.SIGINT, lambda s, f: _shutdown())
+	signal.signal(signal.SIGTERM, lambda s, f: _shutdown())
+
 	ap = argparse.ArgumentParser(description="Render screenshots for one wad_id (isolated subprocess)")
 	ap.add_argument("--wad-id", required=True)
 	args = ap.parse_args()

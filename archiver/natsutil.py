@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import ssl
 from typing import Optional
 
 import nats
@@ -60,9 +61,14 @@ async def connect_nats() -> NATS:
 	if token:
 		kwargs["token"] = token
 	elif user and password:
+		print(f"Connecting with NATS user '{user}'")
 		kwargs["user"] = user
 		kwargs["password"] = password
-
+	use_tls = servers.startswith("tls://")
+	if use_tls:
+		print("Using TLS for NATS connection")
+		ctx = ssl.create_default_context()
+		kwargs["tls"] = ctx
 	# Note: creds / nkeys can be added later if needed.
 	return await nats.connect(**kwargs)
 

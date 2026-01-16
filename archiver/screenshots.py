@@ -1560,13 +1560,6 @@ def _capture_panorama_bundle(
 	return front, right, back, left, up, down
 
 @dataclass(frozen=True)
-class RedisConfig:
-	host: str = "localhost"
-	port: int = 6379
-	username: Optional[str] = None
-	password: Optional[str] = None
-
-@dataclass(frozen=True)
 class RenderConfig:
 	iwad: Path
 	files: Sequence[Path]
@@ -1594,7 +1587,6 @@ class RenderConfig:
 	keep_every: int = 6
 	prefer_gpu: bool = False
 	wad_id: Optional[str] = None
-	redis: Optional[RedisConfig] = None
 
 
 def list_maps(iwad: Path, files: Sequence[Path]) -> List[str]:
@@ -1730,6 +1722,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 			spawn = _capture_spawn_view(game)
 			if spawn is None:
 				print(f"⚠️ {map_name}: failed to capture spawn view; proceeding without spawn shot", file=sys.stderr)
+				continue
 			else:
 				spawn_rgb, spawn_yaw = spawn
 				_save_image(
