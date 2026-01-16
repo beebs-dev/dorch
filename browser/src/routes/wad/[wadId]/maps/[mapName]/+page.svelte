@@ -35,6 +35,29 @@
 			['Nodes', s.nodes]
 		] as const;
 	});
+
+	let modalImageUrl = $state<string | null>(null);
+
+	function closeModal() {
+		modalImageUrl = null;
+	}
+
+	$effect(() => {
+		if (!modalImageUrl) return;
+
+		const prevOverflow = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') closeModal();
+		};
+		window.addEventListener('keydown', onKeyDown);
+
+		return () => {
+			document.body.style.overflow = prevOverflow;
+			window.removeEventListener('keydown', onKeyDown);
+		};
+	});
 </script>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
@@ -161,7 +184,19 @@
 						</div>
 					{:else}
 						<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-inset ring-zinc-800">
-							<img src={img.url} alt="" class="aspect-[16/9] w-full object-cover" loading="lazy" />
+							<button
+								type="button"
+								class="block w-full"
+								onclick={() => (modalImageUrl = img.url)}
+								aria-label="Open screenshot"
+							>
+								<img
+									src={img.url}
+									alt=""
+									class="aspect-[16/9] w-full cursor-zoom-in object-cover"
+									loading="lazy"
+								/>
+							</button>
 							<div class="px-3 py-2 text-xs text-zinc-500">{img.type ?? img.kind ?? 'image'}</div>
 						</div>
 					{/if}
@@ -170,3 +205,24 @@
 		{/if}
 	</section>
 </section>
+
+{#if modalImageUrl}
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+		<button
+			type="button"
+			class="absolute inset-0 bg-zinc-950/80"
+			onclick={closeModal}
+			aria-label="Close screenshot"
+		/>
+		<div
+			class="relative w-full max-w-5xl overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-inset ring-zinc-800"
+			role="dialog"
+			aria-modal="true"
+			tabindex="-1"
+		>
+			<div class="max-h-[85vh] overflow-auto">
+				<img src={modalImageUrl} alt="" class="w-full object-contain" />
+			</div>
+		</div>
+	</div>
+{/if}
