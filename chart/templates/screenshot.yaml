@@ -96,7 +96,7 @@ spec:
         - name: DORCH_PANORAMA
           value: "1"
         - name: DORCH_SCREENSHOT_COUNT
-          value: "3"
+          value: "1"
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
