@@ -1562,14 +1562,19 @@ def resolve_s3_key(
 
 
 def download_s3_to_path(s3, bucket: str, key: str, out_path: str) -> None:
-    """Download s3://bucket/key -> out_path (atomic replace)."""
+    """Download s3://bucket/key → out_path (atomic replace)."""
     parent = os.path.dirname(out_path) or "."
     os.makedirs(parent, exist_ok=True)
     #print(f"Downloading s3://{bucket}/{key} to {out_path}...", file=sys.stderr)
     fd, tmp_path = tempfile.mkstemp(prefix=os.path.basename(out_path) + ".", dir=parent)
     try:
         os.close(fd)
+        start = time.perf_counter()
+        print(f"Downloading file • key={key}", file=sys.stderr)
         s3.download_file(bucket, key, tmp_path)
+        elapsed_ms = int((time.perf_counter() - start) * 1000.0)
+        rate = os.path.getsize(tmp_path) / 1048576 / max(elapsed_ms / 1000.0, 0.001)
+        print(f"Download complete • size={(os.path.getsize(tmp_path) / 1048576):.2f} MiB • elapsed={elapsed_ms} ms • avg_rate={rate:.1f} MiB/s", file=sys.stderr)
         os.replace(tmp_path, out_path)
     except Exception:
         try:

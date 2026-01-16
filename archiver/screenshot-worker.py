@@ -11,6 +11,7 @@ import re
 import signal
 import sys
 import tempfile
+import threading
 import time
 from urllib.parse import urlparse
 from pathlib import Path
@@ -276,6 +277,7 @@ async def _keep_message_alive(*, msg, shutdown: asyncio.Event, interval: float) 
 
 async def _run_renderer_subprocess(*, wad_id: str) -> Dict[str, Any]:
 	print(f"running renderer for wad_id={wad_id}", file=sys.stderr)
+	timeout_s = float(_render_timeout_seconds())
 	proc = await asyncio.create_subprocess_exec(
 		sys.executable,
 		"/app/screenshot-renderer.py",
@@ -283,7 +285,30 @@ async def _run_renderer_subprocess(*, wad_id: str) -> Dict[str, Any]:
 		wad_id,
 		stdout=asyncio.subprocess.PIPE,
 		stderr=asyncio.subprocess.PIPE,
+		# Isolate the renderer so we can kill its entire process group (VizDoom can
+		# exec/spawn a separate `vizdoom` binary). Without this, a hung vizdoom
+		# process can outlive the renderer and stall the worker indefinitely.
+		start_new_session=True,
 	)
+
+	# Hard kill watchdog in a thread so it still fires even if the asyncio loop
+	# gets wedged (we've seen VizDoom hangs that effectively stall rendering).
+	stop_kill = threading.Event()
+	hard_killed = threading.Event()
+
+	def _kill_process_group() -> None:
+		with contextlib.suppress(Exception):
+			os.killpg(int(proc.pid), signal.SIGKILL)
+		with contextlib.suppress(Exception):
+			proc.kill()
+
+	def _hard_kill_after_timeout() -> None:
+		if stop_kill.wait(timeout_s):
+			return
+		hard_killed.set()
+		_kill_process_group()
+
+	threading.Thread(target=_hard_kill_after_timeout, daemon=True).start()
 
 	async def _stream_and_capture_tail(
 		stream: asyncio.StreamReader,
@@ -309,12 +334,11 @@ async def _run_renderer_subprocess(*, wad_id: str) -> Dict[str, Any]:
 	try:
 		stdout_b, stderr_tail, _ = await asyncio.wait_for(
 			asyncio.gather(stdout_task, stderr_task, wait_task),
-			timeout=_render_timeout_seconds(),
+			timeout=timeout_s,
 		)
 	except asyncio.CancelledError:
 		# Ensure the subprocess and its pipes are torn down before the loop closes.
-		with contextlib.suppress(ProcessLookupError):
-			proc.kill()
+		_kill_process_group()
 		with contextlib.suppress(Exception):
 			await proc.wait()
 		for t in (stdout_task, stderr_task, wait_task):
@@ -326,27 +350,63 @@ async def _run_renderer_subprocess(*, wad_id: str) -> Dict[str, Any]:
 			)
 		raise
 	except asyncio.TimeoutError:
-		with contextlib.suppress(ProcessLookupError):
-			proc.kill()
+		hard_killed.set()
+		_kill_process_group()
 		# Drain streams after kill so we can return useful output.
 		with contextlib.suppress(Exception):
 			await proc.wait()
 		stdout_b, stderr_tail = await asyncio.gather(stdout_task, stderr_task, return_exceptions=False)
+		stop_kill.set()
 		return {
 			"ok": False,
 			"retry": True,
 			"kind": "Timeout",
-			"message": f"renderer timed out after {_render_timeout_seconds()}s",
+			"message": f"renderer timed out after {timeout_s}s",
 			"stderr": (stderr_tail or "")[-4000:],
+			"returncode": proc.returncode,
+		}
+	finally:
+		stop_kill.set()
+
+	# If the watchdog fired, treat this as a timeout even if we raced with the
+	# asyncio wait_for path or got a SIGKILL return code.
+	if hard_killed.is_set():
+		stderr = stderr_tail or ""
+		stdout = (stdout_b or b"").decode("utf-8", errors="replace").strip()
+		return {
+			"ok": False,
+			"retry": True,
+			"kind": "Timeout",
+			"message": f"renderer hard-killed after {timeout_s}s",
+			"stderr": stderr[-4000:],
+			"stdout": stdout[-4000:],
 			"returncode": proc.returncode,
 		}
 
 	stderr = stderr_tail or ""
 	stdout = (stdout_b or b"").decode("utf-8", errors="replace").strip()
 
+	def _maybe_read_vizdoom_crash_log() -> Optional[str]:
+		# VizDoom writes a fixed-name crash log in the current working directory.
+		# When multiple workers crash, this can get overwritten; grab tail ASAP.
+		try:
+			p = Path("vizdoom-crash.log")
+			if not p.exists() or not p.is_file():
+				return None
+			text = p.read_text(errors="replace")
+			# Keep a reasonable tail; this will be included in NATS/worker stderr.
+			tail = text[-16000:]
+			with contextlib.suppress(Exception):
+				p.unlink()
+			return tail
+		except Exception:
+			return None
+
+	crash_log_tail = _maybe_read_vizdoom_crash_log()
+
 	# Non-zero returncode includes crashes (e.g., SIGSEGV => -11).
 	if proc.returncode != 0:
-		return {
+		out: Dict[str, Any] = {
 			"ok": False,
 			"retry": True,
 			"kind": "RendererCrashed",
@@ -355,6 +415,9 @@ async def _run_renderer_subprocess(*, wad_id: str) -> Dict[str, Any]:
 			"stdout": stdout[-4000:],
 			"returncode": proc.returncode,
 		}
+		if crash_log_tail:
+			out["vizdoom_crash_log"] = crash_log_tail
+		return out
 
 	try:
 		obj = json.loads(stdout) if stdout else None
@@ -680,7 +743,10 @@ async def _run(args: argparse.Namespace) -> int:
 								_SCREENSHOT_NO_MAPS_TOTAL.inc()
 						else:
 							for map_name, items in map_images.items():
-								put_wad_map_images_to_wadinfo(
+								# Avoid blocking the event loop on synchronous HTTP calls;
+								# keepalive_task needs the loop to tick so it can extend ack wait.
+								await asyncio.to_thread(
+									put_wad_map_images_to_wadinfo,
 									wadinfo_base_url=wadinfo_base_url,
 									wad_id=wad_id,
 									map_name=map_name,
@@ -694,9 +760,12 @@ async def _run(args: argparse.Namespace) -> int:
 						kind = str(result.get("kind") or "RendererError")
 						message = str(result.get("message") or "")
 						stderr_tail = str(result.get("stderr") or "")
+						crash_log = str(result.get("vizdoom_crash_log") or "")
 						meta.eprint(f"screenshot-worker: renderer failed kind={kind} retry={retry} wad_id={wad_id} msg={message}")
 						if stderr_tail.strip():
 							meta.eprint(f"screenshot-worker: renderer stderr (tail): {stderr_tail[-4000:]}")
+						if crash_log.strip():
+							meta.eprint(f"screenshot-worker: vizdoom-crash.log (tail): {crash_log[-4000:]}")
 						if _PROM_AVAILABLE:
 							_SCREENSHOT_JOBS_TOTAL.labels("failure").inc()
 							_SCREENSHOT_EXCEPTIONS_TOTAL.labels(kind).inc()
