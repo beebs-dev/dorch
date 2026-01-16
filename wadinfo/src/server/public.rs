@@ -41,7 +41,6 @@ pub async fn run_server(
 
     // Unprotected endpoints (no Keycloak middleware)
     let router = Router::new()
-        .route("/wad/{id}/images", get(internal::list_wad_images))
         .route(
             "/wad/{id}/maps/{map}/images",
             get(internal::list_wad_map_images),

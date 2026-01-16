@@ -1,0 +1,123 @@
+export type Uuid = string;
+
+export interface WadFileMeta {
+	/** "PWAD" | "IWAD" | "PK3" | ... */
+	type?: string;
+	size?: number | null;
+	url?: string | null;
+	corrupt?: boolean | null;
+	corruptMessage?: string | null;
+}
+
+export interface WadContentMeta {
+	maps?: string[] | null;
+	counts?: Record<string, number> | null;
+	engines_guess?: string[] | null;
+	iwads_guess?: string[] | null;
+}
+
+export interface WadMeta {
+	id: Uuid;
+	sha1: string;
+	sha256?: string | null;
+	title?: string | null;
+	file: WadFileMeta;
+	content: WadContentMeta;
+}
+
+export interface MapStats {
+	things?: number;
+	linedefs?: number;
+	sidedefs?: number;
+	vertices?: number;
+	sectors?: number;
+	segs?: number;
+	ssectors?: number;
+	nodes?: number;
+	textures?: string[];
+}
+
+export interface MapMonsters {
+	total?: number;
+	by_type?: Record<string, number>;
+}
+
+export interface MapItems {
+	total?: number;
+	by_type?: Record<string, number>;
+}
+
+export interface MapMechanics {
+	teleports?: boolean;
+	keys?: string[];
+	secret_exit?: boolean;
+}
+
+export interface MapDifficulty {
+	uv_monsters?: number;
+	hmp_monsters?: number;
+	htr_monsters?: number;
+	uv_items?: number;
+	hmp_items?: number;
+	htr_items?: number;
+}
+
+export interface MapMetadata {
+	title?: string | null;
+	music?: string | null;
+	source?: string;
+	// The map detail endpoint includes this under metadata.
+	wad_meta?: WadMeta;
+}
+
+export interface MapStat {
+	map: string;
+	format?: string;
+	stats?: MapStats;
+	monsters?: MapMonsters;
+	items?: MapItems;
+	mechanics?: MapMechanics;
+	difficulty?: MapDifficulty;
+	compatibility?: string;
+	metadata?: MapMetadata;
+
+	/** Per-map screenshot/panorama metadata (embedded by read endpoints). */
+	images?: WadImage[];
+}
+
+export interface ListResponse<TItem> {
+	items: TItem[];
+	full_count: number;
+	offset: number;
+	limit: number;
+	truncated: boolean;
+}
+
+export type ListWadsResponse = ListResponse<WadMeta>;
+
+export interface GetWadResponse {
+	meta: WadMeta;
+	maps: MapStat[];
+}
+
+export type GetWadMapResponse = MapStat & { wad_meta: WadMeta };
+
+export interface WadSearchResults extends ListResponse<WadMeta> {
+	request_id: string;
+	query: string;
+}
+
+export interface WadImage {
+	id?: string | null;
+	url: string;
+	/** "screenshot" | "panorama" | ... (server uses field name `type`) */
+	type?: string | null;
+	/** Some producers may emit `kind` instead of `type`. */
+	kind?: string | null;
+}
+
+// Future wiring: ratings are not in the schema yet.
+export interface RatingSummary {
+	average?: number | null; // 1..5
+	count?: number | null;
+}

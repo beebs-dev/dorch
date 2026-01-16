@@ -33,7 +33,6 @@ pub async fn run_server(
     let router = Router::new()
         .route("/wad", get(list_wads))
         .route("/wad/{id}", get(get_wad))
-        .route("/wad/{id}/images", get(list_wad_images))
         .route("/wad/{id}/map/{map}", get(get_wad_map))
         .route(
             "/wad/{id}/maps/{map}/images",
@@ -133,16 +132,6 @@ pub async fn get_wad(State(state): State<App>, Path(wad_id): Path<Uuid>) -> impl
         Ok(Some(wad)) => (StatusCode::OK, Json(wad)).into_response(),
         Ok(None) => response::not_found(anyhow::anyhow!("WAD not found")),
         Err(e) => response::error(e.context("Failed to get wad")),
-    }
-}
-
-pub async fn list_wad_images(
-    State(state): State<App>,
-    Path(wad_id): Path<Uuid>,
-) -> impl IntoResponse {
-    match state.db.list_wad_images(wad_id).await {
-        Ok(images) => (StatusCode::OK, Json(images)).into_response(),
-        Err(e) => response::error(e.context("Failed to list wad images")),
     }
 }
 

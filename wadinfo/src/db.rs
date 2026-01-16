@@ -1,10 +1,10 @@
 use crate::client::{
-    GetWadMapResponse, ListWadsResponse, WadImage, WadMapImages, WadSearchResults,
+    GetWadMapResponse, ListWadsResponse, ReadMapStat, ReadWad, WadImage, WadSearchResults,
 };
 use anyhow::{Context, Result};
 use dorch_common::{
     postgres::strip_sql_comments,
-    types::wad::{InsertWad, InsertWadMeta, MapStat, ReadWad, ReadWadMeta},
+    types::wad::{InsertWad, ReadWadMeta},
 };
 use owo_colors::OwoColorize;
 use serde_json::Value;
@@ -85,8 +85,6 @@ mod sql {
     pub const LIST_WAD_MAP_IMAGES: &str = include_str!("sql/list_wad_map_images.sql");
     pub const DELETE_WAD_MAP_IMAGES: &str = include_str!("sql/delete_wad_map_images.sql");
     pub const INSERT_WAD_MAP_IMAGE: &str = include_str!("sql/insert_wad_map_image.sql");
-
-    pub const LIST_WAD_IMAGES: &str = include_str!("sql/list_wad_images.sql");
 }
 
 #[derive(Clone)]
@@ -199,10 +197,7 @@ impl Database {
             .await
             .context("failed to prepare INSERT_WAD_MAP_IMAGE")?;
 
-        _ = conn
-            .prepare(sql::LIST_WAD_IMAGES)
-            .await
-            .context("failed to prepare LIST_WAD_IMAGES")?;
+        _ = conn;
         Ok(Self { pool })
     }
 
@@ -242,7 +237,8 @@ impl Database {
         let mut maps = Vec::with_capacity(map_rows.len());
         for row in map_rows {
             let map_json: serde_json::Value = row.try_get("map_json")?;
-            let map: MapStat = serde_json::from_value(map_json).context("deserialize MapStat")?;
+            let map: ReadMapStat =
+                serde_json::from_value(map_json).context("deserialize ReadMapStat")?;
             maps.push(map);
         }
 
@@ -278,7 +274,8 @@ impl Database {
         }
 
         let map_json: serde_json::Value = row.try_get("map_json")?;
-        let map: MapStat = serde_json::from_value(map_json).context("deserialize MapStat")?;
+        let map: ReadMapStat =
+            serde_json::from_value(map_json).context("deserialize ReadMapStat")?;
 
         Ok(Some(GetWadMapResponse { map, wad_meta }))
     }
@@ -306,36 +303,6 @@ impl Database {
             });
         }
         Ok(out)
-    }
-
-    pub async fn list_wad_images(&self, wad_id: Uuid) -> Result<Vec<WadMapImages>> {
-        let conn = self.pool.get().await.context("failed to get connection")?;
-        let stmt = conn
-            .prepare_cached(sql::LIST_WAD_IMAGES)
-            .await
-            .context("failed to prepare LIST_WAD_IMAGES")?;
-        let rows = conn
-            .query(&stmt, &[&wad_id])
-            .await
-            .context("failed to execute LIST_WAD_IMAGES")?;
-
-        let mut grouped: BTreeMap<String, Vec<WadImage>> = BTreeMap::new();
-        for row in rows {
-            let map_name: String = row.try_get("map_name")?;
-            let id: Uuid = row.try_get("id")?;
-            let url: String = row.try_get("url")?;
-            let kind: Option<String> = row.try_get("type")?;
-            grouped.entry(map_name).or_default().push(WadImage {
-                id: Some(id),
-                url,
-                kind,
-            });
-        }
-
-        Ok(grouped
-            .into_iter()
-            .map(|(map, items)| WadMapImages { map, items })
-            .collect())
     }
 
     pub async fn replace_wad_map_images(

@@ -1,6 +1,6 @@
 use dorch_common::{
     Pagination,
-    types::wad::{InsertWadMeta, MapStat, ReadWadMeta},
+    types::wad::{MapStat, ReadWadMeta},
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -15,6 +15,26 @@ pub struct WadImage {
 
     #[serde(rename = "type", default)]
     pub kind: Option<String>,
+}
+
+/// Read-only view of a map, including image metadata.
+///
+/// The underlying per-map schema is stored as JSONB for speed. We add `images` at query time
+/// (Postgres JSONB composition) so read endpoints can return a richer shape without changing the
+/// insert/upsert payload types.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ReadMapStat {
+    #[serde(flatten)]
+    pub map: MapStat,
+
+    #[serde(default)]
+    pub images: Vec<WadImage>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ReadWad {
+    pub meta: ReadWadMeta,
+    pub maps: Vec<ReadMapStat>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -45,7 +65,7 @@ pub struct ListWadsRequest {
 #[derive(Serialize)]
 pub struct GetWadMapResponse {
     #[serde(flatten)]
-    pub map: MapStat,
+    pub map: ReadMapStat,
     pub wad_meta: ReadWadMeta,
 }
 
