@@ -8,13 +8,36 @@
 
 	let { url, pitchLimitDeg = 10 }: Props = $props();
 
+	let container: HTMLDivElement | null = null;
 	let canvas: HTMLCanvasElement | null = null;
 	let error = $state<string | null>(null);
+	let isFullscreen = $state(false);
+
+	async function toggleFullscreen() {
+		if (!container) return;
+		try {
+			if (!document.fullscreenElement) {
+				await container.requestFullscreen();
+			} else {
+				await document.exitFullscreen();
+			}
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to toggle fullscreen';
+		}
+	}
 
 	onMount(() => {
 		let stop = false;
 		let raf = 0;
 		let cleanup: (() => void) | null = null;
+		let fullscreenCleanup: (() => void) | null = null;
+
+		const handleFullscreenChange = () => {
+			isFullscreen = !!container && document.fullscreenElement === container;
+		};
+		document.addEventListener('fullscreenchange', handleFullscreenChange);
+		handleFullscreenChange();
+		fullscreenCleanup = () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
 
 		(async () => {
 			if (!canvas) return;
@@ -158,6 +181,8 @@
 			}
 
 			cleanup = () => {
+				fullscreenCleanup?.();
+
 				renderer.domElement.removeEventListener('wheel', onWheel as any);
 				renderer.domElement.removeEventListener('dblclick', onDblClick as any);
 
@@ -186,6 +211,7 @@
 				raf = requestAnimationFrame(animate);
 			};
 			animate();
+
 		})();
 
 		return () => {
@@ -196,8 +222,41 @@
 	});
 </script>
 
-<div class="overflow-hidden rounded-xl ring-1 ring-inset ring-zinc-800">
-	<div class="aspect-[16/9] bg-zinc-900">
+<div
+	bind:this={container}
+	class="relative overflow-hidden rounded-xl ring-1 ring-inset ring-zinc-800"
+>
+	<button
+		type="button"
+		onclick={toggleFullscreen}
+		class="absolute right-2 top-2 z-10 rounded-md bg-zinc-950/70 px-2 py-2 text-zinc-200 ring-1 ring-inset ring-zinc-700 hover:bg-zinc-950/85"
+		aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+		title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+	>
+		{#if isFullscreen}
+			<svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M9 3H5a2 2 0 0 0-2 2v4" />
+				<path d="M15 3h4a2 2 0 0 1 2 2v4" />
+				<path d="M9 21H5a2 2 0 0 1-2-2v-4" />
+				<path d="M15 21h4a2 2 0 0 0 2-2v-4" />
+				<path d="M10 14L3 21" />
+				<path d="M14 10l7-7" />
+			</svg>
+		{:else}
+			<svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M8 3H5a2 2 0 0 0-2 2v3" />
+				<path d="M16 3h3a2 2 0 0 1 2 2v3" />
+				<path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+				<path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+				<path d="M8 3l5 5" />
+				<path d="M16 3l-5 5" />
+				<path d="M8 21l5-5" />
+				<path d="M16 21l-5-5" />
+			</svg>
+		{/if}
+	</button>
+
+	<div class={isFullscreen ? 'h-full w-full bg-zinc-900' : 'aspect-[16/9] bg-zinc-900'}>
 		<canvas bind:this={canvas} class="h-full w-full cursor-grab active:cursor-grabbing"></canvas>
 	</div>
 	{#if error}
