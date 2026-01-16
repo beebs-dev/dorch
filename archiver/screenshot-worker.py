@@ -723,7 +723,7 @@ async def _run(args: argparse.Namespace) -> int:
 				finally:
 					if keepalive_task is not None:
 						keepalive_task.cancel()
-						with contextlib.suppress(Exception):
+						with contextlib.suppress(asyncio.CancelledError):
 							await keepalive_task
 					if _PROM_AVAILABLE:
 						_SCREENSHOT_IN_PROGRESS.dec()
