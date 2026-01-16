@@ -80,8 +80,9 @@
 				camera.updateProjectionMatrix();
 			}
 
-			globalThis.addEventListener('wheel', onWheel, { passive: false });
-			globalThis.addEventListener('dblclick', onDblClick);
+			// Only capture wheel/dblclick when the mouse is over the pano canvas.
+			renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
+			renderer.domElement.addEventListener('dblclick', onDblClick);
 
 			const loader = new THREE.TextureLoader();
 			let geometry: any = null;
@@ -157,8 +158,8 @@
 			}
 
 			cleanup = () => {
-				globalThis.removeEventListener('wheel', onWheel as any);
-				globalThis.removeEventListener('dblclick', onDblClick as any);
+				renderer.domElement.removeEventListener('wheel', onWheel as any);
+				renderer.domElement.removeEventListener('dblclick', onDblClick as any);
 
 				try {
 					controls.dispose();
