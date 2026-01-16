@@ -90,18 +90,10 @@ pub fn make_rustls(certs: Vec<CertificateDer<'_>>) -> Result<MakeRustlsConnect> 
 
 #[derive(Deserialize, Default, Clone, Debug)]
 pub struct Pagination {
-    #[serde(
-        rename = "o",
-        default,
-        deserialize_with = "deserialize_i64_from_string_or_int"
-    )]
+    #[serde(default, deserialize_with = "deserialize_i64_from_string_or_int")]
     pub offset: i64,
 
-    #[serde(
-        rename = "l",
-        default,
-        deserialize_with = "deserialize_opt_i64_from_string_or_int"
-    )]
+    #[serde(default, deserialize_with = "deserialize_opt_i64_from_string_or_int")]
     pub limit: Option<i64>,
 }
 
