@@ -224,7 +224,7 @@
 
 <div
 	bind:this={container}
-	class="relative overflow-hidden rounded-xl ring-1 ring-inset ring-zinc-800"
+	class={`relative overflow-hidden bg-zinc-900 ${isFullscreen ? 'h-full w-full' : 'aspect-[16/9]'}`}
 >
 	<button
 		type="button"
@@ -256,12 +256,9 @@
 		{/if}
 	</button>
 
-	<div class={isFullscreen ? 'h-full w-full bg-zinc-900' : 'aspect-[16/9] bg-zinc-900'}>
-		<canvas bind:this={canvas} class="h-full w-full cursor-grab active:cursor-grabbing"></canvas>
-	</div>
-	{#if error}
-		<div class="border-t border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-300">
-			{error}
-		</div>
-	{/if}
+	<canvas bind:this={canvas} class="h-full w-full cursor-grab active:cursor-grabbing"></canvas>
 </div>
+
+{#if error}
+	<div class="mt-2 text-xs text-zinc-400">{error}</div>
+{/if}

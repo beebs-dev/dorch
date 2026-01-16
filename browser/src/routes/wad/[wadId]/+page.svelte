@@ -217,20 +217,17 @@
 							<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 								{#each m.images ?? [] as img (img.id ?? img.url)}
 									{#if isPano(img)}
-										<details class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-inset ring-zinc-800">
-											<summary class="cursor-pointer px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900">
-												Panorama (pano)
-												<span class="ml-2 text-xs text-zinc-500">click to open</span>
-											</summary>
-											<div class="p-3">
-												<PanoViewer url={img.url} />
-												<div class="mt-2 text-xs text-zinc-500">
+										<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-inset ring-zinc-800">
+											<PanoViewer url={img.url} />
+											<div class="px-3 py-2 text-xs text-zinc-500">
+												<div class="flex flex-wrap items-center justify-between gap-2">
+													<span>pano</span>
 													<a class="underline hover:text-zinc-300" href={img.url} target="_blank" rel="noreferrer">
 														Open image
 													</a>
 												</div>
 											</div>
-										</details>
+										</div>
 									{:else}
 										<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-inset ring-zinc-800">
 											<img src={img.url} alt="" class="aspect-[16/9] w-full object-cover" loading="lazy" />
