@@ -63,6 +63,12 @@ async function requestJson<T>(
 
 export function createWadinfoClient(fetchFn: typeof fetch) {
 	return {
+		async featured(opts: { limit?: number } = {}): Promise<ListWadsResponse> {
+			const url = buildUrl('/featured');
+			if (typeof opts.limit === 'number') url.searchParams.set('limit', String(opts.limit));
+			return requestJson<ListWadsResponse>(fetchFn, url.pathname + `?${url.searchParams.toString()}`);
+		},
+
 		async listWads(opts: { offset: number; limit: number; desc?: boolean }): Promise<ListWadsResponse> {
 			const url = buildUrl('/wad');
 			url.searchParams.set('offset', String(opts.offset));

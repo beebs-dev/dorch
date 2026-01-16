@@ -46,7 +46,7 @@ export const load: PageServerLoad = async ({ fetch, url, setHeaders }) => {
 
 	let featured: Array<{ wad: WadMeta; images: WadImage[] }> = [];
 	if (!q && offset === 0) {
-		const slice = results.items.slice(0, 6);
+		const slice = (await wadinfo.featured({ limit: 6 })).items;
 		const images = await Promise.all(
 			slice.map(async (wad) => {
 				try {

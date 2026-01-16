@@ -58,6 +58,8 @@ mod sql {
     pub const LIST_WADS_ASC: &str = include_str!("sql/list_wads_asc.sql");
     pub const LIST_WADS_DESC: &str = include_str!("sql/list_wads_desc.sql");
 
+    pub const FEATURED_WADS: &str = include_str!("sql/featured_wads.sql");
+
     pub const GET_WAD: &str = include_str!("sql/get_wad.sql");
     pub const GET_WAD_MAPS: &str = include_str!("sql/get_wad_maps.sql");
     pub const GET_WAD_MAP: &str = include_str!("sql/get_wad_map.sql");
@@ -113,6 +115,11 @@ impl Database {
             .prepare(sql::LIST_WADS_DESC)
             .await
             .context("failed to prepare LIST_WADS_DESC")?;
+
+        _ = conn
+            .prepare(sql::FEATURED_WADS)
+            .await
+            .context("failed to prepare FEATURED_WADS")?;
 
         _ = conn
             .prepare(sql::GET_WAD)
@@ -449,6 +456,55 @@ impl Database {
             offset,
             limit,
             truncated: offset + limit < full_count,
+        })
+    }
+
+    pub async fn featured_wads(&self, limit: i64) -> Result<ListWadsResponse> {
+        let mut conn = self.pool.get().await.context("failed to get connection")?;
+        let tx = conn
+            .transaction()
+            .await
+            .context("failed to begin transaction")?;
+
+        let limit = limit.clamp(1, 100);
+        let stmt = tx
+            .prepare_cached(sql::FEATURED_WADS)
+            .await
+            .context("failed to prepare FEATURED_WADS")?;
+
+        let rows = tx
+            .query(&stmt, &[&limit])
+            .await
+            .context("failed to execute FEATURED_WADS")?;
+
+        let full_count = rows
+            .first()
+            .map(|r| r.try_get::<_, i64>("full_count"))
+            .transpose()
+            .context("failed to get full_count from FEATURED_WADS")?
+            .unwrap_or(0);
+
+        let items = rows
+            .into_iter()
+            .map(|row| {
+                let row_wad_id: Uuid = row.try_get("wad_id")?;
+                let meta_json: serde_json::Value = row.try_get("meta_json")?;
+                let mut meta = serde_json::from_value::<ReadWadMeta>(meta_json)
+                    .context("deserialize ReadWadMeta from meta_json")?;
+                if meta.id.is_nil() {
+                    meta.id = row_wad_id;
+                }
+                Ok(meta)
+            })
+            .collect::<Result<Vec<ReadWadMeta>>>()?;
+
+        tx.commit().await.context("failed to commit transaction")?;
+        Ok(ListWadsResponse {
+            items,
+            full_count,
+            offset: 0,
+            limit,
+            truncated: limit < full_count,
         })
     }
 

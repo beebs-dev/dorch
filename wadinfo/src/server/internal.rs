@@ -17,6 +17,11 @@ use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
+#[derive(serde::Deserialize)]
+pub struct FeaturedRequest {
+    pub limit: Option<i64>,
+}
+
 pub async fn run_server(
     cancel: CancellationToken,
     args: crate::args::ServerArgs,
@@ -32,6 +37,7 @@ pub async fn run_server(
         .layer(middleware::from_fn(access_log::internal));
     let router = Router::new()
         .route("/wad", get(list_wads))
+        .route("/featured", get(featured_wads))
         .route("/wad/{id}", get(get_wad))
         .route("/wad/{id}/map/{map}", get(get_wad_map))
         .route(
@@ -113,6 +119,17 @@ pub async fn list_wads(
     match state.db.list_wads(offset, limit, req.sort_desc).await {
         Ok(wads) => (StatusCode::OK, Json(wads)).into_response(),
         Err(e) => response::error(e.context("Failed to list wads")),
+    }
+}
+
+pub async fn featured_wads(
+    State(state): State<App>,
+    Query(req): Query<FeaturedRequest>,
+) -> impl IntoResponse {
+    let limit = req.limit.unwrap_or(6).clamp(1, 100);
+    match state.db.featured_wads(limit).await {
+        Ok(wads) => (StatusCode::OK, Json(wads)).into_response(),
+        Err(e) => response::error(e.context("Failed to list featured wads")),
     }
 }
 
