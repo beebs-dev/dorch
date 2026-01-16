@@ -1219,7 +1219,7 @@ def _gather_candidates(
 	return candidates
 
 
-def _save_image(arr: np.ndarray, out_path: Path, fmt: str, quality: int, wad_id: Optional[str], map_name: str, i: int, total: int) -> None:
+def _save_image(arr: np.ndarray, out_path: Path, fmt: str, quality: int, wad_id: Optional[str], map_name: str, idx: int, num: int, mi: int, mc: int) -> None:
 	_ensure_parent_dir(out_path)
 	img = Image.fromarray(arr, mode="RGB")
 	fmt_u = fmt.upper()
@@ -1231,10 +1231,11 @@ def _save_image(arr: np.ndarray, out_path: Path, fmt: str, quality: int, wad_id:
 		img.save(out_path, format="WEBP", quality=quality, method=6)
 	else:
 		raise ValueError(f"Unknown format: {fmt}")
+	file = os.path.basename(out_path)
 	if wad_id is not None:
-		print(f"🖼️  Saved image {i+1}/{total} • wad_id={wad_id} • map_name={map_name} • out_path={out_path}")
+		print(f"🖼️  [{mi+1}/{mc}] Saved image {idx+1}/{num} • wad_id={wad_id} • map_name={map_name} • file={file}")
 	else:
-		print(f"🖼️  Saved image {i+1}/{total} • map_name={map_name} • out_path={out_path}")
+		print(f"🖼️  [{mi+1}/{mc}] Saved image {idx+1}/{num} • map_name={map_name} • file={file}")
 
 def _signed_angle_delta_deg(target: float, current: float) -> float:
 	# Return signed delta in [-180, 180].
@@ -1715,7 +1716,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 			saved = 0
 			idx = 0
 			
-			print(f"🗺️  [{mi + 1}/{len(maps)}] Rendering map • map_name={map_name} • max_images={config.num}")
+			print(f"🗺️  [{mi + 1}/{len(maps)}] Rendering map • wad_id={config.wad_id} • map_name={map_name} • max_images={config.num}")
 
 			# Always capture shot 0 at the player spawn viewpoint/orientation.
 			_new_episode(game, invulnerable=bool(config.invulnerable))
@@ -1731,8 +1732,10 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 					quality=quality,
 					wad_id=config.wad_id,
 					map_name=map_name,
-					i=idx,
-					total=int(config.num),
+					idx=idx,
+					num=int(config.num),
+					mi=mi,
+					mc=len(maps),
 				)
 				if bool(config.panorama):
 					try:
@@ -1759,9 +1762,10 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 							quality=pano_quality,
 							wad_id=config.wad_id,
 							map_name=map_name,
-							i=idx,
-							total=int(config.num),
-						)
+							idx=idx,
+							num=int(config.num),
+							mi=mi,
+							mc=len(maps))
 					except Exception as e:
 						print(f"⚠️ {map_name}: panorama capture failed for spawn shot {idx}: {e}", file=sys.stderr)
 				saved = 1
@@ -1813,8 +1817,10 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 								quality=quality,
 								wad_id=config.wad_id,
 								map_name=map_name,
-								i=idx,
-								total=int(config.num))
+								idx=idx,
+								num=int(config.num),
+								mi=mi,
+								mc=len(maps),)
 					if bool(config.panorama):
 						try:
 							pano_xy = _pick_other_xy(
@@ -1866,8 +1872,10 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 								quality=pano_quality,
 								wad_id=config.wad_id,
 								map_name=map_name,
-								i=idx,
-								total=int(config.num))
+								idx=idx,
+								num=int(config.num),
+								mi=mi,
+								mc=len(maps))
 						except Exception as e:
 							print(f"⚠️ {map_name}: panorama capture failed for shot {idx}: {e}", file=sys.stderr)
 					saved += 1
@@ -1898,9 +1906,10 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 								quality=quality,
 								wad_id=config.wad_id,
 								map_name=map_name,
-								i=idx,
-								total=int(config.num)
-							)
+								idx=idx,
+								num=int(config.num),
+								mi=mi,
+								mc=len(maps))
 							if bool(config.panorama):
 								try:
 									pano_cand = None
@@ -1948,9 +1957,10 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 										quality=pano_quality,
 										wad_id=config.wad_id,
 										map_name=map_name,
-										i=idx,
-										total=int(config.num)
-									)
+										idx=idx,
+										num=int(config.num),
+										mi=mi,
+										mc=len(maps))
 								except Exception as e:
 									print(f"⚠️ {map_name}: panorama capture failed for shot {j}: {e}", file=sys.stderr)
 							saved += 1
@@ -1978,8 +1988,10 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 								quality=quality,
 								wad_id=config.wad_id,
 								map_name=map_name,
-								i=idx,
-								total=int(config.num))
+								idx=idx,
+								num=int(config.num),
+								mi=mi,
+								mc=len(maps))
 					if bool(config.panorama):
 						try:
 							pano_cand = None
@@ -2033,9 +2045,10 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 								quality=pano_quality,
 								wad_id=config.wad_id,
 								map_name=map_name,
-								i=idx,
-								total=int(config.num)
-							)
+								idx=idx,
+								num=int(config.num),
+								mi=mi,
+								mc=len(maps))
 						except Exception as e:
 							print(f"⚠️ {map_name}: panorama capture failed for shot {i}: {e}", file=sys.stderr)
 					saved += 1

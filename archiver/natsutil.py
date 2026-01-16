@@ -43,9 +43,12 @@ def nats_flush_timeout_seconds() -> float:
 
 
 async def connect_nats() -> NATS:
-	servers = _env("NATS_URL", "nats://localhost:4222")
-	user = _env("NATS_USER", "")
-	password = _env("NATS_PASSWORD", "")
+	# Local dev defaults to localhost; in Kubernetes default to the `nats` namespace.
+	in_k8s = bool(os.getenv("KUBERNETES_SERVICE_HOST"))
+	servers = _env("NATS_URL", "nats://nats.nats:4222" if in_k8s else "nats://localhost:4222")
+	# If user/password are not provided, use the common dorch defaults in-cluster.
+	user = _env("NATS_USER", "app" if in_k8s else "")
+	password = _env("NATS_PASSWORD", "devpass" if in_k8s else "")
 	token = _env("NATS_TOKEN", "")
 	name = _env("NATS_NAME", "dorch-archiver")
 	print(f"Connecting to NATS server at {servers} as {name}...")

@@ -330,33 +330,38 @@ async def _run_renderer_subprocess(*, wad_id: str) -> Dict[str, Any]:
 
 	stdout_task = asyncio.create_task(proc.stdout.read() if proc.stdout is not None else asyncio.sleep(0, result=b""))
 	stderr_task = asyncio.create_task(_stream_and_capture_tail(proc.stderr) if proc.stderr is not None else asyncio.sleep(0, result=""))
-	wait_task = asyncio.create_task(proc.wait())
+	timed_out = False
 	try:
-		stdout_b, stderr_tail, _ = await asyncio.wait_for(
-			asyncio.gather(stdout_task, stderr_task, wait_task),
-			timeout=timeout_s,
-		)
+		# IMPORTANT: Do not wrap `gather(stdout_task, stderr_task, ...)` in
+		# `asyncio.wait_for()`. On timeout, wait_for cancels the awaitable, which
+		# will cancel the read tasks, and then awaiting them again raises
+		# CancelledError (masking the original timeout).
+		await asyncio.wait_for(proc.wait(), timeout=timeout_s)
 	except asyncio.CancelledError:
 		# Ensure the subprocess and its pipes are torn down before the loop closes.
 		_kill_process_group()
 		with contextlib.suppress(Exception):
 			await proc.wait()
-		for t in (stdout_task, stderr_task, wait_task):
+		for t in (stdout_task, stderr_task):
 			t.cancel()
 		with contextlib.suppress(Exception):
-			await asyncio.wait_for(
-				asyncio.gather(stdout_task, stderr_task, wait_task, return_exceptions=True),
-				timeout=1.0,
-			)
+			await asyncio.wait_for(asyncio.gather(stdout_task, stderr_task, return_exceptions=True), timeout=1.0)
 		raise
 	except asyncio.TimeoutError:
+		timed_out = True
 		hard_killed.set()
 		_kill_process_group()
 		# Drain streams after kill so we can return useful output.
 		with contextlib.suppress(Exception):
 			await proc.wait()
-		stdout_b, stderr_tail = await asyncio.gather(stdout_task, stderr_task, return_exceptions=False)
+	finally:
 		stop_kill.set()
+
+	stdout_r, stderr_r = await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
+	stdout_b = stdout_r if isinstance(stdout_r, (bytes, bytearray)) else b""
+	stderr_tail = stderr_r if isinstance(stderr_r, str) else ""
+
+	if timed_out:
 		return {
 			"ok": False,
 			"retry": True,
@@ -365,8 +370,6 @@ async def _run_renderer_subprocess(*, wad_id: str) -> Dict[str, Any]:
 			"stderr": (stderr_tail or "")[-4000:],
 			"returncode": proc.returncode,
 		}
-	finally:
-		stop_kill.set()
 
 	# If the watchdog fired, treat this as a timeout even if we raced with the
 	# asyncio wait_for path or got a SIGKILL return code.
