@@ -20,6 +20,14 @@ create table if not exists wads (
   -- merged "best" fields
   title               text,
 
+  -- filenames.json / additional.json
+  preferred_filename  text,
+  added_at            timestamptz,
+  locked              boolean not null default false,
+  can_download        boolean not null default true,
+  adult               boolean not null default false,
+  hidden              boolean not null default false,
+
   -- file.*
   file_type           text not null,          -- IWAD/PWAD/PK3/UNKNOWN/etc (from wad_archive.type)
   file_size_bytes     bigint,                 -- from wad_archive.size
@@ -41,8 +49,25 @@ create table if not exists wads (
   updated_at          timestamptz not null default now()
 );
 
+-- Backfill-friendly: add new columns for existing deployments.
+alter table wads add column if not exists preferred_filename text;
+alter table wads add column if not exists added_at timestamptz;
+alter table wads add column if not exists locked boolean not null default false;
+alter table wads add column if not exists can_download boolean not null default true;
+alter table wads add column if not exists adult boolean not null default false;
+alter table wads add column if not exists hidden boolean not null default false;
+
 create index if not exists idx_wads_title_trgm
   on wads using gin (title gin_trgm_ops);
+
+create index if not exists idx_wads_preferred_filename_trgm
+  on wads using gin (preferred_filename gin_trgm_ops);
+
+create index if not exists idx_wads_hidden
+  on wads (hidden);
+
+create index if not exists idx_wads_can_download
+  on wads (can_download);
 
 create index if not exists idx_wads_file_type
   on wads (file_type);
@@ -59,6 +84,19 @@ create index if not exists idx_wads_meta_json
 -- ----------------------------
 -- Multi-valued merged fields: authors / descriptions / map list / text files
 -- ----------------------------
+create table if not exists wad_filenames (
+  wad_id      uuid not null references wads(wad_id) on delete cascade,
+  filename    text not null,
+  ord         int  not null,
+  primary key (wad_id, ord)
+);
+
+create index if not exists idx_wad_filenames_trgm
+  on wad_filenames using gin (filename gin_trgm_ops);
+
+create index if not exists idx_wad_filenames_filename
+  on wad_filenames (filename);
+
 create table if not exists wad_authors (
   wad_id      uuid not null references wads(wad_id) on delete cascade,
   author      text not null,

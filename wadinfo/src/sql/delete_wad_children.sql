@@ -25,6 +25,9 @@ with
 	del_descriptions as (
 		delete from wad_descriptions where wad_id = $1::uuid returning 1
 	),
+	del_filenames as (
+		delete from wad_filenames where wad_id = $1::uuid returning 1
+	),
 	del_map_list as (
 		delete from wad_map_list where wad_id = $1::uuid returning 1
 	),
@@ -45,6 +48,7 @@ from (
 	union all select 1 from del_maps
 	union all select 1 from del_authors
 	union all select 1 from del_descriptions
+	union all select 1 from del_filenames
 	union all select 1 from del_map_list
 	union all select 1 from del_text_files
 	union all select 1 from del_counts

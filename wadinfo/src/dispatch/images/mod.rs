@@ -40,24 +40,31 @@ pub async fn run(args: DispatchImagesRunArgs) -> Result<()> {
     while !cancel.is_cancelled() {
         let mut conn = db.get_conn().await?;
         let tx = conn.transaction().await.context("begin tx")?;
-        let Some(wad_id) = db.pull_one(&tx).await? else {
+        let wad_ids = db.pull_n(&tx, 10).await.context("pull_n")?;
+        if wad_ids.is_empty() {
             tx.commit().await.context("commit empty pull tx")?;
             empty_pulls = empty_pulls.saturating_add(1);
             tokio::select! {
                 _ = sleep(backoff_delay(empty_pulls)) => continue,
                 _ = cancel.cancelled() => break,
             }
-        };
+        }
         empty_pulls = 0;
-        let publish_ack = js
-            .publish(subjects::images(wad_id), wad_id.to_string().into())
-            .await
-            .context("JetStream publish failed")?;
-        publish_ack.await.context("JetStream publish ack failed")?;
-        db.mark_dispatched_images(&tx, wad_id)
+        for wad_id in &wad_ids {
+            let publish_ack = js
+                .publish(subjects::images(wad_id), wad_id.to_string().into())
+                .await
+                .context("JetStream publish failed")?;
+            publish_ack.await.context("JetStream publish ack failed")?;
+        }
+        db.mark_dispatched_images_many(&tx, &wad_ids)
             .await
             .context("Failed to mark images dispatched")?;
         tx.commit().await.context("commit dispatch-images tx")?;
+        tokio::select! { // prevent tight loop
+            _ = sleep(Duration::from_millis(431)) => continue,
+            _ = cancel.cancelled() => break,
+        }
     }
 
     Ok(())

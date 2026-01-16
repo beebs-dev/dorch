@@ -1624,6 +1624,8 @@ def build_output_object(
     extracted: Dict[str, Any],
     wad_archive: Dict[str, Any],
     idgames: Optional[Dict[str, Any]],
+    filenames: Optional[Dict[str, Any]] = None,
+    additional: Optional[Dict[str, Any]] = None,
     readmes: Optional[Dict[str, Any]] = None,
     integrity: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -1813,8 +1815,57 @@ def build_output_object(
     ex_authors = extracted.get("authors")
     ex_descs = extracted.get("descriptions")
 
+    # filenames.json (optional)
+    filenames_list: Optional[List[str]] = None
+    if isinstance(filenames, dict):
+        fl = filenames.get("filenames")
+        if isinstance(fl, list):
+            tmp: List[str] = []
+            for f in fl:
+                if not isinstance(f, str):
+                    continue
+                s = f.strip()
+                if s:
+                    tmp.append(s)
+            filenames_list = tmp or None
+
+    # additional.json (optional)
+    add_name: Optional[str] = None
+    add_desc: Optional[str] = None
+    add_engines: Optional[List[str]] = None
+    add_iwad: Optional[List[str]] = None
+    add_filename: Optional[str] = None
+    add_added: Optional[str] = None
+    add_locked: Optional[bool] = None
+    add_can_download: Optional[bool] = None
+    add_adult: Optional[bool] = None
+    add_hidden: Optional[bool] = None
+    if isinstance(additional, dict):
+        add_name = additional.get("name") if isinstance(additional.get("name"), str) else None
+        add_desc = additional.get("description") if isinstance(additional.get("description"), str) else None
+
+        ae = additional.get("engines")
+        if isinstance(ae, list):
+            add_engines = [str(x).strip() for x in ae if isinstance(x, str) and str(x).strip()]
+            if not add_engines:
+                add_engines = None
+
+        ai = additional.get("iwad")
+        if isinstance(ai, list):
+            add_iwad = [str(x).strip() for x in ai if isinstance(x, str) and str(x).strip()]
+            if not add_iwad:
+                add_iwad = None
+
+        add_filename = pick_first(additional.get("filename") if isinstance(additional.get("filename"), str) else None)
+        add_added = pick_first(additional.get("added") if isinstance(additional.get("added"), str) else None)
+        add_locked = additional.get("locked") if isinstance(additional.get("locked"), bool) else None
+        add_can_download = additional.get("canDownload") if isinstance(additional.get("canDownload"), bool) else None
+        add_adult = additional.get("adult") if isinstance(additional.get("adult"), bool) else None
+        add_hidden = additional.get("hidden") if isinstance(additional.get("hidden"), bool) else None
+
     # Coherent, non-redundant top-level picks (precedence: extracted > wads.json > idgames)
     title = pick_first(
+        add_name,
         (ex_names or [None])[0] if isinstance(
             ex_names, list) and ex_names else None,
         (wa_names or [None])[0] if isinstance(
@@ -1828,13 +1879,17 @@ def build_output_object(
         [ig_author] if ig_author else None,
     )
 
-    # Description: prefer extracted; else wads.json; else idgames.description; also keep credits/textfile separately
-    descriptions = merge_lists(
-        ex_descs,
-        wa_descs,
-        [normalize_whitespace(safe_text_decode(ig_desc.encode(
-            "latin-1", errors="replace")))] if isinstance(ig_desc, str) else None,
-    )
+    # Description: additional.json:description takes priority over all other sources.
+    if isinstance(add_desc, str) and add_desc.strip():
+        descriptions = [normalize_whitespace(add_desc)]
+    else:
+        # Prefer extracted; else wads.json; else idgames.description
+        descriptions = merge_lists(
+            ex_descs,
+            wa_descs,
+            [normalize_whitespace(safe_text_decode(ig_desc.encode(
+                "latin-1", errors="replace")))] if isinstance(ig_desc, str) else None,
+        )
 
     # Maps: normalize to []string (names only)
     maps = _normalize_map_names(extracted.get("maps")) or _normalize_map_names(wa_maps)
@@ -1845,6 +1900,16 @@ def build_output_object(
         "title": title,
         "authors": authors,
         "descriptions": descriptions,
+        "filenames": filenames_list,
+        "filename": add_filename,
+        "additional": additional if isinstance(additional, dict) else None,
+        "flags": {
+            "locked": add_locked,
+            "canDownload": add_can_download,
+            "adult": add_adult,
+            "hidden": add_hidden,
+        } if any(v is not None for v in [add_locked, add_can_download, add_adult, add_hidden]) else None,
+        "added": add_added,
         "text_files": _build_meta_text_files(extracted, ig_textfile, readmes),
         "file": {
             "type": wa_type,
@@ -1856,8 +1921,8 @@ def build_output_object(
         "content": {
             "maps": maps,
             "counts": wa_counts,
-            "engines_guess": wa_engines,
-            "iwads_guess": wa_iwads,
+            "engines_guess": add_engines or wa_engines,
+            "iwads_guess": add_iwad or wa_iwads,
         },
         "sources": {
             "wad_archive": {

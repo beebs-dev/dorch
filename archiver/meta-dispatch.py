@@ -122,6 +122,8 @@ async def _run(args: argparse.Namespace) -> None:
 	wads_json = args.wads_json
 	idgames_json = args.idgames_json
 	readmes_json = args.readmes_json
+	filenames_json = args.filenames_json
+	additional_json = args.additional_json
 	if meta.is_http_url(wads_json):
 		meta.eprint(f"📥 Downloading wads.json: {wads_json} -> /tmp/wads.json")
 		meta.download_url_to_file(wads_json, "/tmp/wads.json")
@@ -134,6 +136,14 @@ async def _run(args: argparse.Namespace) -> None:
 		meta.eprint(f"📥 Downloading readmes.json: {readmes_json} -> /tmp/readmes.json")
 		meta.download_url_to_file(readmes_json, "/tmp/readmes.json")
 		readmes_json = "/tmp/readmes.json"
+	if meta.is_http_url(filenames_json):
+		meta.eprint(f"📥 Downloading filenames.json: {filenames_json} -> /tmp/filenames.json")
+		meta.download_url_to_file(filenames_json, "/tmp/filenames.json")
+		filenames_json = "/tmp/filenames.json"
+	if meta.is_http_url(additional_json):
+		meta.eprint(f"📥 Downloading additional.json: {additional_json} -> /tmp/additional.json")
+		meta.download_url_to_file(additional_json, "/tmp/additional.json")
+		additional_json = "/tmp/additional.json"
 	print("📄 Loading JSON data...", file=sys.stderr)
 	wads_data = meta.read_json_file(wads_json)
 	idgames_data = meta.read_json_file(idgames_json)
@@ -146,6 +156,8 @@ async def _run(args: argparse.Namespace) -> None:
 	wad_sha1s = {str(w.get("_id", "")).lower() for w in wads_data if isinstance(w, dict) and w.get("_id")}
 	id_lookup = meta.build_idgames_lookup(idgames_data, wad_sha1s)
 	readme_lookup = _read_jsonl_lookup(path=readmes_json, wanted_sha1s=wad_sha1s)
+	filenames_lookup = _read_jsonl_lookup(path=filenames_json, wanted_sha1s=wad_sha1s)
+	additional_lookup = _read_jsonl_lookup(path=additional_json, wanted_sha1s=wad_sha1s)
 
 	nc = await connect_nats()
 	try:
@@ -179,6 +191,8 @@ async def _run(args: argparse.Namespace) -> None:
 				wad_entry=wad_entry,
 				idgames_entry=id_lookup.get(sha1),
 				readmes_entry=readme_lookup.get(sha1),
+				filenames_entry=filenames_lookup.get(sha1),
+				additional_entry=additional_lookup.get(sha1),
 				dispatched_at=time.time(),
 			)
 
@@ -212,6 +226,8 @@ def main() -> None:
 	ap.add_argument("--wads-json", required=True, help="Path or URL to wads.json")
 	ap.add_argument("--idgames-json", required=True, help="Path or URL to idgames.json")
 	ap.add_argument("--readmes-json", required=True, help="Path or URL to readmes.json (JSONL)")
+	ap.add_argument("--filenames-json", required=True, help="Path or URL to filenames.json (JSONL)")
+	ap.add_argument("--additional-json", required=True, help="Path or URL to additional.json (JSONL)")
 	ap.add_argument("--limit", type=int, default=0, help="Dispatch only N wads (0 = all)")
 	ap.add_argument("--start", type=int, default=0, help="Start index into wads.json array")
 	ap.add_argument("--sleep", type=float, default=0.0, help="Sleep seconds between publishes")

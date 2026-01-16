@@ -148,6 +148,28 @@ pub mod wad {
         pub sha256: Option<String>,
         #[serde(default)]
         pub title: Option<String>,
+
+        /// All known filenames ever observed for this WAD (from filenames.json).
+        /// May include duplicates (e.g., casing differences).
+        #[serde(default)]
+        pub filenames: Option<Vec<String>>,
+
+        /// A preferred/canonical filename to use (from additional.json:filename), if provided.
+        #[serde(default)]
+        pub filename: Option<String>,
+
+        /// Additional WAD Archive overrides (additional.json). Stored for provenance.
+        #[serde(default)]
+        pub additional: Option<AdditionalMeta>,
+
+        /// WAD Archive flags (additional.json).
+        #[serde(default)]
+        pub flags: Option<WadFlags>,
+
+        /// When this WAD was first indexed in Wad Archive (additional.json:added).
+        /// Stored as the original timestamp string.
+        #[serde(default)]
+        pub added: Option<String>,
         pub file: FileMeta,
         pub content: ContentMeta,
     }
@@ -168,6 +190,28 @@ pub mod wad {
         #[serde(default)]
         pub descriptions: Option<Vec<String>>,
 
+        /// All known filenames ever observed for this WAD (from filenames.json).
+        /// May include duplicates (e.g., casing differences).
+        #[serde(default)]
+        pub filenames: Option<Vec<String>>,
+
+        /// A preferred/canonical filename to use (from additional.json:filename), if provided.
+        #[serde(default)]
+        pub filename: Option<String>,
+
+        /// Additional WAD Archive overrides (additional.json). Stored for provenance.
+        #[serde(default)]
+        pub additional: Option<AdditionalMeta>,
+
+        /// WAD Archive flags (additional.json).
+        #[serde(default)]
+        pub flags: Option<WadFlags>,
+
+        /// When this WAD was first indexed in Wad Archive (additional.json:added).
+        /// Stored as the original timestamp string.
+        #[serde(default)]
+        pub added: Option<String>,
+
         /// Combined extracted PK3 text files + idgames textfile, if any.
         #[serde(default)]
         pub text_files: Option<Vec<TextFile>>,
@@ -184,10 +228,81 @@ pub mod wad {
                 sha1: insert.sha1,
                 sha256: insert.sha256,
                 title: insert.title,
+                filenames: insert.filenames,
+                filename: insert.filename,
+                additional: insert.additional,
+                flags: insert.flags,
+                added: insert.added,
                 file: insert.file,
                 content: insert.content,
             }
         }
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct WadFlags {
+        #[serde(default)]
+        pub locked: Option<bool>,
+
+        #[serde(default, rename = "canDownload")]
+        pub can_download: Option<bool>,
+
+        #[serde(default)]
+        pub adult: Option<bool>,
+
+        #[serde(default)]
+        pub hidden: Option<bool>,
+    }
+
+    /// Partial schema for additional.json. We keep the raw override data for provenance,
+    /// but only a subset is interpreted by wadinfo today.
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct AdditionalMeta {
+        #[serde(default)]
+        pub engines: Vec<String>,
+
+        /// Note: this key is named `iwad` in additional.json.
+        #[serde(default)]
+        pub iwad: Vec<String>,
+
+        #[serde(default)]
+        pub filename: Option<String>,
+
+        #[serde(default)]
+        pub added: Option<String>,
+
+        #[serde(default)]
+        pub locked: bool,
+
+        #[serde(default, rename = "canDownload")]
+        pub can_download: bool,
+
+        #[serde(default)]
+        pub adult: bool,
+
+        #[serde(default)]
+        pub hidden: bool,
+
+        #[serde(default)]
+        pub name: Option<String>,
+
+        #[serde(default)]
+        pub description: Option<String>,
+
+        #[serde(default)]
+        pub maps: Option<serde_json::Value>,
+
+        #[serde(default, rename = "graphicOverrides")]
+        pub graphic_overrides: Option<serde_json::Value>,
+
+        #[serde(default)]
+        pub screenshots: Option<serde_json::Value>,
+
+        #[serde(default)]
+        pub palettes: Option<Vec<String>>,
+
+        #[serde(default)]
+        pub categories: Option<Vec<String>>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]

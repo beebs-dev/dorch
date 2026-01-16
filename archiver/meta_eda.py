@@ -39,6 +39,8 @@ class MetaJob:
 	wad_entry: Dict[str, Any]
 	idgames_entry: Optional[Dict[str, Any]]
 	readmes_entry: Optional[Dict[str, Any]]
+	filenames_entry: Optional[Dict[str, Any]]
+	additional_entry: Optional[Dict[str, Any]]
 	dispatched_at: float
 
 	def to_bytes(self) -> bytes:
@@ -48,6 +50,8 @@ class MetaJob:
 			"wad_entry": self.wad_entry,
 			"idgames_entry": self.idgames_entry,
 			"readmes_entry": self.readmes_entry,
+			"filenames_entry": self.filenames_entry,
+			"additional_entry": self.additional_entry,
 			"dispatched_at": float(self.dispatched_at),
 		}
 		return json.dumps(obj, ensure_ascii=False).encode("utf-8")
@@ -62,6 +66,8 @@ def parse_meta_job(payload: bytes) -> MetaJob:
 	wad_entry = obj.get("wad_entry")
 	idgames_entry = obj.get("idgames_entry")
 	readmes_entry = obj.get("readmes_entry")
+	filenames_entry = obj.get("filenames_entry")
+	additional_entry = obj.get("additional_entry")
 	dispatched_at = float(obj.get("dispatched_at") or 0.0)
 	if not isinstance(wad_entry, dict):
 		raise ValueError("job wad_entry must be an object")
@@ -69,6 +75,10 @@ def parse_meta_job(payload: bytes) -> MetaJob:
 		raise ValueError("job idgames_entry must be an object or null")
 	if readmes_entry is not None and not isinstance(readmes_entry, dict):
 		raise ValueError("job readmes_entry must be an object or null")
+	if filenames_entry is not None and not isinstance(filenames_entry, dict):
+		raise ValueError("job filenames_entry must be an object or null")
+	if additional_entry is not None and not isinstance(additional_entry, dict):
+		raise ValueError("job additional_entry must be an object or null")
 	if not sha1 or len(sha1) != 40:
 		raise ValueError("job sha1 must be 40 hex chars")
 	if dispatched_at <= 0:
@@ -79,5 +89,7 @@ def parse_meta_job(payload: bytes) -> MetaJob:
 		wad_entry=wad_entry,
 		idgames_entry=idgames_entry,
 		readmes_entry=readmes_entry,
+		filenames_entry=filenames_entry,
+		additional_entry=additional_entry,
 		dispatched_at=dispatched_at,
 	)

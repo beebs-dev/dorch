@@ -1,22 +1,35 @@
 with candidates as materialized (
   select w.wad_id
   from wads w
-  where coalesce(w.title, '') % $1
+  where w.hidden = false and w.can_download = true
+    and coalesce(w.title, '') % $1
 
   union
   select a.wad_id
   from wad_authors a
-  where a.author % $1
+  join wads w on w.wad_id = a.wad_id
+  where w.hidden = false and w.can_download = true
+    and a.author % $1
 
   union
   select d.wad_id
   from wad_descriptions d
-  where d.description % $1
+  join wads w on w.wad_id = d.wad_id
+  where w.hidden = false and w.can_download = true
+    and d.description % $1
+
+  union
+  select f.wad_id
+  from wad_filenames f
+  join wads w on w.wad_id = f.wad_id
+  where w.hidden = false and w.can_download = true
+    and f.filename % $1
 
   union
   select w.wad_id
   from wads w
-  where w.sha1 = $1
+  where w.hidden = false and w.can_download = true
+    and w.sha1 = $1
 ),
 ranked as (
   select
@@ -33,6 +46,11 @@ ranked as (
         select max(similarity(d.description, $1))
         from wad_descriptions d
         where d.wad_id = w.wad_id
+      ), 0),
+      coalesce((
+        select max(similarity(f.filename, $1))
+        from wad_filenames f
+        where f.wad_id = w.wad_id
       ), 0),
       case when w.sha1 = $1 then 1 else 0 end
     ) as rank

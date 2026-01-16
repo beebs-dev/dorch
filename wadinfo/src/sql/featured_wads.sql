@@ -3,6 +3,8 @@ select
   w.wad_id,
   w.meta_json
 from wads w
-where exists (select 1 from wad_map_images i where i.wad_id = w.wad_id)
+where w.hidden = false
+  and w.can_download = true
+  and exists (select 1 from wad_map_images i where i.wad_id = w.wad_id)
 order by random()
 limit $1;

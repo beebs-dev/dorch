@@ -178,7 +178,7 @@ party:
 screenshot:
   image: thavlik/dorch-archiver:latest
   imagePullPolicy: Always
-  replicas: 12
+  replicas: 1
   logLevel: debug
   init:
     image: thavlik/dorch-archiver-init:latest
@@ -193,7 +193,7 @@ screenshot:
 archiver:
   image: thavlik/dorch-archiver:latest
   imagePullPolicy: Always
-  replicas: 5
+  replicas: 1
   logLevel: debug
   init:
     image: thavlik/dorch-archiver-init:latest

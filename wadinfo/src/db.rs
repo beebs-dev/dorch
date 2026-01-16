@@ -67,6 +67,7 @@ mod sql {
 
     pub const DELETE_WAD_CHILDREN: &str = include_str!("sql/delete_wad_children.sql");
     pub const INSERT_WAD_AUTHOR: &str = include_str!("sql/insert_wad_author.sql");
+    pub const INSERT_WAD_FILENAME: &str = include_str!("sql/insert_wad_filename.sql");
     pub const INSERT_WAD_DESCRIPTION: &str = include_str!("sql/insert_wad_description.sql");
     pub const INSERT_WAD_MAP_LIST: &str = include_str!("sql/insert_wad_map_list.sql");
     pub const INSERT_WAD_TEXT_FILE: &str = include_str!("sql/insert_wad_text_file.sql");
@@ -563,7 +564,24 @@ impl Database {
                 read_meta_nul_count.yellow().dimmed(),
             );
         }
-        let wa_updated_ts = parse_updated_ts(&merged.meta.sources.wad_archive.updated);
+        let wa_updated_ts = parse_ts_any(&merged.meta.sources.wad_archive.updated);
+
+        let preferred_filename = merged.meta.filename.as_deref();
+        let preferred_filename_escaped = preferred_filename.and_then(escape_nul_in_str);
+        let preferred_filename_param: Option<&str> =
+            preferred_filename_escaped.as_deref().or(preferred_filename);
+
+        let added_ts = parse_ts_any(&merged.meta.added);
+
+        let (hidden, adult, can_download, locked) = match &merged.meta.flags {
+            Some(f) => (
+                f.hidden.unwrap_or(false),
+                f.adult.unwrap_or(false),
+                f.can_download.unwrap_or(true),
+                f.locked.unwrap_or(false),
+            ),
+            None => (false, false, true, false),
+        };
 
         let sha1 = merged.meta.sha1.as_str();
         let sha256 = merged.meta.sha256.as_deref();
@@ -613,6 +631,12 @@ impl Database {
                     &iwads_guess_param,
                     &wa_updated_ts,
                     &Json(read_meta_json),
+                    &preferred_filename_param,
+                    &hidden,
+                    &adult,
+                    &can_download,
+                    &locked,
+                    &added_ts,
                 ],
             )
             .await
@@ -628,7 +652,21 @@ impl Database {
             .await
             .context("exec DELETE_WAD_CHILDREN")?;
 
-        // 3) Insert authors/descriptions/maps list/text files
+        // 3) Insert filenames/authors/descriptions/maps list/text files
+        if let Some(filenames) = &merged.meta.filenames {
+            let stmt = tx
+                .prepare_cached(sql::INSERT_WAD_FILENAME)
+                .await
+                .context("prepare INSERT_WAD_FILENAME")?;
+            for (ord, f) in filenames.iter().enumerate() {
+                let f_escaped = escape_nul_in_str(f);
+                let f_param = f_escaped.as_deref().unwrap_or(f);
+                tx.execute(&stmt, &[&wad_id, &f_param, &(ord as i32)])
+                    .await
+                    .with_context(|| format!("insert filename ord={ord}"))?;
+            }
+        }
+
         if let Some(authors) = &merged.meta.authors {
             let stmt = tx
                 .prepare_cached(sql::INSERT_WAD_AUTHOR)
@@ -1009,14 +1047,22 @@ impl Database {
     }
 }
 
-fn parse_updated_ts(s: &Option<String>) -> Option<chrono::DateTime<chrono::Utc>> {
+fn parse_ts_any(s: &Option<String>) -> Option<chrono::DateTime<chrono::Utc>> {
     let s = s.as_ref()?.trim();
     if s.is_empty() {
         return None;
     }
-    chrono::DateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%z")
-        .map(|dt| dt.with_timezone(&chrono::Utc))
-        .ok()
+    // Prefer timezone-aware timestamps, but also accept naive timestamps (assume UTC).
+    if let Ok(dt) = chrono::DateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%z") {
+        return Some(dt.with_timezone(&chrono::Utc));
+    }
+    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
+        return Some(chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
+            naive,
+            chrono::Utc,
+        ));
+    }
+    None
 }
 
 async fn create_tables(conn: &mut deadpool_postgres::Client) {

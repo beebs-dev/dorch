@@ -23,6 +23,10 @@ spec:
         - https://wadarchive2.nyc3.digitaloceanspaces.com/wads.json
         - --idgames-json
         - https://wadarchive2.nyc3.digitaloceanspaces.com/idgames.json
+        - --filenames-json
+        - https://wadarchive2.nyc3.digitaloceanspaces.com/filenames.json
+        - --additional-json
+        - https://wadarchive2.nyc3.digitaloceanspaces.com/additional.json
       env:
         - name: PYTHONUNBUFFERED
           value: "1"

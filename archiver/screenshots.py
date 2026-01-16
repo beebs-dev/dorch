@@ -1638,6 +1638,28 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 	for mi, map_name in enumerate(maps):
 		map_seed = int((int(config.seed) * 1000003 + mi * 9176) & 0x7FFFFFFF)
 
+		def _pick_other_xy(
+			points: Sequence[Tuple[float, float]],
+			*,
+			avoid_xy: Tuple[float, float],
+			used_xy: Sequence[Tuple[float, float]],
+			start_index: int,
+			min_sep_from_avoid: float = 256.0,
+			min_sep_from_used: float = 768.0,
+		) -> Optional[Tuple[float, float]]:
+			if not points:
+				return None
+			px0, py0 = float(avoid_xy[0]), float(avoid_xy[1])
+			n = len(points)
+			for k in range(n):
+				tx, ty = points[(int(start_index) + k) % n]
+				if math.hypot(float(tx) - px0, float(ty) - py0) < float(min_sep_from_avoid):
+					continue
+				if any(math.hypot(float(tx) - ux, float(ty) - uy) < float(min_sep_from_used) for ux, uy in used_xy):
+					continue
+				return (float(tx), float(ty))
+			return None
+
 		# New approach: choose globally-distributed pickup points as start locations.
 		pickup_points = _pickup_points_for_map(iwad, files, map_name)
 		# Use an oversized, spread-out candidate set so we can skip failed teleports
@@ -1683,7 +1705,9 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 				# Visit far targets first.
 				targets = sorted(starts, key=lambda p: -math.hypot(p[0] - start_x, p[1] - start_y))
 				used_xy: List[Tuple[float, float]] = []
-				rng = np.random.default_rng(map_seed ^ 0x5F3759DF)
+				used_pano_xy: List[Tuple[float, float]] = []
+				rng_img = np.random.default_rng(map_seed ^ 0x5F3759DF)
+				rng_pano = np.random.default_rng(map_seed ^ 0x9E3779B9)
 				idx = 0
 				for tx, ty in targets:
 					if saved >= int(config.num):
@@ -1703,7 +1727,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 						px, py = float(tx), float(ty)
 					used_xy.append((px, py))
 
-					base_angle = float(rng.uniform(0.0, 360.0))
+					base_angle = float(rng_img.uniform(0.0, 360.0))
 					best = _best_direction_at_location(
 						game,
 						prefer_gpu=bool(config.prefer_gpu),
@@ -1719,10 +1743,36 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 								map_name=map_name)
 					if bool(config.panorama):
 						try:
+							pano_xy = _pick_other_xy(
+								starts,
+								avoid_xy=(px, py),
+								used_xy=used_pano_xy,
+								start_index=(idx + 1) * 7,
+							)
+							if pano_xy is None:
+								raise RuntimeError("no distinct pano location available")
+							_new_episode(game, invulnerable=bool(config.invulnerable))
+							ok2 = _teleport_to(game, x=float(pano_xy[0]), y=float(pano_xy[1]))
+							_center_pitch(game)
+							if not ok2:
+								raise RuntimeError("pano teleport failed")
+							try:
+								p2x = float(game.get_game_variable(GameVariable.POSITION_X))
+								p2y = float(game.get_game_variable(GameVariable.POSITION_Y))
+							except Exception:
+								p2x, p2y = float(pano_xy[0]), float(pano_xy[1])
+							used_pano_xy.append((p2x, p2y))
+							pano_best = _best_direction_at_location(
+								game,
+								prefer_gpu=bool(config.prefer_gpu),
+								base_angle_deg=float(rng_pano.uniform(0.0, 360.0)),
+							)
+							if pano_best is None:
+								raise RuntimeError("pano best-direction selection failed")
 							front, right, back, left, up, down = _capture_panorama_bundle(
 								game=game,
-								base_front_rgb=best.screen,
-								base_yaw_deg=float(best.angle),
+								base_front_rgb=pano_best.screen,
+								base_yaw_deg=float(pano_best.angle),
 								face_size=pano_face_size,
 							)
 							pano = _cubemap_faces_to_equirect(
@@ -1741,7 +1791,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 								fmt=str(config.panorama_format),
 								quality=pano_quality,
 								wad_id=config.wad_id,
-								map_name=map_name
+								map_name=map_name,
 							)
 						except Exception as e:
 							print(f"⚠️ {map_name}: panorama capture failed for shot {idx}: {e}", file=sys.stderr)
@@ -1763,6 +1813,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 						invulnerable=bool(config.invulnerable),
 					)
 					selected = _select_diverse(candidates, n=int(config.num) - saved)
+					pano_pool = _select_diverse(candidates, n=max(2, int(config.num) - saved))
 					for j, cand in enumerate(selected, start=idx):
 						out_path = map_dir / "images" / f"{j}.{ext}"
 						_save_image(cand.screen,
@@ -1773,10 +1824,32 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 									map_name=map_name)
 						if bool(config.panorama):
 							try:
+								pano_cand = None
+								if pano_pool:
+									start_k = (j + 1) % len(pano_pool)
+									for k in range(len(pano_pool)):
+										c2 = pano_pool[(start_k + k) % len(pano_pool)]
+										if math.hypot(float(c2.x) - float(cand.x), float(c2.y) - float(cand.y)) >= 256.0:
+											pano_cand = c2
+											break
+								if pano_cand is None:
+									raise RuntimeError("no distinct pano candidate available")
+								_new_episode(game, invulnerable=bool(config.invulnerable))
+								ok2 = _teleport_to(game, x=float(pano_cand.x), y=float(pano_cand.y))
+								_center_pitch(game)
+								if not ok2:
+									raise RuntimeError("pano teleport failed")
+								pano_best = _best_direction_at_location(
+									game,
+									prefer_gpu=bool(config.prefer_gpu),
+									base_angle_deg=float((map_seed ^ (j * 2654435761)) % 360),
+								)
+								if pano_best is None:
+									raise RuntimeError("pano best-direction selection failed")
 								front, right, back, left, up, down = _capture_panorama_bundle(
 									game=game,
-									base_front_rgb=cand.screen,
-									base_yaw_deg=float(cand.angle),
+									base_front_rgb=pano_best.screen,
+									base_yaw_deg=float(pano_best.angle),
 									face_size=pano_face_size,
 								)
 								#_save_image(front, map_dir / f"{j}_front.{ext}", fmt=str(config.format), quality=quality)
@@ -1820,6 +1893,7 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 					invulnerable=bool(config.invulnerable),
 				)
 				selected = _select_diverse(candidates, n=int(config.num))
+				pano_pool = _select_diverse(candidates, n=max(2, int(config.num)))
 				for i, cand in enumerate(selected):
 					out_path = map_dir / "images" / f"{i}.{ext}"
 					_save_image(cand.screen,
@@ -1830,10 +1904,32 @@ def render_screenshots(config: RenderConfig) -> Dict[str, int]:
 								map_name=map_name)
 					if bool(config.panorama):
 						try:
+							pano_cand = None
+							if pano_pool:
+								start_k = (i + 1) % len(pano_pool)
+								for k in range(len(pano_pool)):
+									c2 = pano_pool[(start_k + k) % len(pano_pool)]
+									if math.hypot(float(c2.x) - float(cand.x), float(c2.y) - float(cand.y)) >= 256.0:
+										pano_cand = c2
+										break
+							if pano_cand is None:
+								raise RuntimeError("no distinct pano candidate available")
+							_new_episode(game, invulnerable=bool(config.invulnerable))
+							ok2 = _teleport_to(game, x=float(pano_cand.x), y=float(pano_cand.y))
+							_center_pitch(game)
+							if not ok2:
+								raise RuntimeError("pano teleport failed")
+							pano_best = _best_direction_at_location(
+								game,
+								prefer_gpu=bool(config.prefer_gpu),
+								base_angle_deg=float((map_seed ^ (i * 2654435761)) % 360),
+							)
+							if pano_best is None:
+								raise RuntimeError("pano best-direction selection failed")
 							front, right, back, left, up, down = _capture_panorama_bundle(
 								game=game,
-								base_front_rgb=cand.screen,
-								base_yaw_deg=float(cand.angle),
+								base_front_rgb=pano_best.screen,
+								base_yaw_deg=float(pano_best.angle),
 								face_size=pano_face_size,
 							)
 							#_save_image(front, map_dir / f"{i}_front.{ext}", fmt=str(config.format), quality=quality)

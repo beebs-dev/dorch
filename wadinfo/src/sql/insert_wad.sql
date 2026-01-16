@@ -22,13 +22,27 @@ with input as (
     $11::text[]      as iwads_guess,
 
     $12::timestamptz as wad_archive_updated,
-    $13::jsonb       as meta_json
+    $13::jsonb       as meta_json,
+
+    $14::text        as preferred_filename,
+    coalesce($15::boolean, false) as hidden,
+    coalesce($16::boolean, false) as adult,
+    coalesce($17::boolean, true)  as can_download,
+    coalesce($18::boolean, false) as locked,
+    $19::timestamptz as added_at
 )
 insert into wads (
   wad_id,
   sha1,
   sha256,
   title,
+
+  preferred_filename,
+  hidden,
+  adult,
+  can_download,
+  locked,
+  added_at,
 
   file_type,
   file_size_bytes,
@@ -50,6 +64,13 @@ select
   sha256,
   title,
 
+  preferred_filename,
+  hidden,
+  adult,
+  can_download,
+  locked,
+  added_at,
+
   file_type,
   file_size_bytes,
   file_url,
@@ -67,6 +88,13 @@ from input
 on conflict (sha1) do update set
   sha256              = excluded.sha256,
   title               = excluded.title,
+
+  preferred_filename  = excluded.preferred_filename,
+  hidden              = excluded.hidden,
+  adult               = excluded.adult,
+  can_download        = excluded.can_download,
+  locked              = excluded.locked,
+  added_at            = excluded.added_at,
 
   file_type           = excluded.file_type,
   file_size_bytes     = excluded.file_size_bytes,
