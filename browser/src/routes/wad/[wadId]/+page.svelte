@@ -2,6 +2,7 @@
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
 	import PanoViewer from '$lib/components/PanoViewer.svelte';
+	import type { WadImage } from '$lib/types/wadinfo';
 	import { humanBytes, shortSha, withParams } from '$lib/utils/format';
 
 	let { data }: { data: PageData } = $props();
@@ -27,6 +28,24 @@
 	}
 
 	const mapsWithAnyImages = $derived(() => data.wad.maps.filter((m) => (m.images?.length ?? 0) > 0));
+
+	const allScreenshotImages = $derived(() => {
+		const imgs: WadImage[] = [];
+		for (const m of data.wad.maps) {
+			for (const img of m.images ?? []) {
+				if (!img?.url) continue;
+				if (isPano(img)) continue;
+				imgs.push(img);
+			}
+		}
+		return imgs;
+	});
+
+	let randomScreenshot = $state<WadImage | null>(null);
+	$effect(() => {
+		const imgs = allScreenshotImages();
+		randomScreenshot = imgs.length ? imgs[Math.floor(Math.random() * imgs.length)] : null;
+	});
 
 	const countEntries = $derived(() => {
 		const counts = data.wad.meta.content?.counts ?? {};
@@ -112,58 +131,75 @@
 
 	{#if data.tab === 'overview'}
 		<section class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-			<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
-				<h2 class="text-sm font-semibold text-zinc-200">Summary</h2>
-				<dl class="mt-3 grid grid-cols-1 gap-2 text-sm">
-					<div class="flex flex-wrap justify-between gap-2">
-						<dt class="text-zinc-500">Title</dt>
-						<dd class="text-zinc-100">{data.wad.meta.title ?? '(untitled)'}</dd>
-					</div>
-					<div class="flex flex-wrap justify-between gap-2">
-						<dt class="text-zinc-500">SHA1</dt>
-						<dd class="font-mono text-xs text-zinc-200">{data.wad.meta.sha1}</dd>
-					</div>
-					{#if data.wad.meta.sha256}
+			<div class="flex flex-col gap-4">
+				<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
+					<h2 class="text-sm font-semibold text-zinc-200">Summary</h2>
+					<dl class="mt-3 grid grid-cols-1 gap-2 text-sm">
 						<div class="flex flex-wrap justify-between gap-2">
-							<dt class="text-zinc-500">SHA256</dt>
-							<dd class="font-mono text-xs text-zinc-200">{data.wad.meta.sha256}</dd>
+							<dt class="text-zinc-500">Title</dt>
+							<dd class="text-zinc-100">{data.wad.meta.title ?? '(untitled)'}</dd>
 						</div>
-					{/if}
-					<div class="flex flex-wrap justify-between gap-2">
-						<dt class="text-zinc-500">Maps (declared)</dt>
-						<dd class="text-zinc-100">{data.wad.meta.content?.maps?.length ?? '—'}</dd>
+						<div class="flex flex-wrap justify-between gap-2">
+							<dt class="text-zinc-500">SHA1</dt>
+							<dd class="font-mono text-xs text-zinc-200">{data.wad.meta.sha1}</dd>
+						</div>
+						{#if data.wad.meta.sha256}
+							<div class="flex flex-wrap justify-between gap-2">
+								<dt class="text-zinc-500">SHA256</dt>
+								<dd class="font-mono text-xs text-zinc-200">{data.wad.meta.sha256}</dd>
+							</div>
+						{/if}
+						<div class="flex flex-wrap justify-between gap-2">
+							<dt class="text-zinc-500">Maps (declared)</dt>
+							<dd class="text-zinc-100">{data.wad.meta.content?.maps?.length ?? '—'}</dd>
+						</div>
+					</dl>
+				</div>
+
+				<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
+					<h2 class="text-sm font-semibold text-zinc-200">Guesses</h2>
+					<div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+						<div>
+							<div class="text-xs text-zinc-500">Engines</div>
+							<div class="mt-2 flex flex-wrap gap-2">
+								{#each data.wad.meta.content?.engines_guess ?? [] as e (e)}
+									<span class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-inset ring-zinc-800">
+										{e}
+									</span>
+								{/each}
+								{#if (data.wad.meta.content?.engines_guess?.length ?? 0) === 0}
+									<span class="text-sm text-zinc-400">—</span>
+								{/if}
+							</div>
+						</div>
+						<div>
+							<div class="text-xs text-zinc-500">IWADs</div>
+							<div class="mt-2 flex flex-wrap gap-2">
+								{#each data.wad.meta.content?.iwads_guess ?? [] as iwad (iwad)}
+									<span class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-inset ring-zinc-800">
+										{iwad}
+									</span>
+								{/each}
+								{#if (data.wad.meta.content?.iwads_guess?.length ?? 0) === 0}
+									<span class="text-sm text-zinc-400">—</span>
+								{/if}
+							</div>
+						</div>
 					</div>
-				</dl>
+				</div>
 			</div>
 
-			<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
-				<h2 class="text-sm font-semibold text-zinc-200">Guesses</h2>
-				<div class="mt-3">
-					<div class="text-xs text-zinc-500">Engines</div>
-					<div class="mt-2 flex flex-wrap gap-2">
-						{#each data.wad.meta.content?.engines_guess ?? [] as e (e)}
-							<span class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-inset ring-zinc-800">
-								{e}
-							</span>
-						{/each}
-						{#if (data.wad.meta.content?.engines_guess?.length ?? 0) === 0}
-							<span class="text-sm text-zinc-400">—</span>
-						{/if}
-					</div>
-				</div>
-				<div class="mt-4">
-					<div class="text-xs text-zinc-500">IWADs</div>
-					<div class="mt-2 flex flex-wrap gap-2">
-						{#each data.wad.meta.content?.iwads_guess ?? [] as iwad (iwad)}
-							<span class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-inset ring-zinc-800">
-								{iwad}
-							</span>
-						{/each}
-						{#if (data.wad.meta.content?.iwads_guess?.length ?? 0) === 0}
-							<span class="text-sm text-zinc-400">—</span>
-						{/if}
-					</div>
-				</div>
+			<div class="overflow-hidden rounded-lg ring-1 ring-inset ring-zinc-800">
+				{#if randomScreenshot?.url}
+					<img
+						src={randomScreenshot.url}
+						alt=""
+						class="aspect-[16/9] w-full object-cover"
+						loading="lazy"
+					/>
+				{:else}
+					<div class="aspect-[16/9] w-full bg-gradient-to-br from-zinc-900 to-zinc-800"></div>
+				{/if}
 			</div>
 		</section>
 
