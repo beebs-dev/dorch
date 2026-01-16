@@ -60,8 +60,9 @@ export const load: PageServerLoad = async ({ fetch, url, setHeaders }) => {
 		featured = slice.map((wad, i) => {
 			const all = images[i] ?? [];
 			const nonPano = all.filter((img) => (img.type ?? img.kind) !== 'pano');
-			// Put a non-pano thumbnail first when available.
-			return { wad, images: nonPano.length ? nonPano : all };
+			// Featured thumbnails should never use pano renders.
+			// If a WAD has only panos, we intentionally show the placeholder.
+			return { wad, images: nonPano };
 		});
 	}
 

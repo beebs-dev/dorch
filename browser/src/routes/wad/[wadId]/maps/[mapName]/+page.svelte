@@ -1,0 +1,172 @@
+<script lang="ts">
+	import type { PageData } from './$types';
+	import PanoViewer from '$lib/components/PanoViewer.svelte';
+	import { shortSha } from '$lib/utils/format';
+
+	let { data }: { data: PageData } = $props();
+
+	const wadTitle = $derived(
+		() => data.map.wad_meta.title ?? `${shortSha(data.map.wad_meta.sha1)} (untitled)`
+	);
+	const mapTitle = $derived(() => data.map.metadata?.title ?? data.map.map);
+
+	function isPano(img: any): boolean {
+		const t = (img?.type ?? img?.kind) as string | null | undefined;
+		return t === 'pano';
+	}
+
+	function asText(v: unknown): string {
+		if (v === null || v === undefined) return '—';
+		if (typeof v === 'boolean') return v ? 'yes' : 'no';
+		if (Array.isArray(v)) return v.length ? v.join(', ') : '—';
+		return String(v);
+	}
+
+	const statRows = $derived(() => {
+		const s = data.map.stats ?? {};
+		return [
+			['Things', s.things],
+			['Linedefs', s.linedefs],
+			['Sidedefs', s.sidedefs],
+			['Vertices', s.vertices],
+			['Sectors', s.sectors],
+			['Segs', s.segs],
+			['SSectors', s.ssectors],
+			['Nodes', s.nodes]
+		] as const;
+	});
+</script>
+
+<section class="mx-auto w-full max-w-6xl px-4 py-6">
+	<nav class="text-sm text-zinc-400" aria-label="Breadcrumb">
+		<a
+			href={`/wad/${encodeURIComponent(data.wadId)}`}
+			class="hover:text-zinc-200 hover:underline"
+		>
+			{wadTitle()}
+		</a>
+		<span class="px-2 text-zinc-600">→</span>
+		<span class="text-zinc-200">{data.mapName}</span>
+	</nav>
+
+	<header class="mt-3 flex flex-col gap-2">
+		<h1 class="truncate text-2xl font-semibold tracking-tight text-zinc-100">{mapTitle()}</h1>
+		<div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-400">
+			<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-inset ring-zinc-800">{data.map.map}</span>
+			<span>{data.map.format ?? '—'}</span>
+			<span>{data.map.compatibility ?? '—'}</span>
+			<span>{data.map.monsters?.total ?? 0} monsters</span>
+			<span>{data.map.items?.total ?? 0} items</span>
+			<span>{(data.map.images?.length ?? 0).toString()} image(s)</span>
+		</div>
+	</header>
+
+	<section class="mt-6 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
+		<h2 class="text-sm font-semibold text-zinc-200">Map Info</h2>
+		<dl class="mt-3 grid grid-cols-1 gap-2 text-sm">
+			<div class="flex flex-wrap justify-between gap-2">
+				<dt class="text-zinc-500">Title</dt>
+				<dd class="text-zinc-100">{data.map.metadata?.title ?? '—'}</dd>
+			</div>
+			<div class="flex flex-wrap justify-between gap-2">
+				<dt class="text-zinc-500">Music</dt>
+				<dd class="text-zinc-100">{data.map.metadata?.music ?? '—'}</dd>
+			</div>
+			<div class="flex flex-wrap justify-between gap-2">
+				<dt class="text-zinc-500">Source</dt>
+				<dd class="text-zinc-100">{data.map.metadata?.source ?? '—'}</dd>
+			</div>
+			<div class="flex flex-wrap justify-between gap-2">
+				<dt class="text-zinc-500">Teleports</dt>
+				<dd class="text-zinc-100">{asText(data.map.mechanics?.teleports)}</dd>
+			</div>
+			<div class="flex flex-wrap justify-between gap-2">
+				<dt class="text-zinc-500">Keys</dt>
+				<dd class="text-zinc-100">{asText(data.map.mechanics?.keys)}</dd>
+			</div>
+			<div class="flex flex-wrap justify-between gap-2">
+				<dt class="text-zinc-500">Secret Exit</dt>
+				<dd class="text-zinc-100">{asText(data.map.mechanics?.secret_exit)}</dd>
+			</div>
+		</dl>
+
+		<div class="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+			<div class="overflow-hidden rounded-lg ring-1 ring-inset ring-zinc-800">
+				<div class="bg-zinc-950 px-3 py-2 text-xs font-medium text-zinc-400">Stats</div>
+				<div class="divide-y divide-zinc-800">
+					{#each statRows() as [label, value] (label)}
+						<div class="flex justify-between gap-2 px-3 py-2 text-sm">
+							<div class="text-zinc-500">{label}</div>
+							<div class="text-zinc-100">{asText(value)}</div>
+						</div>
+					{/each}
+				</div>
+			</div>
+
+			<div class="overflow-hidden rounded-lg ring-1 ring-inset ring-zinc-800">
+				<div class="bg-zinc-950 px-3 py-2 text-xs font-medium text-zinc-400">Difficulty</div>
+				<div class="divide-y divide-zinc-800">
+					<div class="flex justify-between gap-2 px-3 py-2 text-sm">
+						<div class="text-zinc-500">UV monsters</div>
+						<div class="text-zinc-100">{asText(data.map.difficulty?.uv_monsters)}</div>
+					</div>
+					<div class="flex justify-between gap-2 px-3 py-2 text-sm">
+						<div class="text-zinc-500">HMP monsters</div>
+						<div class="text-zinc-100">{asText(data.map.difficulty?.hmp_monsters)}</div>
+					</div>
+					<div class="flex justify-between gap-2 px-3 py-2 text-sm">
+						<div class="text-zinc-500">HTR monsters</div>
+						<div class="text-zinc-100">{asText(data.map.difficulty?.htr_monsters)}</div>
+					</div>
+					<div class="flex justify-between gap-2 px-3 py-2 text-sm">
+						<div class="text-zinc-500">UV items</div>
+						<div class="text-zinc-100">{asText(data.map.difficulty?.uv_items)}</div>
+					</div>
+					<div class="flex justify-between gap-2 px-3 py-2 text-sm">
+						<div class="text-zinc-500">HMP items</div>
+						<div class="text-zinc-100">{asText(data.map.difficulty?.hmp_items)}</div>
+					</div>
+					<div class="flex justify-between gap-2 px-3 py-2 text-sm">
+						<div class="text-zinc-500">HTR items</div>
+						<div class="text-zinc-100">{asText(data.map.difficulty?.htr_items)}</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section class="mt-6 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
+		<h2 class="text-sm font-semibold text-zinc-200">Screenshots</h2>
+		{#if (data.map.images?.length ?? 0) === 0}
+			<div class="mt-3 text-sm text-zinc-400">No screenshots are available for this map yet.</div>
+		{:else}
+			<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+				{#each data.map.images ?? [] as img (img.id ?? img.url)}
+					{#if isPano(img)}
+						<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-inset ring-zinc-800">
+							<PanoViewer url={img.url} />
+							<div class="px-3 py-2 text-xs text-zinc-500">
+								<div class="flex flex-wrap items-center justify-between gap-2">
+									<span>pano</span>
+									<a
+										class="underline hover:text-zinc-300"
+										href={img.url}
+										target="_blank"
+										rel="noreferrer"
+									>
+										Open image
+									</a>
+								</div>
+							</div>
+						</div>
+					{:else}
+						<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-inset ring-zinc-800">
+							<img src={img.url} alt="" class="aspect-[16/9] w-full object-cover" loading="lazy" />
+							<div class="px-3 py-2 text-xs text-zinc-500">{img.type ?? img.kind ?? 'image'}</div>
+						</div>
+					{/if}
+				{/each}
+			</div>
+		{/if}
+	</section>
+</section>
