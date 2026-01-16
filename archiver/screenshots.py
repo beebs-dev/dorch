@@ -1559,6 +1559,12 @@ def _capture_panorama_bundle(
 
 	return front, right, back, left, up, down
 
+@dataclass(frozen=True)
+class RedisConfig:
+	host: str = "localhost"
+	port: int = 6379
+	username: Optional[str] = None
+	password: Optional[str] = None
 
 @dataclass(frozen=True)
 class RenderConfig:
@@ -1588,6 +1594,7 @@ class RenderConfig:
 	keep_every: int = 6
 	prefer_gpu: bool = False
 	wad_id: Optional[str] = None
+	redis: Optional[RedisConfig] = None
 
 
 def list_maps(iwad: Path, files: Sequence[Path]) -> List[str]:
