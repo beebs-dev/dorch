@@ -279,12 +279,16 @@ pub async fn update_game_info(
         .update_game_info(game_id, &set_args, &del_args)
         .await
     {
-        return response::error(anyhow!("Failed to update game info: {:?}", e));
+        return response::error(e.context("Failed to update game info"));
     }
     println!(
-        "{} {}",
-        "✅ Updated game info for game ID".green(),
-        format!("{}", game_id).green().dimmed()
+        "{}{}{}{}{}{}",
+        "✅ Updated game info • game_id=".green(),
+        game_id.green().dimmed(),
+        " • set_fields=".green(),
+        set_args.len().to_string().green().dimmed(),
+        " • del_fields=".green(),
+        del_args.len().to_string().green().dimmed()
     );
     StatusCode::OK.into_response()
 }
@@ -340,9 +344,36 @@ pub async fn new_game(
 pub async fn try_get_info(state: &App, game: &Game) -> Option<GameInfo> {
     let game_id = match Uuid::parse_str(&game.spec.game_id) {
         Ok(id) => id,
-        Err(_) => return None,
+        Err(_) => {
+            eprint!(
+                "{}{}",
+                "⚠️  Invalid game ID: ".yellow(),
+                game.spec.game_id.yellow().dimmed()
+            );
+            return None;
+        }
     };
-    state.store.get_game_info(game_id).await.ok().flatten()
+    match state.store.get_game_info(game_id).await {
+        Ok(Some(info)) => Some(info),
+        Ok(None) => {
+            eprintln!(
+                "{}{}",
+                "⚠️  No game info found • game_id=".yellow(),
+                game_id.yellow().dimmed(),
+            );
+            None
+        }
+        Err(e) => {
+            eprintln!(
+                "{}{}{}{}",
+                "⚠️  Failed to get game info • game_id=".yellow(),
+                game_id.yellow().dimmed(),
+                " • error=".yellow(),
+                format!("{:?}", e).yellow().dimmed()
+            );
+            None
+        }
+    }
 }
 
 pub async fn list_games_inner(state: App) -> Result<ListGamesResponse> {
@@ -353,14 +384,34 @@ pub async fn list_games_inner(state: App) -> Result<ListGamesResponse> {
     let mut games = Vec::with_capacity(list.items.len());
     for game in list.items {
         let Some(info) = try_get_info(&state, &game).await else {
+            eprintln!(
+                "{}{}{}",
+                "⚠️  Skipping game with invalid or missing info • game_id=".yellow(),
+                game.spec.game_id.yellow().dimmed(),
+                ""
+            );
             continue;
         };
         if info.private {
             // Omit private servers from the public listing.
+            eprintln!(
+                "{}{}{}",
+                "⚠️  Skipping private game • game_id=".yellow(),
+                game.spec.game_id.yellow().dimmed(),
+                ""
+            );
             continue;
         }
-        let Ok(summary) = game_to_summary(game, Some(info)) else {
-            continue;
+        let summary = match game_to_summary(game, Some(info)) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!(
+                    "{}{}",
+                    "⚠️  Skipping game with invalid summary • err=".yellow(),
+                    format!("{:?}", e).yellow().dimmed()
+                );
+                continue;
+            }
         };
         games.push(summary);
     }
