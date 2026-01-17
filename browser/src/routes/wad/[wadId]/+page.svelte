@@ -545,12 +545,12 @@
 										<div class="text-xs text-zinc-500">{m.map}</div>
 									</div>
 									<div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-400">
-										<span>{m.format ?? '—'}</span>
-										<span>{m.compatibility ?? '—'}</span>
 										<span>{m.monsters?.total ?? 0} monsters</span>
 										<span>{m.items?.total ?? 0} items</span>
 										<span>{m.stats?.sectors ?? 0} sectors</span>
 										<span>{(m.images?.length ?? 0).toString()} image(s)</span>
+										<span>format:{m.format ?? '—'}</span>
+										<span>compatibility:{m.compatibility ?? '—'}</span>
 									</div>
 								</div>
 							</a>
