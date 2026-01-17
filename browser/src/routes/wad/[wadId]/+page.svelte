@@ -216,10 +216,10 @@
 		</div>
 		<div class="flex w-full justify-end sm:w-auto">
 			<div class="shrink-0 rounded-xl bg-zinc-950/40 p-1.5 ring-1 ring-red-950/60 ring-inset">
-				<div class="flex items-center gap-2">
+				<div class="flex items-center gap-1">
 					<button
 						type="button"
-						class="flex items-center justify-center rounded-lg bg-zinc-900/60 p-3 text-zinc-200 ring-1 ring-red-950/60 ring-inset hover:bg-zinc-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+						class="flex h-12 w-12 items-center justify-center rounded-lg bg-zinc-900/60 text-zinc-200 ring-1 ring-red-950/60 ring-inset hover:bg-zinc-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 						onclick={toggleFavorite}
 						aria-pressed={isFavorite}
 						aria-label={isFavorite ? 'Unfavorite WAD' : 'Favorite WAD'}
@@ -243,7 +243,7 @@
 					</button>
 					<a
 						href={resolve('/servers') + `?wad=${encodeURIComponent(data.wad.meta.id)}`}
-						class="dorch-play-button flex items-center justify-center rounded-lg bg-red-950/30 px-5 py-3 text-base font-semibold text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+						class="dorch-play-button flex items-center justify-center rounded-lg bg-red-950/30 px-6 py-2.5 text-lg font-semibold text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 						aria-label={`Play ${wadTitle()}`}
 					>
 						PLAY
