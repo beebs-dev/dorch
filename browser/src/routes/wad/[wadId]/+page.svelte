@@ -751,6 +751,8 @@
 
 <style>
 	.dorch-play-button {
+		font-family: 'Orbitron', var(--dorch-mono);
+		font-weight: 900;
 		--dorch-tile: 64px;
 		--dorch-tile-scaled: calc(var(--dorch-tile) * 2);
 		--dorch-play-glow-color: var(--color-red-900);

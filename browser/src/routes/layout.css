@@ -2,6 +2,7 @@
 @plugin '@tailwindcss/typography';
 
 @import '@fontsource/share-tech-mono';
+@import '@fontsource/orbitron/900.css';
 
 :root {
 	--dorch-mono:
