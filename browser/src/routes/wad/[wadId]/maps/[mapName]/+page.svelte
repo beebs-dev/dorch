@@ -61,25 +61,33 @@
 </script>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
-	<nav class="text-sm text-zinc-400" aria-label="Breadcrumb">
-		<a href={`/wad/${encodeURIComponent(data.wadId)}`} class="hover:text-zinc-200 hover:underline">
-			{wadTitle()}
-		</a>
-		<span class="px-2 text-zinc-600">→</span>
-		<span class="text-zinc-200">{data.mapName}</span>
-	</nav>
-
-	<header class="mt-3 flex flex-col gap-2">
-		<h1 class="truncate text-2xl font-semibold tracking-tight text-zinc-100">{mapTitle()}</h1>
-		<div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-400">
-			<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset"
-				>{data.map.map}</span
+	<header class="mt-3 flex items-start gap-4">
+		<nav class="flex-1 text-sm text-zinc-400" aria-label="Breadcrumb">
+			<a
+				href={`/wad/${encodeURIComponent(data.wadId)}`}
+				class="hover:text-zinc-200 hover:underline"
 			>
-			<span>{data.map.format ?? '—'}</span>
-			<span>{data.map.compatibility ?? '—'}</span>
-			<span>{data.map.monsters?.total ?? 0} monsters</span>
-			<span>{data.map.items?.total ?? 0} items</span>
-			<span>{(data.map.images?.length ?? 0).toString()} image(s)</span>
+				{wadTitle()}
+			</a>
+			<span class="px-2 text-zinc-600">→</span>
+			<span class="text-zinc-200 font-bold">{data.mapName}</span>
+		</nav>
+		<div class="flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs text-zinc-400">
+			<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
+				{data.map.format ?? '—'}
+			</span>
+			<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
+				{data.map.compatibility ?? '—'}
+			</span>
+			<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
+				{data.map.monsters?.total ?? 0} monsters
+			</span>
+			<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
+				{data.map.items?.total ?? 0} items
+			</span>
+			<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
+				{data.map.images?.length ?? 0} image(s)
+			</span>
 		</div>
 	</header>
 
