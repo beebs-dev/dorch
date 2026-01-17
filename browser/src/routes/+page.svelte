@@ -78,7 +78,7 @@
 			</div>
 		{:else}
 			<div class="text-right text-sm text-zinc-400">
-				<div>{data.results.full_count.toLocaleString()} WADs</div>
+				<div>Pick your favorite and play with friends.</div>
 			</div>
 		{/if}
 	</div>
