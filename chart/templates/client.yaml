@@ -1,0 +1,73 @@
+{{- $image := printf "%s%s" .Values.registry .Values.client.image -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-client
+spec:
+  replicas: {{ .Values.client.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-client
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-client
+    spec:
+    {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 10 }}
+    {{- end }}
+      containers:
+      - name: nginx
+        image: nginx:1.23.2-alpine
+        imagePullPolicy: {{ .Values.client.imagePullPolicy }}
+        image: {{ $image }}
+{{- if .Values.client.resources }}
+        resources:
+{{ toYaml .Values.client.resources | indent 10 }}
+{{- end }}
+        ports:
+          - name: http
+            containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+---
+{{- if .Values.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ .Release.Name }}-client
+  labels:
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-client
+  podMetricsEndpoints:
+  - port: metrics
+{{- end }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-client
+spec:
+  selector:
+    matchLabels:
+      app: landing-redirects
+  template:
+    metadata:
+      labels:
+        app: landing-redirects
+    spec:
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: landing-redirects
+      

@@ -44,7 +44,7 @@ pub async fn run(
     let router = Router::new()
         .route("/auth/{game_id}", get(handle_auth_game))
         .with_state(app_state)
-        .layer(keycloak_layer)
+        //.layer(keycloak_layer)
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::dev());
     let port = args.port;
@@ -78,7 +78,7 @@ struct JoinQuery {
 
 async fn handle_auth_game(
     State(state): State<App>,
-    UserId(_user_id): UserId,
+    //UserId(_user_id): UserId,
     Path(game_id): Path<Uuid>,
     Query(JoinQuery { identity }): Query<JoinQuery>, // FIXME
 ) -> impl IntoResponse {
