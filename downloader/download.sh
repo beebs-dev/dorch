@@ -38,18 +38,34 @@ download_all() {
     )
 
     echo "$response" \
-        | jq -rc '.items[] | [.wad_id, .url] | @tsv' \
-        | while IFS=$'\t' read -r wad_id url; do
-            if [[ -z "$wad_id" || -z "$url" ]]; then
-                echo "Skipping malformed item (wad_id or url empty)" >&2
-                continue
-            fi
-            dst="$wad_id"
+    | jq -rc '.items[] | [.wad_id, .url] | @tsv' \
+    | while IFS=$'\t' read -r wad_id url; do
+        if [[ -z "$wad_id" || -z "$url" ]]; then
+            echo "Skipping malformed item (wad_id or url empty)" >&2
+            continue
+        fi
+
+        dst="$wad_id"   # uncompressed output path
+
+
+        if [[ "$url" == *.gz ]]; then
+            echo "Downloading and extracting $url -> $dst"
+            aws s3 cp "$url" - \
+                --endpoint-url "$S3_ENDPOINT" \
+                --region "$S3_REGION" \
+                --no-progress \
+                | gzip -dc > "$dst"
+        else
+            echo "Downloading $url -> $dst"
             aws s3 cp "$url" "$dst" \
                 --endpoint-url "$S3_ENDPOINT" \
                 --region "$S3_REGION" \
                 --no-progress
-        done
+        fi
+    done
 }
 
 download_all
+
+echo "Download complete. Files in $DATA_ROOT:"
+ls -al "$DATA_ROOT"
