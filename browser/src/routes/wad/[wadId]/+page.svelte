@@ -139,10 +139,6 @@
 				</span>
 			</div>
 		</div>
-		<div class="text-sm text-zinc-400">
-			<div class="text-xs">WAD ID</div>
-			<div class="font-mono text-xs text-zinc-300">{data.wad.meta.id}</div>
-		</div>
 	</header>
 
 	<nav
@@ -176,6 +172,10 @@
 						<div class="flex flex-wrap justify-between gap-2">
 							<dt class="text-zinc-500">Title</dt>
 							<dd class="text-zinc-100">{data.wad.meta.title ?? '(untitled)'}</dd>
+						</div>
+						<div class="flex flex-wrap justify-between gap-2">
+							<dt class="text-zinc-500">WAD ID</dt>
+							<dd class="font-mono text-xs text-zinc-200">{data.wad.meta.id}</dd>
 						</div>
 						<div class="flex flex-wrap justify-between gap-2">
 							<dt class="text-zinc-500">SHA1</dt>
