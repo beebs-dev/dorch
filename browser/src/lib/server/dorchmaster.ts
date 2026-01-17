@@ -26,11 +26,7 @@ function buildUrl(path: string): URL {
 	return new URL(path.replace(/^\//, ''), base);
 }
 
-async function requestJson<T>(
-	fetchFn: typeof fetch,
-	path: string,
-	init?: RequestInit
-): Promise<T> {
+async function requestJson<T>(fetchFn: typeof fetch, path: string, init?: RequestInit): Promise<T> {
 	const url = buildUrl(path);
 	const res = await fetchFn(url, {
 		...init,

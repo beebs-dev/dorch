@@ -60,7 +60,10 @@ export function getIntParam(url: URL, key: string): number | null {
 	return Number.isFinite(parsed) ? parsed : null;
 }
 
-export function withParams(url: URL, next: Record<string, string | number | null | undefined>): string {
+export function withParams(
+	url: URL,
+	next: Record<string, string | number | null | undefined>
+): string {
 	const copy = new URL(url);
 	for (const [k, v] of Object.entries(next)) {
 		if (v == null || v === '') copy.searchParams.delete(k);

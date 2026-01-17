@@ -37,7 +37,8 @@
 		};
 		document.addEventListener('fullscreenchange', handleFullscreenChange);
 		handleFullscreenChange();
-		fullscreenCleanup = () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+		fullscreenCleanup = () =>
+			document.removeEventListener('fullscreenchange', handleFullscreenChange);
 
 		(async () => {
 			if (!canvas) return;
@@ -46,9 +47,7 @@
 				import('three'),
 				import('three/examples/jsm/controls/OrbitControls.js')
 			]);
-			const { OrbitControls } = controlsMod as unknown as {
-				OrbitControls: new (...args: any[]) => any;
-			};
+			const { OrbitControls } = controlsMod;
 
 			const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 			renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio ?? 1, 2));
@@ -108,10 +107,10 @@
 			renderer.domElement.addEventListener('dblclick', onDblClick);
 
 			const loader = new THREE.TextureLoader();
-			let geometry: any = null;
-			let material: any = null;
-			let mesh: any = null;
-			let texture: any = null;
+			let geometry: import('three').SphereGeometry | null = null;
+			let material: import('three').MeshBasicMaterial | null = null;
+			let mesh: import('three').Mesh | null = null;
+			let texture: import('three').Texture | null = null;
 			let pngObjectUrl: string | null = null;
 
 			async function webpUrlToPngObjectUrl(webpUrl: string): Promise<string> {
@@ -144,19 +143,26 @@
 				}
 
 				const c = document.createElement('canvas');
-				c.width = bitmap.width;
-				c.height = bitmap.height;
+				const w =
+					bitmap instanceof HTMLImageElement ? bitmap.naturalWidth || bitmap.width : bitmap.width;
+				const h =
+					bitmap instanceof HTMLImageElement
+						? bitmap.naturalHeight || bitmap.height
+						: bitmap.height;
+				c.width = w;
+				c.height = h;
 				const ctx = c.getContext('2d', { alpha: false });
 				if (!ctx) throw new Error('Failed to get 2D canvas context');
-				ctx.drawImage(bitmap as any, 0, 0);
+				ctx.drawImage(bitmap, 0, 0);
 
 				const pngBlob = await new Promise<Blob>((resolve, reject) => {
-					c.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), 'image/png');
+					c.toBlob(
+						(b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
+						'image/png'
+					);
 				});
 
-				if (typeof (bitmap as any).close === 'function') {
-					(bitmap as any).close();
-				}
+				if (bitmap instanceof ImageBitmap) bitmap.close();
 
 				return URL.createObjectURL(pngBlob);
 			}
@@ -183,8 +189,8 @@
 			cleanup = () => {
 				fullscreenCleanup?.();
 
-				renderer.domElement.removeEventListener('wheel', onWheel as any);
-				renderer.domElement.removeEventListener('dblclick', onDblClick as any);
+				renderer.domElement.removeEventListener('wheel', onWheel);
+				renderer.domElement.removeEventListener('dblclick', onDblClick);
 
 				try {
 					controls.dispose();
@@ -211,7 +217,6 @@
 				raf = requestAnimationFrame(animate);
 			};
 			animate();
-
 		})();
 
 		return () => {
@@ -229,12 +234,20 @@
 	<button
 		type="button"
 		onclick={toggleFullscreen}
-		class="absolute right-2 top-2 z-10 rounded-md bg-zinc-950/70 px-2 py-2 text-zinc-200 ring-1 ring-inset ring-zinc-700 hover:bg-zinc-950/85"
+		class="absolute top-2 right-2 z-10 rounded-md bg-zinc-950/70 px-2 py-2 text-zinc-200 ring-1 ring-zinc-700 ring-inset hover:bg-zinc-950/85"
 		aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
 		title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
 	>
 		{#if isFullscreen}
-			<svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+			<svg
+				viewBox="0 0 24 24"
+				class="h-4 w-4"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			>
 				<path d="M9 3H5a2 2 0 0 0-2 2v4" />
 				<path d="M15 3h4a2 2 0 0 1 2 2v4" />
 				<path d="M9 21H5a2 2 0 0 1-2-2v-4" />
@@ -243,7 +256,15 @@
 				<path d="M14 10l7-7" />
 			</svg>
 		{:else}
-			<svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+			<svg
+				viewBox="0 0 24 24"
+				class="h-4 w-4"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			>
 				<path d="M8 3H5a2 2 0 0 0-2 2v3" />
 				<path d="M16 3h3a2 2 0 0 1 2 2v3" />
 				<path d="M8 21H5a2 2 0 0 1-2-2v-3" />

@@ -4,6 +4,12 @@ import { createWadinfoClient } from '$lib/server/wadinfo';
 
 const allowedTabs = new Set(['overview', 'maps', 'screenshots', 'statistics']);
 
+function statusFromUnknown(e: unknown): number | null {
+	if (!e || typeof e !== 'object') return null;
+	const status = (e as Record<string, unknown>).status;
+	return typeof status === 'number' ? status : null;
+}
+
 export const load: PageServerLoad = async ({ fetch, params, url, setHeaders }) => {
 	const wadId = params.wadId;
 	const tabParam = (url.searchParams.get('tab') ?? 'overview').toLowerCase();
@@ -15,10 +21,8 @@ export const load: PageServerLoad = async ({ fetch, params, url, setHeaders }) =
 		setHeaders({ 'cache-control': 'private, max-age=0, s-maxage=30' });
 		return { wadId, tab, wad };
 	} catch (e) {
-		if (e && typeof e === 'object' && 'status' in e && typeof (e as any).status === 'number') {
-			const status = (e as any).status as number;
-			throw error(status, 'Failed to fetch WAD');
-		}
+		const status = statusFromUnknown(e);
+		if (status !== null) throw error(status, 'Failed to fetch WAD');
 		throw error(500, 'Failed to fetch WAD');
 	}
 };

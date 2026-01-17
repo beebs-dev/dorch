@@ -1,18 +1,20 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { resolve } from '$app/paths';
 	import PanoViewer from '$lib/components/PanoViewer.svelte';
-		import { ellipsize, wadLabel } from '$lib/utils/format';
+	import { ellipsize, wadLabel } from '$lib/utils/format';
 
 	let { data }: { data: PageData } = $props();
 
-		const wadTitle = $derived(() => wadLabel(data.map.wad_meta));
-	const mapTitle = $derived(() => data.map.metadata?.title ?? data.map.map);
+	const wadTitle = $derived(() => wadLabel(data.map.wad_meta));
 	const pageTitle = $derived(
 		() => `${ellipsize(wadTitle(), 64)} // ${ellipsize(data.mapName, 24)} - DORCH`
 	);
 
-	function isPano(img: any): boolean {
-		const t = (img?.type ?? img?.kind) as string | null | undefined;
+	function isPano(img: unknown): boolean {
+		if (!img || typeof img !== 'object') return false;
+		const rec = img as Record<string, unknown>;
+		const t = rec.type ?? rec.kind;
 		return t === 'pano';
 	}
 
@@ -97,8 +99,8 @@
 
 	// Reset defaults when navigating between maps.
 	$effect(() => {
-		data.wadId;
-		data.mapName;
+		const deps = `${data.wadId}:${data.mapName}`;
+		if (!deps) return;
 		topExpandedAnchor = 'mapInfo';
 	});
 
@@ -202,14 +204,14 @@
 	<header class="mt-3 flex items-start gap-4">
 		<nav class="flex-1 text-sm text-zinc-400" aria-label="Breadcrumb">
 			<a
-				href={`/wad/${encodeURIComponent(data.wadId)}`}
+				href={resolve(`/wad/${encodeURIComponent(data.wadId)}`)}
 				class="hover:text-zinc-200 hover:underline"
 			>
 				{wadTitle()}
 			</a>
 			<span class="px-2 text-zinc-600">/</span>
 			<a
-				href={`/wad/${encodeURIComponent(data.wadId)}?tab=maps`}
+				href={resolve(`/wad/${encodeURIComponent(data.wadId)}?tab=maps`)}
 				class="hover:text-zinc-200 hover:underline"
 			>
 				Maps

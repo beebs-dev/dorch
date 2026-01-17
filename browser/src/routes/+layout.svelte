@@ -2,6 +2,7 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import DorchLogo from '$lib/components/DorchLogo.svelte';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 
 	let { children } = $props();
@@ -35,7 +36,7 @@
 			>
 				{#each navItems as item (item.href)}
 					<a
-						href={item.href}
+						href={resolve(item.href)}
 						aria-current={isActive(item.href, $page.url.pathname) ? 'page' : undefined}
 						class={`-mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
 							isActive(item.href, $page.url.pathname)

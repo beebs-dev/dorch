@@ -84,11 +84,7 @@ function buildUrl(path: string): URL {
 	return new URL(path.replace(/^\//, ''), base);
 }
 
-async function requestJson<T>(
-	fetchFn: typeof fetch,
-	path: string,
-	init?: RequestInit
-): Promise<T> {
+async function requestJson<T>(fetchFn: typeof fetch, path: string, init?: RequestInit): Promise<T> {
 	const url = buildUrl(path);
 	const res = await fetchFn(url, {
 		...init,
@@ -125,7 +121,11 @@ export function createWadinfoClient(fetchFn: typeof fetch) {
 			return normalizeListWadsResponse(res);
 		},
 
-		async listWads(opts: { offset: number; limit: number; desc?: boolean }): Promise<ListWadsResponse> {
+		async listWads(opts: {
+			offset: number;
+			limit: number;
+			desc?: boolean;
+		}): Promise<ListWadsResponse> {
 			const url = buildUrl('/wad');
 			url.searchParams.set('offset', String(opts.offset));
 			url.searchParams.set('limit', String(opts.limit));

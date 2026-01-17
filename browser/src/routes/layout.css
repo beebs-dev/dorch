@@ -105,7 +105,7 @@
 		background-image: url('/lava.png');
 		background-repeat: repeat;
 		background-size: 256px 256px;
-		opacity: 0.10;
+		opacity: 0.1;
 		filter: brightness(0.85) saturate(1.1) contrast(1.05);
 	}
 

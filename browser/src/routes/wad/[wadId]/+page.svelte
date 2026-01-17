@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import PanoViewer from '$lib/components/PanoViewer.svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import type { WadImage } from '$lib/types/wadinfo';
 	import { ellipsize, humanBytes, wadLabel, withParams } from '$lib/utils/format';
 
@@ -18,8 +20,10 @@
 	const wadTitle = $derived(() => wadLabel(data.wad.meta));
 	const pageTitle = $derived(() => `${ellipsize(wadTitle(), 64)} - DORCH`);
 
-	function isPano(img: any): boolean {
-		const t = (img?.type ?? img?.kind) as string | null | undefined;
+	function isPano(img: unknown): boolean {
+		if (!img || typeof img !== 'object') return false;
+		const rec = img as Record<string, unknown>;
+		const t = rec.type ?? rec.kind;
 		return t === 'pano';
 	}
 
@@ -92,7 +96,7 @@
 
 	const fileNames = $derived(() => {
 		const out: string[] = [];
-		const seen = new Set<string>();
+		const seen = new SvelteSet<string>();
 		const add = (name: string | null | undefined) => {
 			if (!name) return;
 			const trimmed = name.trim();
@@ -116,10 +120,11 @@
 		}
 	});
 
-	function textFileLabel(tf: any, idx: number): string {
-		const name = tf?.name as string | null | undefined;
+	function textFileLabel(tf: unknown, idx: number): string {
+		const rec = tf && typeof tf === 'object' ? (tf as Record<string, unknown>) : null;
+		const name = typeof rec?.name === 'string' ? rec.name : null;
 		if (name && name.trim()) return name;
-		const source = (tf?.source as string | null | undefined) ?? 'text';
+		const source = typeof rec?.source === 'string' ? rec.source : 'text';
 		return `${source} #${idx + 1}`;
 	}
 
@@ -179,7 +184,7 @@
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
 	<header class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 		<div class="flex items-center justify-end gap-3">
-			<a href="/wad/{encodeURIComponent(data.wad.meta.id)}" class="min-w-0">
+			<a href={resolve(`/wad/${encodeURIComponent(data.wad.meta.id)}`)} class="min-w-0">
 				<h1 class="min-w-0 truncate text-2xl font-semibold tracking-tight">
 					{wadTitle()}
 				</h1>
@@ -199,7 +204,7 @@
 		<div class="flex w-full justify-end sm:w-auto">
 			<div class="shrink-0 rounded-xl bg-zinc-950/40 p-1.5 ring-1 ring-red-950/60 ring-inset">
 				<a
-					href={`/servers?wad=${encodeURIComponent(data.wad.meta.id)}`}
+					href={resolve(`/servers?wad=${encodeURIComponent(data.wad.meta.id)}`)}
 					class="dorch-play-button flex items-center justify-center rounded-lg bg-red-950/30 px-5 py-3 text-base font-semibold text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 					aria-label={`Play ${wadTitle()}`}
 				>
@@ -215,7 +220,7 @@
 	>
 		{#each tabs as t (t.key)}
 			<a
-				href={withParams($page.url, { tab: t.key })}
+				href={resolve(withParams($page.url, { tab: t.key }))}
 				class={`inline-flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 focus-visible:outline-none ${
 					data.tab === t.key
 						? 'border-b-2 border-zinc-100 text-zinc-100'
@@ -352,9 +357,11 @@
 			>
 				{#if randomScreenshot?.image?.url}
 					<a
-						href={`/wad/${encodeURIComponent(data.wad.meta.id)}/maps/${encodeURIComponent(
-							randomScreenshot.mapName
-						)}`}
+						href={resolve(
+							`/wad/${encodeURIComponent(data.wad.meta.id)}/maps/${encodeURIComponent(
+								randomScreenshot.mapName
+							)}`
+						)}
 						class="block h-full"
 						aria-label={`View ${randomScreenshot.mapName} details`}
 					>
@@ -467,7 +474,7 @@
 									href={data.wad.meta.file.url}
 									class="truncate text-zinc-300 underline hover:text-zinc-100"
 									target="_blank"
-									rel="noreferrer"
+									rel="external noreferrer"
 								>
 									Download
 								</a>
@@ -487,23 +494,21 @@
 						</div>
 					{/if}
 				</dl>
-			{:else}
-				{#if textFiles()[selectedFilesTab.idx]}
-					<div class="mt-4 overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset">
-						<div
-							class="flex flex-wrap items-center justify-between gap-2 bg-zinc-950 px-3 py-2 text-xs text-zinc-500"
-						>
-							<div class="min-w-0 truncate">
-								{textFileLabel(textFiles()[selectedFilesTab.idx], selectedFilesTab.idx)}
-							</div>
-							<div class="shrink-0">{textFiles()[selectedFilesTab.idx].source}</div>
+			{:else if textFiles()[selectedFilesTab.idx]}
+				<div class="mt-4 overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset">
+					<div
+						class="flex flex-wrap items-center justify-between gap-2 bg-zinc-950 px-3 py-2 text-xs text-zinc-500"
+					>
+						<div class="min-w-0 truncate">
+							{textFileLabel(textFiles()[selectedFilesTab.idx], selectedFilesTab.idx)}
 						</div>
-						<pre
-							class="max-h-[420px] overflow-auto bg-zinc-950 p-3 text-xs text-zinc-200">{textFiles()[
-								selectedFilesTab.idx
-							].contents}</pre>
+						<div class="shrink-0">{textFiles()[selectedFilesTab.idx].source}</div>
 					</div>
-				{/if}
+					<pre
+						class="max-h-[420px] overflow-auto bg-zinc-950 p-3 text-xs text-zinc-200">{textFiles()[
+							selectedFilesTab.idx
+						].contents}</pre>
+				</div>
 			{/if}
 		</section>
 	{:else if data.tab === 'maps'}
@@ -513,10 +518,12 @@
 					{#each data.wad.maps as m (m.map)}
 						<li class="bg-zinc-950/40 hover:bg-zinc-900/40">
 							<a
-								href={`/wad/${encodeURIComponent(data.wad.meta.id)}/maps/${encodeURIComponent(m.map)}`}
+								href={resolve(
+									`/wad/${encodeURIComponent(data.wad.meta.id)}/maps/${encodeURIComponent(m.map)}`
+								)}
 								class="grid grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-[140px_1fr]"
 							>
-								<div class="overflow-hidden rounded-lg bg-zinc-900 ring-1 ring-zinc-800 ring-inset">
+								<div class="overflow-hidden rounded-md ring-1 ring-zinc-800 ring-inset">
 									{#if firstThumb(m)?.url}
 										<img
 											src={firstThumb(m)!.url}
@@ -567,7 +574,9 @@
 							<div class="flex flex-wrap items-baseline justify-between gap-2">
 								<h2 class="text-sm font-semibold text-zinc-200">
 									<a
-										href={`/wad/${encodeURIComponent(data.wad.meta.id)}/maps/${encodeURIComponent(m.map)}`}
+										href={resolve(
+											`/wad/${encodeURIComponent(data.wad.meta.id)}/maps/${encodeURIComponent(m.map)}`
+										)}
 										class="hover:text-zinc-100 hover:underline"
 									>
 										{m.map}
@@ -722,35 +731,32 @@
 
 <style>
 	.dorch-play-button {
+		--dorch-tile: 64px;
 		position: relative;
 		isolation: isolate;
 		overflow: hidden;
 		transform: translateZ(0);
-		animation: dorch-play-idle 7.5s ease-in-out infinite;
-		transition: transform 120ms ease, filter 180ms ease;
+		animation: dorch-play-idle 12s ease-in-out infinite;
+		transition:
+			transform 120ms ease,
+			filter 180ms ease;
 		will-change: transform, filter;
 	}
 
 	.dorch-play-button::before {
 		content: '';
 		position: absolute;
-		inset: -60%;
-		background:
-			radial-gradient(
-				circle at 35% 45%,
-				color-mix(in oklab, var(--color-red-700) 28%, transparent),
-				transparent 55%
-			),
-			radial-gradient(
-				circle at 70% 30%,
-				color-mix(in oklab, var(--color-red-500) 18%, transparent),
-				transparent 60%
-			);
-		opacity: 0;
-		transform: rotate(18deg) translate3d(-4%, 0, 0) scale(0.98);
+		inset: 0;
+		border-radius: inherit;
+		background-image: url('/red-single.png');
+		background-repeat: repeat;
+		background-size: var(--dorch-tile) var(--dorch-tile);
+		background-position: 0 0;
+		opacity: 0.3;
+		filter: saturate(1.05) contrast(1.08) brightness(0.95);
 		pointer-events: none;
 		z-index: 0;
-		animation: dorch-play-sheen 7.5s ease-in-out infinite;
+		animation: dorch-play-pan-idle 7s ease-in-out infinite;
 	}
 
 	.dorch-play-button > :global(*) {
@@ -766,14 +772,21 @@
 
 	.dorch-play-button:hover::before,
 	.dorch-play-button:focus-visible::before {
-		opacity: 1;
-		animation: dorch-play-splatter 1100ms ease-in-out infinite;
+		opacity: 0.22;
+		filter: saturate(1.15) contrast(1.15) brightness(1);
+		animation: dorch-play-pan-rage 1000ms linear infinite;
 	}
 
 	.dorch-play-button:active {
 		animation: dorch-play-hit 160ms ease-out 1;
 		transform: scale(0.98);
 		filter: brightness(1.12) saturate(1.12);
+	}
+
+	.dorch-play-button:active::before {
+		opacity: 0.32;
+		filter: saturate(1.2) contrast(1.2) brightness(1.05);
+		animation: dorch-play-pan-hit 180ms linear infinite;
 	}
 
 	@keyframes dorch-play-idle {
@@ -800,27 +813,27 @@
 		}
 	}
 
-	@keyframes dorch-play-sheen {
+	@keyframes dorch-play-pan-idle {
 		0%,
-		80% {
-			opacity: 0;
-			transform: rotate(18deg) translate3d(-10%, 0, 0) scale(0.98);
+		78% {
+			opacity: 0.3;
+			background-position: 0px 0px;
 		}
-		84% {
+		82% {
+			opacity: 0.35;
+			background-position: 8px -5px;
+		}
+		86% {
 			opacity: 0.45;
-			transform: rotate(18deg) translate3d(-2%, 0, 0) scale(1.02);
-		}
-		88% {
-			opacity: 0.65;
-			transform: rotate(18deg) translate3d(6%, 0, 0) scale(1.03);
+			background-position: 18px -10px;
 		}
 		92% {
-			opacity: 0.25;
-			transform: rotate(18deg) translate3d(10%, 0, 0) scale(1.01);
+			opacity: 0.35;
+			background-position: 8px -5px;
 		}
 		100% {
-			opacity: 0;
-			transform: rotate(18deg) translate3d(14%, 0, 0) scale(0.99);
+			opacity: 0.3;
+			background-position: 0px 0px;
 		}
 	}
 
@@ -840,15 +853,21 @@
 		}
 	}
 
-	@keyframes dorch-play-splatter {
-		0%,
-		100% {
-			opacity: 0.35;
-			transform: rotate(18deg) translate3d(-6%, 0, 0) scale(1.02);
+	@keyframes dorch-play-pan-rage {
+		0% {
+			background-position: 0px 0px;
 		}
-		50% {
-			opacity: 0.7;
-			transform: rotate(18deg) translate3d(10%, -2%, 0) scale(1.06);
+		100% {
+			background-position: var(--dorch-tile) var(--dorch-tile);
+		}
+	}
+
+	@keyframes dorch-play-pan-hit {
+		0% {
+			background-position: 0px 0px;
+		}
+		100% {
+			background-position: calc(var(--dorch-tile) * 2) calc(var(--dorch-tile) * -1);
 		}
 	}
 

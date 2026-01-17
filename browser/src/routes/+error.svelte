@@ -1,27 +1,29 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { resolve } from '$app/paths';
 
-	let { status, error } = $props();
+	let { errors } = $props();
 
 	const message = $derived(() => {
-		if (error && typeof error === 'object' && 'message' in error) return String(error.message);
+		const err = Array.isArray(errors) ? errors[0] : errors;
+		if (err && typeof err === 'object' && 'message' in err) return String(err.message);
 		return 'Unknown error';
 	});
 </script>
 
 <section class="mx-auto w-full max-w-3xl px-4 py-10">
-	<h1 class="text-2xl font-semibold tracking-tight">{status}</h1>
+	<h1 class="text-2xl font-semibold tracking-tight">{$page.status}</h1>
 	<p class="mt-2 text-sm text-zinc-300">{message()}</p>
 	<div class="mt-6 flex flex-wrap gap-2">
 		<a
-			href="/"
-			class="rounded-lg bg-zinc-900 px-3 py-2 text-sm text-zinc-200 ring-1 ring-inset ring-zinc-800 hover:bg-zinc-800"
+			href={resolve('/')}
+			class="rounded-lg bg-zinc-900 px-3 py-2 text-sm text-zinc-200 ring-1 ring-zinc-800 ring-inset hover:bg-zinc-800"
 		>
 			Back to browser
 		</a>
 		<a
-			href={$page.url.pathname + $page.url.search}
-			class="rounded-lg bg-zinc-950 px-3 py-2 text-sm text-zinc-200 ring-1 ring-inset ring-zinc-800 hover:bg-zinc-900"
+			href={resolve($page.url.pathname + $page.url.search)}
+			class="rounded-lg bg-zinc-950 px-3 py-2 text-sm text-zinc-200 ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900"
 		>
 			Retry
 		</a>

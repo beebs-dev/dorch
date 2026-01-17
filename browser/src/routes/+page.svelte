@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
+	import { resolve } from '$app/paths';
 	import { humanBytes, wadLabel, withParams } from '$lib/utils/format';
 
 	let { data }: { data: PageData } = $props();
@@ -66,12 +67,12 @@
 
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<div class="flex flex-wrap gap-2" role="tablist" aria-label="Sorting">
-			{#each sortOptions as opt}
+			{#each sortOptions as opt (opt.key)}
 				<a
 					class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
 						data.sort === opt.key ? 'bg-zinc-900 text-zinc-100' : 'text-zinc-300'
 					}`}
-					href={withParams($page.url, { sort: opt.key, offset: 0 })}
+					href={resolve(withParams($page.url, { sort: opt.key, offset: 0 }))}
 					role="tab"
 					aria-selected={data.sort === opt.key}
 				>
@@ -81,7 +82,8 @@
 		</div>
 		{#if data.q}
 			<div class="text-xs text-zinc-500">
-				Showing {data.results.items.length.toLocaleString()} of {data.results.full_count.toLocaleString()} results for “<span class="text-zinc-200">{data.q}</span>”
+				Showing {data.results.items.length.toLocaleString()} of {data.results.full_count.toLocaleString()}
+				results for “<span class="text-zinc-200">{data.q}</span>”
 			</div>
 		{:else}
 			<div class="text-right text-sm text-zinc-400">
@@ -95,7 +97,7 @@
 			<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 				{#each data.featured as item (item.wad.id)}
 					<a
-						href={`/wad/${encodeURIComponent(item.wad.id)}`}
+						href={resolve(`/wad/${encodeURIComponent(item.wad.id)}`)}
 						class="group overflow-hidden rounded-xl ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900"
 					>
 						<div class="aspect-[16/9] w-full overflow-hidden bg-zinc-900">
@@ -135,7 +137,7 @@
 			<ul class="divide-y divide-zinc-800">
 				{#each data.results.items as wad (wad.id)}
 					<li class="bg-zinc-950/40 hover:bg-zinc-900/40">
-						<a href={`/wad/${encodeURIComponent(wad.id)}`} class="block px-4 py-3">
+						<a href={resolve(`/wad/${encodeURIComponent(wad.id)}`)} class="block px-4 py-3">
 							<div class="flex flex-wrap items-center justify-between gap-2">
 								<div class="min-w-0">
 									<div class="truncate text-sm font-semibold text-zinc-100">
@@ -178,19 +180,22 @@
 				class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
 					data.offset <= 0 ? 'pointer-events-none opacity-50' : ''
 				}`}
-				href={withParams($page.url, { offset: Math.max(0, data.offset - data.limit) })}
+				href={resolve(withParams($page.url, { offset: Math.max(0, data.offset - data.limit) }))}
 				rel="prev"
 			>
 				Prev
 			</a>
 			<div class="text-xs text-zinc-500">
-				Page {Math.floor(data.offset / data.limit) + 1} of {Math.max(1, Math.ceil(data.results.full_count / data.limit))}
+				Page {Math.floor(data.offset / data.limit) + 1} of {Math.max(
+					1,
+					Math.ceil(data.results.full_count / data.limit)
+				)}
 			</div>
 			<a
 				class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
 					data.results.items.length < data.limit ? 'pointer-events-none opacity-50' : ''
 				}`}
-				href={withParams($page.url, { offset: data.offset + data.limit })}
+				href={resolve(withParams($page.url, { offset: data.offset + data.limit }))}
 				rel="next"
 			>
 				Next

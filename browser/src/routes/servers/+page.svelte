@@ -84,8 +84,12 @@
 	</div>
 
 	{#if data.errorMessage}
-		<div class="mt-4 rounded-lg bg-zinc-950 p-4 text-sm text-zinc-200 ring-1 ring-red-950/60 ring-inset">
-			<div class="font-[var(--dorch-mono)] tracking-wide text-red-200">Failed to load server list</div>
+		<div
+			class="mt-4 rounded-lg bg-zinc-950 p-4 text-sm text-zinc-200 ring-1 ring-red-950/60 ring-inset"
+		>
+			<div class="font-[var(--dorch-mono)] tracking-wide text-red-200">
+				Failed to load server list
+			</div>
 			<div class="mt-1 text-zinc-300">{data.errorMessage}</div>
 		</div>
 	{/if}
@@ -121,7 +125,9 @@
 												loading="lazy"
 											/>
 										{:else}
-											<div class="h-10 w-16 shrink-0 rounded-md bg-zinc-900 ring-1 ring-red-950/60 ring-inset"></div>
+											<div
+												class="h-10 w-16 shrink-0 rounded-md bg-zinc-900 ring-1 ring-red-950/60 ring-inset"
+											></div>
 										{/if}
 										<div class="min-w-0">
 											<div class="truncate text-sm font-semibold text-zinc-100">
@@ -134,14 +140,16 @@
 													&nbsp;
 												{/if}
 											</div>
+										</div>
 									</div>
-								</div>
-							</td>
+								</td>
 
 								<td class="px-4 py-3">
 									<div class="flex items-center gap-2">
 										<div class="min-w-0">
-											<div class="truncate text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
+											<div
+												class="truncate text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100"
+											>
 												{row.game.info?.name ?? '(loading...)'}
 											</div>
 											<div class="mt-0.5 text-xs {difficultyColor(row.game.info?.skill)}">
@@ -151,39 +159,39 @@
 									</div>
 								</td>
 
-							<td class="px-4 py-3">
-								<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
-									{row.game.info?.player_count ?? 0}/{row.game.info?.max_players ?? 0}
-								</div>
-							</td>
-							<td class="px-4 py-3">
-								<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
-									{#if row.game.info}
-										{row.game.info.monster_kill_count}/{row.game.info.monster_count}
-									{:else}
-										&nbsp;
-									{/if}
-								</div>
-							</td>
+								<td class="px-4 py-3">
+									<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
+										{row.game.info?.player_count ?? 0}/{row.game.info?.max_players ?? 0}
+									</div>
+								</td>
+								<td class="px-4 py-3">
+									<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
+										{#if row.game.info}
+											{row.game.info.monster_kill_count}/{row.game.info.monster_count}
+										{:else}
+											&nbsp;
+										{/if}
+									</div>
+								</td>
 
-							<td class="px-4 py-3">
-								<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
-									{row.game.iwad}
-								</div>
-							</td>
+								<td class="px-4 py-3">
+									<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
+										{row.game.iwad}
+									</div>
+								</td>
 
-							<td class="px-4 py-3">
-								<div class="flex items-center gap-2">
-									<button
-										type="button"
-										class="rounded-md bg-red-950/30 px-3 py-2 text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
-										onclick={() => join(row.game.game_id)}
-									>
-										Join
-									</button>
-								</div>
-							</td>
-						</tr>
+								<td class="px-4 py-3">
+									<div class="flex items-center gap-2">
+										<button
+											type="button"
+											class="rounded-md bg-red-950/30 px-3 py-2 text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+											onclick={() => join(row.game.game_id)}
+										>
+											Join
+										</button>
+									</div>
+								</td>
+							</tr>
 						{/each}
 					{/if}
 				</tbody>

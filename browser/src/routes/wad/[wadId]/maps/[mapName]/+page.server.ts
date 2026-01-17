@@ -2,6 +2,12 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { createWadinfoClient } from '$lib/server/wadinfo';
 
+function statusFromUnknown(e: unknown): number | null {
+	if (!e || typeof e !== 'object') return null;
+	const status = (e as Record<string, unknown>).status;
+	return typeof status === 'number' ? status : null;
+}
+
 export const load: PageServerLoad = async ({ fetch, params, setHeaders }) => {
 	const wadId = params.wadId;
 	const mapName = params.mapName;
@@ -21,9 +27,8 @@ export const load: PageServerLoad = async ({ fetch, params, setHeaders }) => {
 		setHeaders({ 'cache-control': 'private, max-age=0, s-maxage=30' });
 		return { wadId, mapName, map: merged };
 	} catch (e) {
-		if (e && typeof e === 'object' && 'status' in e && typeof (e as any).status === 'number') {
-			throw error((e as any).status as number, 'Failed to fetch map');
-		}
+		const status = statusFromUnknown(e);
+		if (status !== null) throw error(status, 'Failed to fetch map');
 		throw error(500, 'Failed to fetch map');
 	}
 };
