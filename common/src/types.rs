@@ -235,6 +235,7 @@ pub mod wad {
                 filename: insert.filename,
                 additional: insert.additional,
                 flags: insert.flags,
+                authors: insert.authors,
                 added: insert.added,
                 file: insert.file,
                 content: insert.content,
