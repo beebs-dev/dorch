@@ -13,6 +13,13 @@ data:
       root /usr/share/nginx/html;
       index index.html;
 
+      # Ensure correct MIME types for static assets.
+      # (Without this, browsers may refuse to execute JS/WASM or download HTML.)
+      include /etc/nginx/mime.types;
+      types {
+        application/wasm wasm;
+      }
+
       location = /readyz {
         add_header Content-Type text/plain;
         return 200 'ok';
