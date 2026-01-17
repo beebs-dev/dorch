@@ -103,8 +103,8 @@
 								<div class="h-full w-full bg-gradient-to-br from-zinc-900 to-zinc-800"></div>
 							{/if}
 						</div>
-						<div class="p-4">
-							<div class="text-sm font-semibold text-zinc-100 group-hover:underline">
+						<div class="min-w-0 p-4">
+							<div class="truncate text-sm font-semibold text-zinc-100 group-hover:underline">
 								{titleFor(item.wad)}
 							</div>
 							<div class="mt-1 text-xs text-zinc-400">
