@@ -23,7 +23,7 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-<div class="min-h-dvh bg-zinc-950 text-zinc-100">
+<div class="dorch-texture min-h-dvh bg-zinc-950 text-zinc-100">
 	<header class="sticky top-0 z-10 border-b border-red-950/60 bg-red-950/35 backdrop-blur">
 		<div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
 			<div class="shrink-0">

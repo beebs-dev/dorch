@@ -89,4 +89,28 @@
 	.dorch-pano-label:hover::before {
 		opacity: 0;
 	}
+
+	/* Subtle tiled texture background (static/lava.png) */
+	.dorch-texture {
+		position: relative;
+		isolation: isolate;
+	}
+
+	.dorch-texture::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		z-index: 0;
+		background-image: url('/lava.png');
+		background-repeat: repeat;
+		background-size: 256px 256px;
+		opacity: 0.10;
+		filter: brightness(0.85) saturate(1.1) contrast(1.05);
+	}
+
+	.dorch-texture > * {
+		position: relative;
+		z-index: 1;
+	}
 }
