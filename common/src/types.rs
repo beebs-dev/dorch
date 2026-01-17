@@ -9,6 +9,10 @@ pub struct GameInfo {
     pub player_count: i32,
     pub skill: i32,
     pub current_map: String,
+    #[serde(default)]
+    pub server_started_at: Option<i64>,
+    #[serde(default)]
+    pub map_started_at: Option<i64>,
     pub monster_kill_count: i32,
     pub monster_count: i32,
     pub motd: Option<String>,
@@ -51,6 +55,10 @@ pub struct ZandronumGameInfoUpdate {
     pub skill: Option<Settable<i32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub current_map: Option<Settable<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server_started_at: Option<Settable<i64>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub map_started_at: Option<Settable<i64>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub monster_kill_count: Option<Settable<i32>>,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -102,6 +102,17 @@ impl GameInfoStore {
             }
         }
 
+        fn parse_opt_i64(hash: &HashMap<String, String>, key: &str) -> Result<Option<i64>> {
+            match hash.get(key) {
+                None => Ok(None),
+                Some(raw) => {
+                    Ok(Some(raw.parse().with_context(|| {
+                        format!("Invalid '{}' in game info hash", key)
+                    })?))
+                }
+            }
+        }
+
         let name = hash
             .get("name")
             .cloned()
@@ -110,6 +121,9 @@ impl GameInfoStore {
             .get("current_map")
             .cloned()
             .context("Missing 'current_map' in game info hash")?;
+
+        let server_started_at = parse_opt_i64(&hash, "server_started_at")?;
+        let map_started_at = parse_opt_i64(&hash, "map_started_at")?;
         let max_players: i32 = hash
             .get("max_players")
             .context("Missing 'max_players' in game info hash")?
@@ -167,6 +181,8 @@ impl GameInfoStore {
             player_count,
             skill,
             current_map,
+            server_started_at,
+            map_started_at,
             monster_kill_count,
             monster_count,
             motd,

@@ -8,6 +8,8 @@ export type GameInfo = {
 	player_count: number;
 	skill: number;
 	current_map: string;
+	server_started_at?: number | null;
+	map_started_at?: number | null;
 	monster_kill_count: number;
 	monster_count: number;
 	motd?: string | null;

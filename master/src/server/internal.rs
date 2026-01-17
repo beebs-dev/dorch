@@ -125,6 +125,18 @@ pub async fn update_game_info(
         push_to_string(
             &mut set_args,
             &mut del_args,
+            "server_started_at",
+            zandronum.server_started_at,
+        );
+        push_to_string(
+            &mut set_args,
+            &mut del_args,
+            "map_started_at",
+            zandronum.map_started_at,
+        );
+        push_to_string(
+            &mut set_args,
+            &mut del_args,
             "max_players",
             zandronum.max_players,
         );
