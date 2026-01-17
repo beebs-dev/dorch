@@ -121,18 +121,23 @@
 		</div>
 	</header>
 
-	<nav class="mt-6 flex flex-wrap gap-2" aria-label="WAD tabs">
+	<nav
+		class="mt-6 -mx-1 flex flex-nowrap gap-1 overflow-x-auto overflow-y-hidden border-b border-zinc-800"
+		aria-label="WAD tabs"
+	>
 		{#each tabs as t (t.key)}
 			<a
 				href={withParams($page.url, { tab: t.key })}
-				class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
-					data.tab === t.key ? 'bg-zinc-900 text-zinc-100' : 'text-zinc-300'
+				class={`inline-flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+					data.tab === t.key
+						? 'border-b-2 border-zinc-100 text-zinc-100'
+						: 'border-b-2 border-transparent text-zinc-400 hover:text-zinc-200'
 				}`}
 				aria-current={data.tab === t.key ? 'page' : undefined}
 			>
-				{t.label}
+				<span>{t.label}</span>
 				{#if t.key === 'maps'}
-					<span class="ml-1 align-middle text-xs text-zinc-500">({data.wad.maps.length})</span>
+					<span class="text-xs text-zinc-500">({data.wad.maps.length})</span>
 				{/if}
 			</a>
 		{/each}
