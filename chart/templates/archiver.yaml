@@ -19,10 +19,10 @@ spec:
         effect: NoSchedule
       nodeSelector:
         dorch: "true"
-    {{- if .Values.imagePullSecrets }}
+{{- if .Values.imagePullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 10 }}
-    {{- end }}
+{{- end }}
       volumes:
       - name: data
         hostPath:
@@ -65,10 +65,10 @@ spec:
       - name: archiver
         imagePullPolicy: {{ .Values.archiver.imagePullPolicy }}
         image: {{ $image }}
-    {{- if .Values.archiver.resources }}
+{{- if .Values.archiver.resources }}
         resources:
 {{ toYaml .Values.archiver.resources | indent 10 }}
-    {{- end }}
+{{- end }}
         command:
           - python
           - /app/meta-worker.py

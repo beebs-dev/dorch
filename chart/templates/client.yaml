@@ -1,4 +1,33 @@
 {{- $image := printf "%s%s" .Values.registry .Values.client.image -}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-client-nginx
+data:
+  default.conf: |
+    server {
+      listen 80;
+      server_name _;
+
+      root /usr/share/nginx/html;
+      index index.html;
+
+      location = /readyz {
+        add_header Content-Type text/plain;
+        return 200 'ok';
+      }
+
+      location = /healthz {
+        add_header Content-Type text/plain;
+        return 200 'ok';
+      }
+
+      location / {
+        try_files $uri $uri/ /index.html;
+      }
+    }
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,61 +42,49 @@ spec:
       labels:
         app: {{ .Release.Name }}-client
     spec:
-    {{- if .Values.imagePullSecrets }}
+{{- if .Values.imagePullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 10 }}
-    {{- end }}
-      containers:
-      - name: nginx
-        image: nginx:1.23.2-alpine
-        imagePullPolicy: {{ .Values.client.imagePullPolicy }}
-        image: {{ $image }}
-{{- if .Values.client.resources }}
-        resources:
-{{ toYaml .Values.client.resources | indent 10 }}
 {{- end }}
-        ports:
-          - name: http
-            containerPort: 80
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 80
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 80
----
-{{- if .Values.prometheus.enabled }}
-apiVersion: monitoring.coreos.com/v1
-kind: PodMonitor
-metadata:
-  name: {{ .Release.Name }}-client
-  labels:
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-spec:
-  selector:
-    matchLabels:
-      app: {{ .Release.Name }}-client
-  podMetricsEndpoints:
-  - port: metrics
-{{- end }}
-
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ .Release.Name }}-client
-spec:
-  selector:
-    matchLabels:
-      app: landing-redirects
-  template:
-    metadata:
-      labels:
-        app: landing-redirects
-    spec:
       volumes:
         - name: nginx-conf
           configMap:
-            name: landing-redirects
+            name: {{ .Release.Name }}-client-nginx
+      containers:
+        - name: nginx
+          imagePullPolicy: {{ .Values.client.imagePullPolicy }}
+          image: {{ $image }}
+{{- if .Values.client.resources }}
+          resources:
+{{ toYaml .Values.client.resources | indent 12 }}
+{{- end }}
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-client
+  labels:
+    app: {{ .Release.Name }}-client
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-client
+  ports:
+    - name: http
+      port: 80
       

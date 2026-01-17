@@ -225,3 +225,8 @@ webrtcAuth:
       secretKeyRef:
         name: livekit-cred
         key: api_secret
+
+client:
+  image: thavlik/zandronum-client:latest
+  imagePullPolicy: Always
+  replicas: 1
