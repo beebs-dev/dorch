@@ -69,23 +69,30 @@
 			>
 				{wadTitle()}
 			</a>
-			<span class="px-2 text-zinc-600">→</span>
-			<span class="text-zinc-200 font-bold">{data.mapName}</span>
+			<span class="px-2 text-zinc-600">/</span>
+			<a
+				href={`/wad/${encodeURIComponent(data.wadId)}?tab=maps`}
+				class="hover:text-zinc-200 hover:underline"
+			>
+				Maps
+			</a>
+			<span class="px-2 text-zinc-600">/</span>
+			<span class="font-bold text-zinc-200">{data.mapName}</span>
 		</nav>
 		<div class="flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs text-zinc-400">
 			<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
 				{data.map.format ?? '—'}
 			</span>
-			<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
+			<span class="rounded bg-sky-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
 				{data.map.compatibility ?? '—'}
 			</span>
-			<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
+			<span class="rounded bg-emerald-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
 				{data.map.monsters?.total ?? 0} monsters
 			</span>
-			<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
+			<span class="rounded bg-violet-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
 				{data.map.items?.total ?? 0} items
 			</span>
-			<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
+			<span class="rounded bg-amber-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
 				{data.map.images?.length ?? 0} image(s)
 			</span>
 		</div>
@@ -166,7 +173,10 @@
 	</section>
 
 	<section class="mt-6 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
-		<h2 class="text-sm font-semibold text-zinc-200">Screenshots</h2>
+		<div class="flex items-center gap-1">
+			<h2 class="text-sm font-semibold text-zinc-200">Screenshots</h2>
+			<span class="text-sm text-zinc-400">({data.map.images?.length ?? 0})</span>
+		</div>
 		{#if (data.map.images?.length ?? 0) === 0}
 			<div class="mt-3 text-sm text-zinc-400">No screenshots are available for this map yet.</div>
 		{:else}
@@ -177,15 +187,7 @@
 							<PanoViewer url={img.url} />
 							<div class="px-3 py-2 text-xs text-zinc-500">
 								<div class="flex flex-wrap items-center justify-between gap-2">
-									<span>pano</span>
-									<a
-										class="underline hover:text-zinc-300"
-										href={img.url}
-										target="_blank"
-										rel="noreferrer"
-									>
-										Open image
-									</a>
+									<span>panoramic</span>
 								</div>
 							</div>
 						</div>

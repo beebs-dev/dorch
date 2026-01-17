@@ -15,7 +15,9 @@
 		{ key: 'statistics', label: 'Statistics' }
 	];
 
-	const wadTitle = $derived(() => data.wad.meta.title ?? `${shortSha(data.wad.meta.sha1)} (untitled)`);
+	const wadTitle = $derived(
+		() => data.wad.meta.title ?? `${shortSha(data.wad.meta.sha1)} (untitled)`
+	);
 
 	function isPano(img: any): boolean {
 		const t = (img?.type ?? img?.kind) as string | null | undefined;
@@ -27,7 +29,9 @@
 		return images.find((i) => !isPano(i)) ?? images[0] ?? null;
 	}
 
-	const mapsWithAnyImages = $derived(() => data.wad.maps.filter((m) => (m.images?.length ?? 0) > 0));
+	const mapsWithAnyImages = $derived(() =>
+		data.wad.maps.filter((m) => (m.images?.length ?? 0) > 0)
+	);
 
 	type ScreenshotPick = { mapName: string; image: WadImage };
 
@@ -95,20 +99,20 @@
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
 	<header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-		<div class="min-w-0">
-			<h1 class="truncate text-2xl font-semibold tracking-tight">{wadTitle()}</h1>
-			<div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-400">
-				<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-inset ring-zinc-800">{data.wad.meta.file?.type ?? '—'}</span>
-				<span>{humanBytes(data.wad.meta.file?.size ?? null)}</span>
-				<span>{data.wad.maps.length} map(s)</span>
-				{#if data.wad.meta.file?.corrupt}
-					<span class="rounded bg-zinc-900 px-2 py-1 text-zinc-200 ring-1 ring-inset ring-zinc-800">
-						corrupt
-						{#if data.wad.meta.file?.corruptMessage}
-							— {data.wad.meta.file.corruptMessage}
-						{/if}
-					</span>
-				{/if}
+		<div class="flex items-center justify-end gap-3">
+			<h1 class="min-w-0 truncate text-2xl font-semibold tracking-tight">
+				{wadTitle()}
+			</h1>
+			<div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-400">
+				<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
+					{data.wad.meta.file?.type ?? '—'}
+				</span>
+				<span class="rounded bg-zinc-900 px-2 py-1 text-zinc-200 ring-1 ring-zinc-800 ring-inset">
+					{humanBytes(data.wad.meta.file?.size ?? null)}
+				</span>
+				<span class="rounded bg-zinc-900 px-2 py-1 text-zinc-200 ring-1 ring-zinc-800 ring-inset">
+					{data.wad.maps.length} map(s)
+				</span>
 			</div>
 		</div>
 		<div class="text-sm text-zinc-400">
@@ -121,7 +125,7 @@
 		{#each tabs as t (t.key)}
 			<a
 				href={withParams($page.url, { tab: t.key })}
-				class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-inset ring-zinc-800 hover:bg-zinc-900 ${
+				class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
 					data.tab === t.key ? 'bg-zinc-900 text-zinc-100' : 'text-zinc-300'
 				}`}
 				aria-current={data.tab === t.key ? 'page' : undefined}
@@ -137,7 +141,7 @@
 	{#if data.tab === 'overview'}
 		<section class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
 			<div class="flex flex-col gap-4">
-				<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
+				<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
 					<h2 class="text-sm font-semibold text-zinc-200">Summary</h2>
 					<dl class="mt-3 grid grid-cols-1 gap-2 text-sm">
 						<div class="flex flex-wrap justify-between gap-2">
@@ -161,14 +165,16 @@
 					</dl>
 				</div>
 
-				<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
+				<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
 					<h2 class="text-sm font-semibold text-zinc-200">Guesses</h2>
 					<div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<div>
 							<div class="text-xs text-zinc-500">Engines</div>
 							<div class="mt-2 flex flex-wrap gap-2">
 								{#each data.wad.meta.content?.engines_guess ?? [] as e (e)}
-									<span class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-inset ring-zinc-800">
+									<span
+										class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
+									>
 										{e}
 									</span>
 								{/each}
@@ -181,7 +187,9 @@
 							<div class="text-xs text-zinc-500">IWADs</div>
 							<div class="mt-2 flex flex-wrap gap-2">
 								{#each data.wad.meta.content?.iwads_guess ?? [] as iwad (iwad)}
-									<span class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-inset ring-zinc-800">
+									<span
+										class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
+									>
 										{iwad}
 									</span>
 								{/each}
@@ -194,7 +202,7 @@
 				</div>
 			</div>
 
-			<div class="group relative overflow-hidden rounded-lg ring-1 ring-inset ring-zinc-800">
+			<div class="group relative overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset">
 				{#if randomScreenshot?.image?.url}
 					<a
 						href={`/wad/${encodeURIComponent(data.wad.meta.id)}/maps/${encodeURIComponent(
@@ -209,7 +217,9 @@
 							class="aspect-[16/9] w-full object-cover"
 							loading="lazy"
 						/>
-						<div class="pointer-events-none absolute inset-0 flex items-end opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+						<div
+							class="pointer-events-none absolute inset-0 flex items-end opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+						>
 							<div class="w-full bg-zinc-950/70 px-3 py-2 text-sm font-medium text-zinc-100">
 								{randomScreenshot.mapName}
 							</div>
@@ -222,14 +232,14 @@
 		</section>
 
 		{#if textFiles().length > 0}
-			<section class="mt-4 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
+			<section class="mt-4 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
 				<h2 class="text-sm font-semibold text-zinc-200">Text files</h2>
 				<div class="mt-3 flex flex-wrap gap-2">
 					{#each textFiles() as tf, idx (idx)}
 						<button
 							type="button"
 							onclick={() => (selectedTextFileIndex = idx)}
-							class={`inline-flex items-center gap-2 px-3 py-2 text-sm ring-1 ring-inset ring-zinc-800 hover:bg-zinc-900 ${
+							class={`inline-flex items-center gap-2 px-3 py-2 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
 								idx === selectedTextFileIndex ? 'bg-zinc-900 text-zinc-100' : 'text-zinc-300'
 							}`}
 						>
@@ -254,8 +264,10 @@
 				</div>
 
 				{#if textFiles()[selectedTextFileIndex]}
-					<div class="mt-4 overflow-hidden rounded-lg ring-1 ring-inset ring-zinc-800">
-						<div class="flex flex-wrap items-center justify-between gap-2 bg-zinc-950 px-3 py-2 text-xs text-zinc-500">
+					<div class="mt-4 overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset">
+						<div
+							class="flex flex-wrap items-center justify-between gap-2 bg-zinc-950 px-3 py-2 text-xs text-zinc-500"
+						>
 							<div class="min-w-0 truncate">
 								{textFileLabel(textFiles()[selectedTextFileIndex], selectedTextFileIndex)}
 							</div>
@@ -263,14 +275,17 @@
 								{textFiles()[selectedTextFileIndex].source}
 							</div>
 						</div>
-						<pre class="max-h-[420px] overflow-auto bg-zinc-950 p-3 text-xs text-zinc-200">{textFiles()[selectedTextFileIndex].contents}</pre>
+						<pre
+							class="max-h-[420px] overflow-auto bg-zinc-950 p-3 text-xs text-zinc-200">{textFiles()[
+								selectedTextFileIndex
+							].contents}</pre>
 					</div>
 				{/if}
 			</section>
 		{/if}
 	{:else if data.tab === 'maps'}
 		<section class="mt-6">
-			<div class="overflow-hidden rounded-xl ring-1 ring-inset ring-zinc-800">
+			<div class="overflow-hidden rounded-xl ring-1 ring-zinc-800 ring-inset">
 				<ul class="divide-y divide-zinc-800">
 					{#each data.wad.maps as m (m.map)}
 						<li class="bg-zinc-950/40 hover:bg-zinc-900/40">
@@ -278,7 +293,7 @@
 								href={`/wad/${encodeURIComponent(data.wad.meta.id)}/maps/${encodeURIComponent(m.map)}`}
 								class="grid grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-[140px_1fr]"
 							>
-								<div class="overflow-hidden rounded-lg bg-zinc-900 ring-1 ring-inset ring-zinc-800">
+								<div class="overflow-hidden rounded-lg bg-zinc-900 ring-1 ring-zinc-800 ring-inset">
 									{#if firstThumb(m)?.url}
 										<img
 											src={firstThumb(m)!.url}
@@ -287,7 +302,9 @@
 											loading="lazy"
 										/>
 									{:else}
-										<div class="aspect-[16/9] w-full bg-gradient-to-br from-zinc-900 to-zinc-800"></div>
+										<div
+											class="aspect-[16/9] w-full bg-gradient-to-br from-zinc-900 to-zinc-800"
+										></div>
 									{/if}
 								</div>
 								<div class="min-w-0">
@@ -315,13 +332,15 @@
 	{:else if data.tab === 'screenshots'}
 		<section class="mt-6">
 			{#if mapsWithAnyImages().length === 0}
-				<div class="rounded-xl bg-zinc-950/40 p-4 text-sm text-zinc-400 ring-1 ring-inset ring-zinc-800">
+				<div
+					class="rounded-xl bg-zinc-950/40 p-4 text-sm text-zinc-400 ring-1 ring-zinc-800 ring-inset"
+				>
 					No screenshots are available for this WAD yet.
 				</div>
 			{:else}
 				<div class="space-y-6">
 					{#each mapsWithAnyImages() as m (m.map)}
-						<section class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
+						<section class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
 							<div class="flex flex-wrap items-baseline justify-between gap-2">
 								<h2 class="text-sm font-semibold text-zinc-200">{m.map}</h2>
 								<div class="text-xs text-zinc-500">{m.metadata?.title ?? ''}</div>
@@ -329,21 +348,37 @@
 							<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 								{#each m.images ?? [] as img (img.id ?? img.url)}
 									{#if isPano(img)}
-										<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-inset ring-zinc-800">
+										<div
+											class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset"
+										>
 											<PanoViewer url={img.url} />
 											<div class="px-3 py-2 text-xs text-zinc-500">
 												<div class="flex flex-wrap items-center justify-between gap-2">
 													<span>pano</span>
-													<a class="underline hover:text-zinc-300" href={img.url} target="_blank" rel="noreferrer">
+													<a
+														class="underline hover:text-zinc-300"
+														href={img.url}
+														target="_blank"
+														rel="noreferrer"
+													>
 														Open image
 													</a>
 												</div>
 											</div>
 										</div>
 									{:else}
-										<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-inset ring-zinc-800">
-											<img src={img.url} alt="" class="aspect-[16/9] w-full object-cover" loading="lazy" />
-											<div class="px-3 py-2 text-xs text-zinc-500">{img.type ?? img.kind ?? 'image'}</div>
+										<div
+											class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset"
+										>
+											<img
+												src={img.url}
+												alt=""
+												class="aspect-[16/9] w-full object-cover"
+												loading="lazy"
+											/>
+											<div class="px-3 py-2 text-xs text-zinc-500">
+												{img.type ?? img.kind ?? 'image'}
+											</div>
 										</div>
 									{/if}
 								{/each}
@@ -355,12 +390,12 @@
 		</section>
 	{:else if data.tab === 'statistics'}
 		<section class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-			<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
+			<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
 				<h2 class="text-sm font-semibold text-zinc-200">Counts</h2>
 				{#if countEntries().length === 0}
 					<div class="mt-3 text-sm text-zinc-400">No counts are available.</div>
 				{:else}
-					<div class="mt-3 overflow-hidden rounded-lg ring-1 ring-inset ring-zinc-800">
+					<div class="mt-3 overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset">
 						<table class="w-full text-left text-sm">
 							<thead class="bg-zinc-950 text-xs text-zinc-500">
 								<tr>
@@ -381,16 +416,36 @@
 				{/if}
 			</div>
 
-			<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
+			<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
 				<h2 class="text-sm font-semibold text-zinc-200">Totals (across maps)</h2>
-				<div class="mt-3 overflow-hidden rounded-lg ring-1 ring-inset ring-zinc-800">
+				<div class="mt-3 overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset">
 					<table class="w-full text-left text-sm">
 						<tbody class="divide-y divide-zinc-800">
-							<tr><td class="px-3 py-2 text-zinc-500">Things</td><td class="px-3 py-2 text-zinc-200">{totals().things}</td></tr>
-							<tr><td class="px-3 py-2 text-zinc-500">Linedefs</td><td class="px-3 py-2 text-zinc-200">{totals().linedefs}</td></tr>
-							<tr><td class="px-3 py-2 text-zinc-500">Sectors</td><td class="px-3 py-2 text-zinc-200">{totals().sectors}</td></tr>
-							<tr><td class="px-3 py-2 text-zinc-500">Monsters</td><td class="px-3 py-2 text-zinc-200">{totals().monsters}</td></tr>
-							<tr><td class="px-3 py-2 text-zinc-500">Items</td><td class="px-3 py-2 text-zinc-200">{totals().items}</td></tr>
+							<tr
+								><td class="px-3 py-2 text-zinc-500">Things</td><td class="px-3 py-2 text-zinc-200"
+									>{totals().things}</td
+								></tr
+							>
+							<tr
+								><td class="px-3 py-2 text-zinc-500">Linedefs</td><td
+									class="px-3 py-2 text-zinc-200">{totals().linedefs}</td
+								></tr
+							>
+							<tr
+								><td class="px-3 py-2 text-zinc-500">Sectors</td><td class="px-3 py-2 text-zinc-200"
+									>{totals().sectors}</td
+								></tr
+							>
+							<tr
+								><td class="px-3 py-2 text-zinc-500">Monsters</td><td
+									class="px-3 py-2 text-zinc-200">{totals().monsters}</td
+								></tr
+							>
+							<tr
+								><td class="px-3 py-2 text-zinc-500">Items</td><td class="px-3 py-2 text-zinc-200"
+									>{totals().items}</td
+								></tr
+							>
 						</tbody>
 					</table>
 				</div>
@@ -398,12 +453,17 @@
 		</section>
 
 		<section class="mt-4">
-			<details class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
+			<details class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
 				<summary class="cursor-pointer text-sm font-semibold text-zinc-200 hover:text-zinc-100">
 					Raw model
 					<span class="ml-2 text-xs font-normal text-zinc-500">(for completeness)</span>
 				</summary>
-				<pre class="mt-3 overflow-auto rounded-lg bg-zinc-950 p-3 text-xs text-zinc-200 ring-1 ring-inset ring-zinc-800">{JSON.stringify(data.wad, null, 2)}</pre>
+				<pre
+					class="mt-3 overflow-auto rounded-lg bg-zinc-950 p-3 text-xs text-zinc-200 ring-1 ring-zinc-800 ring-inset">{JSON.stringify(
+						data.wad,
+						null,
+						2
+					)}</pre>
 			</details>
 		</section>
 	{/if}
