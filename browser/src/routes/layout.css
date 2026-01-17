@@ -1,11 +1,11 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
-@import '@fontsource-variable/geist-mono';
+@import '@fontsource/share-tech-mono';
 
 :root {
 	--dorch-mono:
-		'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+		'Share Tech Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
 		'Courier New', monospace;
 
 	/* Scrollbars (use Tailwind v4 zinc palette variables) */
@@ -17,6 +17,10 @@
 @layer base {
 	html {
 		color-scheme: dark;
+	}
+
+	body {
+		font-family: var(--dorch-mono);
 	}
 
 	/* Firefox */

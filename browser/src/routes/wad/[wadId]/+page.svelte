@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { resolve } from '$app/paths';
+	import { base, resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import PanoViewer from '$lib/components/PanoViewer.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -204,7 +204,7 @@
 		<div class="flex w-full justify-end sm:w-auto">
 			<div class="shrink-0 rounded-xl bg-zinc-950/40 p-1.5 ring-1 ring-red-950/60 ring-inset">
 				<a
-					href={resolve(`/servers?wad=${encodeURIComponent(data.wad.meta.id)}`)}
+					href={resolve('/servers') + `?wad=${encodeURIComponent(data.wad.meta.id)}`}
 					class="dorch-play-button flex items-center justify-center rounded-lg bg-red-950/30 px-5 py-3 text-base font-semibold text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 					aria-label={`Play ${wadTitle()}`}
 				>
@@ -220,7 +220,7 @@
 	>
 		{#each tabs as t (t.key)}
 			<a
-				href={resolve(withParams($page.url, { tab: t.key }))}
+				href={base + withParams($page.url, { tab: t.key })}
 				class={`inline-flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 focus-visible:outline-none ${
 					data.tab === t.key
 						? 'border-b-2 border-zinc-100 text-zinc-100'

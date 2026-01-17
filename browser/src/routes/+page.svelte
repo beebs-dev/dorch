@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
-	import { resolve } from '$app/paths';
+	import { base, resolve } from '$app/paths';
 	import { humanBytes, wadLabel, withParams } from '$lib/utils/format';
 
 	let { data }: { data: PageData } = $props();
@@ -72,7 +72,7 @@
 					class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
 						data.sort === opt.key ? 'bg-zinc-900 text-zinc-100' : 'text-zinc-300'
 					}`}
-					href={resolve(withParams($page.url, { sort: opt.key, offset: 0 }))}
+					href={base + withParams($page.url, { sort: opt.key, offset: 0 })}
 					role="tab"
 					aria-selected={data.sort === opt.key}
 				>
@@ -180,7 +180,7 @@
 				class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
 					data.offset <= 0 ? 'pointer-events-none opacity-50' : ''
 				}`}
-				href={resolve(withParams($page.url, { offset: Math.max(0, data.offset - data.limit) }))}
+				href={base + withParams($page.url, { offset: Math.max(0, data.offset - data.limit) })}
 				rel="prev"
 			>
 				Prev
@@ -195,7 +195,7 @@
 				class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
 					data.results.items.length < data.limit ? 'pointer-events-none opacity-50' : ''
 				}`}
-				href={resolve(withParams($page.url, { offset: data.offset + data.limit }))}
+				href={base + withParams($page.url, { offset: data.offset + data.limit })}
 				rel="next"
 			>
 				Next

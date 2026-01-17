@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { resolve } from '$app/paths';
+	import { base, resolve } from '$app/paths';
 
 	let { errors } = $props();
 
@@ -22,7 +22,7 @@
 			Back to browser
 		</a>
 		<a
-			href={resolve($page.url.pathname + $page.url.search)}
+			href={base + $page.url.pathname + $page.url.search}
 			class="rounded-lg bg-zinc-950 px-3 py-2 text-sm text-zinc-200 ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900"
 		>
 			Retry
