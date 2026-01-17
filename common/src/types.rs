@@ -149,6 +149,9 @@ pub mod wad {
         #[serde(default)]
         pub title: Option<String>,
 
+        #[serde(default)]
+        pub authors: Option<Vec<String>>,
+
         /// All known filenames ever observed for this WAD (from filenames.json).
         /// May include duplicates (e.g., casing differences).
         #[serde(default)]
