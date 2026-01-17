@@ -62,10 +62,7 @@
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
 	<nav class="text-sm text-zinc-400" aria-label="Breadcrumb">
-		<a
-			href={`/wad/${encodeURIComponent(data.wadId)}`}
-			class="hover:text-zinc-200 hover:underline"
-		>
+		<a href={`/wad/${encodeURIComponent(data.wadId)}`} class="hover:text-zinc-200 hover:underline">
 			{wadTitle()}
 		</a>
 		<span class="px-2 text-zinc-600">→</span>
@@ -75,7 +72,9 @@
 	<header class="mt-3 flex flex-col gap-2">
 		<h1 class="truncate text-2xl font-semibold tracking-tight text-zinc-100">{mapTitle()}</h1>
 		<div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-400">
-			<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-inset ring-zinc-800">{data.map.map}</span>
+			<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset"
+				>{data.map.map}</span
+			>
 			<span>{data.map.format ?? '—'}</span>
 			<span>{data.map.compatibility ?? '—'}</span>
 			<span>{data.map.monsters?.total ?? 0} monsters</span>
@@ -84,81 +83,81 @@
 		</div>
 	</header>
 
-	<section class="mt-6 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
-		<h2 class="text-sm font-semibold text-zinc-200">Map Info</h2>
-		<dl class="mt-3 grid grid-cols-1 gap-2 text-sm">
-			<div class="flex flex-wrap justify-between gap-2">
-				<dt class="text-zinc-500">Title</dt>
-				<dd class="text-zinc-100">{data.map.metadata?.title ?? '—'}</dd>
-			</div>
-			<div class="flex flex-wrap justify-between gap-2">
-				<dt class="text-zinc-500">Music</dt>
-				<dd class="text-zinc-100">{data.map.metadata?.music ?? '—'}</dd>
-			</div>
-			<div class="flex flex-wrap justify-between gap-2">
-				<dt class="text-zinc-500">Source</dt>
-				<dd class="text-zinc-100">{data.map.metadata?.source ?? '—'}</dd>
-			</div>
-			<div class="flex flex-wrap justify-between gap-2">
-				<dt class="text-zinc-500">Teleports</dt>
-				<dd class="text-zinc-100">{asText(data.map.mechanics?.teleports)}</dd>
-			</div>
-			<div class="flex flex-wrap justify-between gap-2">
-				<dt class="text-zinc-500">Keys</dt>
-				<dd class="text-zinc-100">{asText(data.map.mechanics?.keys)}</dd>
-			</div>
-			<div class="flex flex-wrap justify-between gap-2">
-				<dt class="text-zinc-500">Secret Exit</dt>
-				<dd class="text-zinc-100">{asText(data.map.mechanics?.secret_exit)}</dd>
-			</div>
-		</dl>
-
-		<div class="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-			<div class="overflow-hidden rounded-lg ring-1 ring-inset ring-zinc-800">
-				<div class="bg-zinc-950 px-3 py-2 text-xs font-medium text-zinc-400">Stats</div>
-				<div class="divide-y divide-zinc-800">
-					{#each statRows() as [label, value] (label)}
-						<div class="flex justify-between gap-2 px-3 py-2 text-sm">
-							<div class="text-zinc-500">{label}</div>
-							<div class="text-zinc-100">{asText(value)}</div>
-						</div>
-					{/each}
+	<section class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+		<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
+			<h2 class="text-sm font-semibold text-zinc-200">Map Info</h2>
+			<dl class="mt-3 grid grid-cols-1 gap-2 text-sm">
+				<div class="flex flex-wrap justify-between gap-2">
+					<dt class="text-zinc-500">Title</dt>
+					<dd class="text-zinc-100">{data.map.metadata?.title ?? '—'}</dd>
 				</div>
-			</div>
+				<div class="flex flex-wrap justify-between gap-2">
+					<dt class="text-zinc-500">Music</dt>
+					<dd class="text-zinc-100">{data.map.metadata?.music ?? '—'}</dd>
+				</div>
+				<div class="flex flex-wrap justify-between gap-2">
+					<dt class="text-zinc-500">Source</dt>
+					<dd class="text-zinc-100">{data.map.metadata?.source ?? '—'}</dd>
+				</div>
+				<div class="flex flex-wrap justify-between gap-2">
+					<dt class="text-zinc-500">Teleports</dt>
+					<dd class="text-zinc-100">{asText(data.map.mechanics?.teleports)}</dd>
+				</div>
+				<div class="flex flex-wrap justify-between gap-2">
+					<dt class="text-zinc-500">Keys</dt>
+					<dd class="text-zinc-100">{asText(data.map.mechanics?.keys)}</dd>
+				</div>
+				<div class="flex flex-wrap justify-between gap-2">
+					<dt class="text-zinc-500">Secret Exit</dt>
+					<dd class="text-zinc-100">{asText(data.map.mechanics?.secret_exit)}</dd>
+				</div>
+			</dl>
+		</div>
 
-			<div class="overflow-hidden rounded-lg ring-1 ring-inset ring-zinc-800">
-				<div class="bg-zinc-950 px-3 py-2 text-xs font-medium text-zinc-400">Difficulty</div>
-				<div class="divide-y divide-zinc-800">
-					<div class="flex justify-between gap-2 px-3 py-2 text-sm">
-						<div class="text-zinc-500">UV monsters</div>
-						<div class="text-zinc-100">{asText(data.map.difficulty?.uv_monsters)}</div>
+		<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
+			<h2 class="text-sm font-semibold text-zinc-200">Stats</h2>
+			<div class="mt-3 divide-y divide-zinc-800">
+				{#each statRows() as [label, value] (label)}
+					<div class="flex justify-between gap-2 py-2 text-sm">
+						<div class="text-zinc-500">{label}</div>
+						<div class="text-zinc-100">{asText(value)}</div>
 					</div>
-					<div class="flex justify-between gap-2 px-3 py-2 text-sm">
-						<div class="text-zinc-500">HMP monsters</div>
-						<div class="text-zinc-100">{asText(data.map.difficulty?.hmp_monsters)}</div>
-					</div>
-					<div class="flex justify-between gap-2 px-3 py-2 text-sm">
-						<div class="text-zinc-500">HTR monsters</div>
-						<div class="text-zinc-100">{asText(data.map.difficulty?.htr_monsters)}</div>
-					</div>
-					<div class="flex justify-between gap-2 px-3 py-2 text-sm">
-						<div class="text-zinc-500">UV items</div>
-						<div class="text-zinc-100">{asText(data.map.difficulty?.uv_items)}</div>
-					</div>
-					<div class="flex justify-between gap-2 px-3 py-2 text-sm">
-						<div class="text-zinc-500">HMP items</div>
-						<div class="text-zinc-100">{asText(data.map.difficulty?.hmp_items)}</div>
-					</div>
-					<div class="flex justify-between gap-2 px-3 py-2 text-sm">
-						<div class="text-zinc-500">HTR items</div>
-						<div class="text-zinc-100">{asText(data.map.difficulty?.htr_items)}</div>
-					</div>
+				{/each}
+			</div>
+		</div>
+
+		<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
+			<h2 class="text-sm font-semibold text-zinc-200">Difficulty</h2>
+			<div class="mt-3 divide-y divide-zinc-800">
+				<div class="flex justify-between gap-2 py-2 text-sm">
+					<div class="text-zinc-500">UV monsters</div>
+					<div class="text-zinc-100">{asText(data.map.difficulty?.uv_monsters)}</div>
+				</div>
+				<div class="flex justify-between gap-2 py-2 text-sm">
+					<div class="text-zinc-500">HMP monsters</div>
+					<div class="text-zinc-100">{asText(data.map.difficulty?.hmp_monsters)}</div>
+				</div>
+				<div class="flex justify-between gap-2 py-2 text-sm">
+					<div class="text-zinc-500">HTR monsters</div>
+					<div class="text-zinc-100">{asText(data.map.difficulty?.htr_monsters)}</div>
+				</div>
+				<div class="flex justify-between gap-2 py-2 text-sm">
+					<div class="text-zinc-500">UV items</div>
+					<div class="text-zinc-100">{asText(data.map.difficulty?.uv_items)}</div>
+				</div>
+				<div class="flex justify-between gap-2 py-2 text-sm">
+					<div class="text-zinc-500">HMP items</div>
+					<div class="text-zinc-100">{asText(data.map.difficulty?.hmp_items)}</div>
+				</div>
+				<div class="flex justify-between gap-2 py-2 text-sm">
+					<div class="text-zinc-500">HTR items</div>
+					<div class="text-zinc-100">{asText(data.map.difficulty?.htr_items)}</div>
 				</div>
 			</div>
 		</div>
 	</section>
 
-	<section class="mt-6 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-inset ring-zinc-800">
+	<section class="mt-6 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
 		<h2 class="text-sm font-semibold text-zinc-200">Screenshots</h2>
 		{#if (data.map.images?.length ?? 0) === 0}
 			<div class="mt-3 text-sm text-zinc-400">No screenshots are available for this map yet.</div>
@@ -166,7 +165,7 @@
 			<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 				{#each data.map.images ?? [] as img (img.id ?? img.url)}
 					{#if isPano(img)}
-						<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-inset ring-zinc-800">
+						<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset">
 							<PanoViewer url={img.url} />
 							<div class="px-3 py-2 text-xs text-zinc-500">
 								<div class="flex flex-wrap items-center justify-between gap-2">
@@ -183,7 +182,7 @@
 							</div>
 						</div>
 					{:else}
-						<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-inset ring-zinc-800">
+						<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset">
 							<button
 								type="button"
 								class="block w-full"
@@ -215,7 +214,7 @@
 			aria-label="Close screenshot"
 		></button>
 		<div
-			class="relative w-full max-w-5xl overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-inset ring-zinc-800"
+			class="relative w-full max-w-5xl overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset"
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"
