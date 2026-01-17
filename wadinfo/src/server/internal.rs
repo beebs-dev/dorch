@@ -5,7 +5,7 @@ use crate::{
         ResolveWadURLsRequest, ResolveWadURLsResponse, WadImage, WadSearchRequest,
     },
 };
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, Path, Query, State},
@@ -41,7 +41,7 @@ pub async fn run_server(
     let router = Router::new()
         .route("/thumbnails", post(resolve_map_thumbnails))
         .route("/wad", get(list_wads))
-        .route("/wad_urls", post(resolve_wad_urls))
+        .route("/wad_urls", post(resolve_wad_s3_urls))
         .route("/featured", get(featured_wads))
         .route("/wad/{id}", get(get_wad))
         .route("/wad/{id}/map/{map}", get(get_wad_map))
@@ -115,25 +115,37 @@ pub async fn upsert_wad(State(state): State<App>, Json(req): Json<InsertWad>) ->
     (StatusCode::OK, Json(wad_id)).into_response()
 }
 
-pub async fn resolve_wad_urls(
+pub async fn resolve_wad_s3_urls_inner(
+    state: App,
+    req: &ResolveWadURLsRequest,
+) -> Result<ResolveWadURLsResponse> {
+    let items = state
+        .db
+        .resolve_wad_urls(&req.wad_ids)
+        .await
+        .context("Failed to resolve wad URLs")?;
+    if items.len() != req.wad_ids.len() {
+        let resolved = items.iter().map(|item| item.wad_id).collect::<Vec<Uuid>>();
+        let unresolved = req
+            .wad_ids
+            .iter()
+            .filter(|id| !resolved.contains(id))
+            .collect::<Vec<&Uuid>>();
+        bail!(
+            "Some WAD IDs could not be resolved: {}",
+            serde_json::to_string(&unresolved).unwrap_or_default(),
+        );
+    }
+    Ok(ResolveWadURLsResponse { items })
+}
+
+pub async fn resolve_wad_s3_urls(
     State(state): State<App>,
     Json(req): Json<ResolveWadURLsRequest>,
 ) -> impl IntoResponse {
-    match state.db.resolve_wad_urls(&req.wad_ids).await {
-        Ok(items) if items.len() != req.wad_ids.len() => {
-            let resolved = items.iter().map(|item| item.wad_id).collect::<Vec<Uuid>>();
-            let unresolved = req
-                .wad_ids
-                .iter()
-                .filter(|id| !resolved.contains(id))
-                .collect::<Vec<&Uuid>>();
-            response::error(anyhow::anyhow!(
-                "Some WAD IDs could not be resolved: {}",
-                serde_json::to_string(&unresolved).unwrap_or_default(),
-            ))
-        }
-        Ok(items) => (StatusCode::OK, Json(ResolveWadURLsResponse { items })).into_response(),
-        Err(e) => response::error(e.context("Failed to resolve wad URLs")),
+    match resolve_wad_s3_urls_inner(state, &req).await {
+        Ok(resp) => (StatusCode::OK, Json(resp)).into_response(),
+        Err(e) => response::error(e),
     }
 }
 

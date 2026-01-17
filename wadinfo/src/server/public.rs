@@ -1,12 +1,23 @@
-use crate::{app::App, server::internal};
+use crate::{
+    app::App,
+    client::{ResolveWadURLsRequest, ResolveWadURLsResponse},
+    server::internal,
+};
 use anyhow::{Context, Result};
-use axum::{Router, middleware, routing::get};
+use axum::{
+    Json, Router,
+    extract::State,
+    http::StatusCode,
+    middleware,
+    response::IntoResponse,
+    routing::{get, post},
+};
 use axum_keycloak_auth::{
     PassthroughMode,
     instance::{KeycloakAuthInstance, KeycloakConfig},
     layer::KeycloakAuthLayer,
 };
-use dorch_common::{access_log, cors};
+use dorch_common::{access_log, cors, response};
 use owo_colors::OwoColorize;
 use reqwest::Url;
 use std::net::SocketAddr;
@@ -31,6 +42,7 @@ pub async fn run_server(
         .build();
     let protected_router = Router::new()
         .route("/wad", get(internal::list_wads))
+        .route("/wad_urls", post(resolve_wad_public_urls))
         .route("/featured", get(internal::featured_wads))
         .route("/wad/{id}", get(internal::get_wad))
         .route("/wad/{id}/map/{map}", get(internal::get_wad_map))
@@ -74,4 +86,26 @@ pub async fn run_server(
         humantime::format_duration(start.elapsed()).red().dimmed()
     );
     Ok(())
+}
+
+pub async fn resolve_wad_public_urls(
+    State(state): State<App>,
+    Json(req): Json<ResolveWadURLsRequest>,
+) -> impl IntoResponse {
+    let mut items = match internal::resolve_wad_s3_urls_inner(state, &req).await {
+        Ok(resp) => resp.items,
+        Err(e) => return response::error(e),
+    };
+    for item in items
+        .iter_mut()
+        .filter(|item| item.url.starts_with("s3://"))
+    {
+        // rewrite to be https://bucketname.nyc3.digitaloceanspaces.com/key
+        let url = item.url.replace("s3://", "");
+        let parts: Vec<&str> = url.splitn(2, '/').collect();
+        let bucket = parts[0];
+        let key = parts.get(1).unwrap_or(&"");
+        item.url = format!("https://{}.nyc3.digitaloceanspaces.com/{}", bucket, key);
+    }
+    (StatusCode::OK, Json(ResolveWadURLsResponse { items })).into_response()
 }
