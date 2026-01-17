@@ -177,7 +177,7 @@
 </svelte:head>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
-	<header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+	<header class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 		<div class="flex items-center justify-end gap-3">
 			<a href="/wad/{encodeURIComponent(data.wad.meta.id)}" class="min-w-0">
 				<h1 class="min-w-0 truncate text-2xl font-semibold tracking-tight">
@@ -196,10 +196,21 @@
 				</span>
 			</div>
 		</div>
+		<div class="flex w-full justify-end sm:w-auto">
+			<div class="shrink-0 rounded-xl bg-zinc-950/40 p-1.5 ring-1 ring-red-950/60 ring-inset">
+				<a
+					href={`/servers?wad=${encodeURIComponent(data.wad.meta.id)}`}
+					class="flex items-center justify-center rounded-lg bg-red-950/30 px-5 py-3 text-base font-semibold text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+					aria-label={`Play ${wadTitle()}`}
+				>
+					Play
+				</a>
+			</div>
+		</div>
 	</header>
 
 	<nav
-		class="-mx-1 mt-6 flex flex-nowrap gap-1 overflow-x-auto overflow-y-hidden border-b border-zinc-800"
+		class="-mx-1 mt-4 flex flex-nowrap gap-1 overflow-x-auto overflow-y-hidden border-b border-zinc-800"
 		aria-label="WAD tabs"
 	>
 		{#each tabs as t (t.key)}
