@@ -1,6 +1,6 @@
 use crate::client::{
     GetWadMapResponse, ListWadsResponse, ReadMapStat, ReadWad, ReadWadMetaWithTextFiles,
-    ResolveWadURLsResponse, ResolvedWadURL, WadImage, WadSearchResults,
+    ResolvedWadURL, WadImage, WadSearchResults,
 };
 use anyhow::{Context, Result};
 use dorch_common::{
@@ -54,7 +54,9 @@ fn escape_nul_in_json(value: &mut Value) -> usize {
 mod sql {
     pub const TABLES: &str = include_str!("sql/tables.sql");
     pub const INSERT_WAD: &str = include_str!("sql/insert_wad.sql");
-    pub const SEARCH_WADS: &str = include_str!("sql/search_wads.sql");
+    // NOTE: the legacy trigram/similarity search SQL is deprecated.
+    pub const SEARCH_WADS_ILIKE: &str = include_str!("sql/search_wads_ilike.sql");
+    pub const SEARCH_WADS_BY_SHA1: &str = include_str!("sql/search_wads_by_sha1.sql");
 
     pub const LIST_WADS_ASC: &str = include_str!("sql/list_wads_asc.sql");
     pub const LIST_WADS_DESC: &str = include_str!("sql/list_wads_desc.sql");
@@ -62,6 +64,7 @@ mod sql {
     pub const FEATURED_WADS: &str = include_str!("sql/featured_wads.sql");
 
     pub const GET_WAD: &str = include_str!("sql/get_wad.sql");
+    pub const GET_WAD_PUBLIC: &str = include_str!("sql/get_wad_public.sql");
     pub const RESOLVE_WAD_URLS: &str = include_str!("sql/resolve_wad_urls.sql");
     pub const GET_WAD_MAPS: &str = include_str!("sql/get_wad_maps.sql");
     pub const GET_WAD_MAP: &str = include_str!("sql/get_wad_map.sql");
@@ -107,9 +110,13 @@ impl Database {
             .await
             .context("failed to prepare INSERT_WAD")?;
         _ = conn
-            .prepare(sql::SEARCH_WADS)
+            .prepare(sql::SEARCH_WADS_ILIKE)
             .await
-            .context("failed to prepare SEARCH_WADS")?;
+            .context("failed to prepare SEARCH_WADS_ILIKE")?;
+        _ = conn
+            .prepare(sql::SEARCH_WADS_BY_SHA1)
+            .await
+            .context("failed to prepare SEARCH_WADS_BY_SHA1")?;
 
         _ = conn
             .prepare(sql::LIST_WADS_ASC)
@@ -134,6 +141,10 @@ impl Database {
             .prepare(sql::GET_WAD)
             .await
             .context("failed to prepare GET_WAD")?;
+        _ = conn
+            .prepare(sql::GET_WAD_PUBLIC)
+            .await
+            .context("failed to prepare GET_WAD_PUBLIC")?;
         _ = conn
             .prepare(sql::GET_WAD_MAPS)
             .await
@@ -399,24 +410,122 @@ impl Database {
         offset: i64,
         limit: i64,
     ) -> Result<WadSearchResults> {
+        fn is_sha1_hex(s: &str) -> bool {
+            s.len() == 40 && s.as_bytes().iter().all(|b| b.is_ascii_hexdigit())
+        }
+
         let mut conn = self.pool.get().await.context("failed to get connection")?;
+        let trimmed = query.trim();
+        if trimmed.is_empty() {
+            return Ok(WadSearchResults {
+                request_id,
+                query: trimmed.to_string(),
+                items: Vec::new(),
+                full_count: 0,
+                offset,
+                limit,
+                truncated: false,
+            });
+        }
+
+        // 1) If exactly 40 chars, attempt SHA1 parse and do a fast sha1 column lookup.
+        if trimmed.len() == 40 && is_sha1_hex(trimmed) {
+            let sha1 = trimmed.to_ascii_lowercase();
+            let stmt = conn
+                .prepare_cached(sql::SEARCH_WADS_BY_SHA1)
+                .await
+                .context("failed to prepare SEARCH_WADS_BY_SHA1")?;
+            let row = conn
+                .query_opt(&stmt, &[&sha1])
+                .await
+                .context("failed to execute SEARCH_WADS_BY_SHA1")?;
+
+            let (full_count, items) = if let Some(row) = row {
+                if offset > 0 {
+                    (1, Vec::new())
+                } else {
+                    let row_wad_id: Uuid = row.try_get("wad_id")?;
+                    let meta_json: serde_json::Value = row.try_get("meta_json")?;
+                    let mut meta = serde_json::from_value::<ReadWadMeta>(meta_json)
+                        .context("deserialize ReadWadMeta from meta_json")?;
+                    if meta.id.is_nil() {
+                        meta.id = row_wad_id;
+                    }
+                    (1, vec![meta])
+                }
+            } else {
+                (0, Vec::new())
+            };
+
+            return Ok(WadSearchResults {
+                request_id,
+                query: trimmed.to_string(),
+                items,
+                full_count,
+                offset,
+                limit,
+                truncated: false,
+            });
+        }
+
+        // 2) Attempt UUID parse. If it works, return at most one result.
+        if let Ok(wad_id) = Uuid::parse_str(trimmed) {
+            let stmt = conn
+                .prepare_cached(sql::GET_WAD_PUBLIC)
+                .await
+                .context("failed to prepare GET_WAD_PUBLIC")?;
+            let row = conn
+                .query_opt(&stmt, &[&wad_id])
+                .await
+                .context("failed to execute GET_WAD_PUBLIC")?;
+
+            let (full_count, items) = if let Some(row) = row {
+                if offset > 0 {
+                    (1, Vec::new())
+                } else {
+                    let row_wad_id: Uuid = row.try_get("wad_id")?;
+                    let meta_json: serde_json::Value = row.try_get("meta_json")?;
+                    let mut meta = serde_json::from_value::<ReadWadMeta>(meta_json)
+                        .context("deserialize ReadWadMeta from meta_json")?;
+                    if meta.id.is_nil() {
+                        meta.id = row_wad_id;
+                    }
+                    (1, vec![meta])
+                }
+            } else {
+                (0, Vec::new())
+            };
+
+            return Ok(WadSearchResults {
+                request_id,
+                query: trimmed.to_string(),
+                items,
+                full_count,
+                offset,
+                limit,
+                truncated: false,
+            });
+        }
+
+        // 3) Fallback: ILIKE across title, preferred_filename, and wad_filenames.filename.
         let tx = conn
             .transaction()
             .await
             .context("failed to begin transaction")?;
-        let search_wads = tx
-            .prepare_cached(sql::SEARCH_WADS)
+        let stmt = tx
+            .prepare_cached(sql::SEARCH_WADS_ILIKE)
             .await
-            .context("failed to prepare SEARCH_WADS")?;
+            .context("failed to prepare SEARCH_WADS_ILIKE")?;
         let rows = tx
-            .query(&search_wads, &[&query, &offset, &limit])
+            .query(&stmt, &[&trimmed, &offset, &limit])
             .await
-            .context("failed to execute SEARCH_WADS")?;
+            .context("failed to execute SEARCH_WADS_ILIKE")?;
+
         let full_count = rows
             .first()
             .map(|r| r.try_get::<_, i64>("full_count"))
             .transpose()
-            .context("failed to get full_count from SEARCH_WADS")?
+            .context("failed to get full_count from SEARCH_WADS_ILIKE")?
             .unwrap_or(0);
 
         let items = rows
@@ -436,7 +545,7 @@ impl Database {
         tx.commit().await.context("failed to commit transaction")?;
         Ok(WadSearchResults {
             request_id,
-            query: query.to_string(),
+            query: trimmed.to_string(),
             items,
             full_count,
             offset,

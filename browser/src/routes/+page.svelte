@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { page } from '$app/stores';
-	import { humanBytes, shortSha, withParams } from '$lib/utils/format';
+	import { humanBytes, wadLabel, withParams } from '$lib/utils/format';
 
 	let { data }: { data: PageData } = $props();
 
@@ -13,8 +13,7 @@
 	] as const;
 
 	function titleFor(wad: PageData['results']['items'][number]): string {
-		if (wad.title) return wad.title;
-		return `${shortSha(wad.sha1)} (untitled)`;
+		return wadLabel(wad);
 	}
 
 	function mapCountFor(wad: PageData['results']['items'][number]): string {

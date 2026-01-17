@@ -1,6 +1,32 @@
+import type { WadMeta } from '$lib/types/wadinfo';
+
 export function shortSha(sha1?: string | null, length = 8): string {
 	if (!sha1) return '';
 	return sha1.slice(0, length);
+}
+
+function nonEmptyString(v: unknown): string | null {
+	if (typeof v !== 'string') return null;
+	const trimmed = v.trim();
+	return trimmed.length ? trimmed : null;
+}
+
+/**
+ * Preferred label for showing WADs in lists (browse/search).
+ * Order: title → filename → filenames[] → id.
+ */
+export function wadLabel(meta: Pick<WadMeta, 'id' | 'title' | 'filename' | 'filenames'>): string {
+	return (
+		nonEmptyString(meta.title) ??
+		nonEmptyString(meta.filename) ??
+		(() => {
+			const files = (meta.filenames ?? [])
+				.map((f) => nonEmptyString(f))
+				.filter((f): f is string => Boolean(f));
+			return files.length ? files.join(', ') : null;
+		})() ??
+		meta.id
+	);
 }
 
 export function humanBytes(bytes?: number | null): string {
