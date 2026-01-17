@@ -15,6 +15,36 @@
 		}
 	}
 
+	function difficultyColor(skill: number | undefined): string {
+		switch (skill) {
+			case 1:
+				return 'text-green-400';
+			case 2:
+				return 'text-yellow-400';
+			case 3:
+				return 'text-orange-400';
+			case 4:
+				return 'text-red-400';
+			default:
+				return 'text-zinc-400';
+		}
+	}
+
+	function difficultyLabel(skill: number | undefined): string {
+		switch (skill) {
+			case 1:
+				return `I'm Too Young to Die`;
+			case 2:
+				return `Hurt Me Plenty`;
+			case 3:
+				return `Ultra-Violence`;
+			case 4:
+				return `Nightmare!`;
+			default:
+				return 'Unknown';
+		}
+	}
+
 	function join(gameId: string) {
 		// Stub for now.
 		alert(`Join not implemented yet (game_id: ${gameId})`);
@@ -64,7 +94,8 @@
 						<th class="px-4 py-3">MAP</th>
 						<th class="px-4 py-3">SERVER</th>
 						<th class="px-4 py-3">PLAYERS</th>
-						<th class="px-4 py-3">IWAD</th>
+						<th class="px-4 py-3">KILLS</th>
+						<th class="px-4 py-3">Base Game <span class="text-xs text-zinc-400">(IWAD)</span></th>
 						<th class="px-4 py-3">ACTIONS</th>
 					</tr>
 				</thead>
@@ -109,13 +140,8 @@
 											<div class="truncate text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
 												{row.game.info?.name ?? '(loading...)'}
 											</div>
-											<div class="mt-0.5 text-xs text-zinc-400">
-												{#if row.game.info?.private}
-													PRIVATE
-												{:else}
-													PUBLIC
-												{/if}
-												· skill {row.game.info?.skill ?? 0}
+											<div class="mt-0.5 text-xs {difficultyColor(row.game.info?.skill)}">
+												{difficultyLabel(row.game.info?.skill)}
 											</div>
 										</div>
 									</div>
@@ -125,9 +151,11 @@
 								<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
 									{row.game.info?.player_count ?? 0}/{row.game.info?.max_players ?? 0}
 								</div>
-								<div class="mt-0.5 text-xs text-zinc-400">
+							</td>
+							<td class="px-4 py-3">
+								<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
 									{#if row.game.info}
-										{row.game.info.monster_kill_count}/{row.game.info.monster_count} kills
+										{row.game.info.monster_kill_count}/{row.game.info.monster_count}
 									{:else}
 										&nbsp;
 									{/if}

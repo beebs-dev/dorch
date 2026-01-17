@@ -44,6 +44,8 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 			if (!candidate) return { game };
 
 			return { game };
+
+			// Omit screenshot fetching for now.
 			//const query = candidate.replace(/\.(wad|pk3|zip)$/i, '');
 			// try {
 			// 	// Spend budget only when we actually attempt a wadinfo call.
