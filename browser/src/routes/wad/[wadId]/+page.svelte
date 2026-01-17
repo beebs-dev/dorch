@@ -505,7 +505,9 @@
 
 			<div class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
 				<div class="border-b border-zinc-800 px-4 py-3">
-					<h2 class="text-center text-sm font-semibold text-zinc-200">Totals (across maps)</h2>
+					<h2 class="text-center text-sm font-semibold text-zinc-200">
+						Totals <span class="text-zinc-500">(across maps)</span>
+					</h2>
 				</div>
 				<table class="w-full table-fixed text-left text-sm">
 					<colgroup>
