@@ -303,19 +303,19 @@
 				</div>
 			</div>
 
-			<div class="group relative overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset">
+			<div class="group relative aspect-[16/9] overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset">
 				{#if randomScreenshot?.image?.url}
 					<a
 						href={`/wad/${encodeURIComponent(data.wad.meta.id)}/maps/${encodeURIComponent(
 							randomScreenshot.mapName
 						)}`}
-						class="block"
+						class="block h-full"
 						aria-label={`View ${randomScreenshot.mapName} details`}
 					>
 						<img
 							src={randomScreenshot.image.url}
 							alt=""
-							class="aspect-[16/9] w-full object-cover"
+							class="block h-full w-full object-cover"
 							loading="lazy"
 						/>
 						<div
@@ -327,7 +327,7 @@
 						</div>
 					</a>
 				{:else}
-					<div class="aspect-[16/9] w-full bg-gradient-to-br from-zinc-900 to-zinc-800"></div>
+					<div class="h-full w-full bg-gradient-to-br from-zinc-900 to-zinc-800"></div>
 				{/if}
 			</div>
 		</section>
