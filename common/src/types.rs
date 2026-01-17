@@ -42,11 +42,7 @@ pub enum Settable<T> {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct GameInfoUpdate {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub private: Option<Settable<bool>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<Settable<String>>,
+pub struct ZandronumGameInfoUpdate {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_players: Option<Settable<i32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -59,10 +55,8 @@ pub struct GameInfoUpdate {
     pub monster_kill_count: Option<Settable<i32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub monster_count: Option<Settable<i32>>,
-
     #[serde(skip_serializing_if = "Option::is_none")]
     pub motd: Option<Settable<String>>,
-
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sv_cheats: Option<Settable<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -103,6 +97,16 @@ pub struct GameInfoUpdate {
     pub sv_allowrun: Option<Settable<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sv_allowfreelook: Option<Settable<bool>>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct GameInfoUpdate {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private: Option<Settable<bool>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<Settable<String>>,
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub zandronum: Option<Box<ZandronumGameInfoUpdate>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]

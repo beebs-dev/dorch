@@ -114,149 +114,162 @@ pub async fn update_game_info(
 
     push_string(&mut set_args, &mut del_args, "name", info.name);
     push_bool(&mut set_args, &mut del_args, "private", info.private);
-    push_string(
-        &mut set_args,
-        &mut del_args,
-        "current_map",
-        info.current_map,
-    );
-    push_to_string(
-        &mut set_args,
-        &mut del_args,
-        "max_players",
-        info.max_players,
-    );
-    push_to_string(
-        &mut set_args,
-        &mut del_args,
-        "player_count",
-        info.player_count,
-    );
-    push_to_string(&mut set_args, &mut del_args, "skill", info.skill);
-    push_to_string(
-        &mut set_args,
-        &mut del_args,
-        "monster_kill_count",
-        info.monster_kill_count,
-    );
-    push_to_string(
-        &mut set_args,
-        &mut del_args,
-        "monster_count",
-        info.monster_count,
-    );
-    push_string(&mut set_args, &mut del_args, "motd", info.motd);
 
-    push_bool(&mut set_args, &mut del_args, "sv_cheats", info.sv_cheats);
-    push_bool(
-        &mut set_args,
-        &mut del_args,
-        "sv_allowchat",
-        info.sv_allowchat,
-    );
-    push_bool(
-        &mut set_args,
-        &mut del_args,
-        "sv_allowvoicechat",
-        info.sv_allowvoicechat,
-    );
-    push_bool(
-        &mut set_args,
-        &mut del_args,
-        "sv_fastmonsters",
-        info.sv_fastmonsters,
-    );
-    push_bool(
-        &mut set_args,
-        &mut del_args,
-        "sv_monsters",
-        info.sv_monsters,
-    );
-    push_bool(
-        &mut set_args,
-        &mut del_args,
-        "sv_nomonsters",
-        info.sv_nomonsters,
-    );
-    push_bool(
-        &mut set_args,
-        &mut del_args,
-        "sv_itemsrespawn",
-        info.sv_itemsrespawn,
-    );
-    push_to_string(
-        &mut set_args,
-        &mut del_args,
-        "sv_itemrespawntime",
-        info.sv_itemrespawntime,
-    );
-    push_to_string(
-        &mut set_args,
-        &mut del_args,
-        "sv_coop_damagefactor",
-        info.sv_coop_damagefactor,
-    );
-    push_bool(&mut set_args, &mut del_args, "sv_nojump", info.sv_nojump);
-    push_bool(
-        &mut set_args,
-        &mut del_args,
-        "sv_nocrouch",
-        info.sv_nocrouch,
-    );
-    push_bool(
-        &mut set_args,
-        &mut del_args,
-        "sv_nofreelook",
-        info.sv_nofreelook,
-    );
-    push_bool(
-        &mut set_args,
-        &mut del_args,
-        "sv_respawnonexit",
-        info.sv_respawnonexit,
-    );
-    push_to_string(
-        &mut set_args,
-        &mut del_args,
-        "sv_timelimit",
-        info.sv_timelimit,
-    );
-    push_to_string(
-        &mut set_args,
-        &mut del_args,
-        "sv_fraglimit",
-        info.sv_fraglimit,
-    );
-    push_to_string(
-        &mut set_args,
-        &mut del_args,
-        "sv_scorelimit",
-        info.sv_scorelimit,
-    );
-    push_to_string(
-        &mut set_args,
-        &mut del_args,
-        "sv_duellimit",
-        info.sv_duellimit,
-    );
-    push_to_string(
-        &mut set_args,
-        &mut del_args,
-        "sv_roundlimit",
-        info.sv_roundlimit,
-    );
-    push_bool(
-        &mut set_args,
-        &mut del_args,
-        "sv_allowrun",
-        info.sv_allowrun,
-    );
-    push_bool(
-        &mut set_args,
-        &mut del_args,
-        "sv_allowfreelook",
-        info.sv_allowfreelook,
-    );
+    if let Some(zandronum) = info.zandronum {
+        push_string(
+            &mut set_args,
+            &mut del_args,
+            "current_map",
+            zandronum.current_map,
+        );
+        push_to_string(
+            &mut set_args,
+            &mut del_args,
+            "max_players",
+            zandronum.max_players,
+        );
+        push_to_string(
+            &mut set_args,
+            &mut del_args,
+            "player_count",
+            zandronum.player_count,
+        );
+        push_to_string(&mut set_args, &mut del_args, "skill", zandronum.skill);
+        push_to_string(
+            &mut set_args,
+            &mut del_args,
+            "monster_kill_count",
+            zandronum.monster_kill_count,
+        );
+        push_to_string(
+            &mut set_args,
+            &mut del_args,
+            "monster_count",
+            zandronum.monster_count,
+        );
+        push_string(&mut set_args, &mut del_args, "motd", zandronum.motd);
+
+        push_bool(
+            &mut set_args,
+            &mut del_args,
+            "sv_cheats",
+            zandronum.sv_cheats,
+        );
+        push_bool(
+            &mut set_args,
+            &mut del_args,
+            "sv_allowchat",
+            zandronum.sv_allowchat,
+        );
+        push_bool(
+            &mut set_args,
+            &mut del_args,
+            "sv_allowvoicechat",
+            zandronum.sv_allowvoicechat,
+        );
+        push_bool(
+            &mut set_args,
+            &mut del_args,
+            "sv_fastmonsters",
+            zandronum.sv_fastmonsters,
+        );
+        push_bool(
+            &mut set_args,
+            &mut del_args,
+            "sv_monsters",
+            zandronum.sv_monsters,
+        );
+        push_bool(
+            &mut set_args,
+            &mut del_args,
+            "sv_nomonsters",
+            zandronum.sv_nomonsters,
+        );
+        push_bool(
+            &mut set_args,
+            &mut del_args,
+            "sv_itemsrespawn",
+            zandronum.sv_itemsrespawn,
+        );
+        push_to_string(
+            &mut set_args,
+            &mut del_args,
+            "sv_itemrespawntime",
+            zandronum.sv_itemrespawntime,
+        );
+        push_to_string(
+            &mut set_args,
+            &mut del_args,
+            "sv_coop_damagefactor",
+            zandronum.sv_coop_damagefactor,
+        );
+        push_bool(
+            &mut set_args,
+            &mut del_args,
+            "sv_nojump",
+            zandronum.sv_nojump,
+        );
+        push_bool(
+            &mut set_args,
+            &mut del_args,
+            "sv_nocrouch",
+            zandronum.sv_nocrouch,
+        );
+        push_bool(
+            &mut set_args,
+            &mut del_args,
+            "sv_nofreelook",
+            zandronum.sv_nofreelook,
+        );
+        push_bool(
+            &mut set_args,
+            &mut del_args,
+            "sv_respawnonexit",
+            zandronum.sv_respawnonexit,
+        );
+        push_to_string(
+            &mut set_args,
+            &mut del_args,
+            "sv_timelimit",
+            zandronum.sv_timelimit,
+        );
+        push_to_string(
+            &mut set_args,
+            &mut del_args,
+            "sv_fraglimit",
+            zandronum.sv_fraglimit,
+        );
+        push_to_string(
+            &mut set_args,
+            &mut del_args,
+            "sv_scorelimit",
+            zandronum.sv_scorelimit,
+        );
+        push_to_string(
+            &mut set_args,
+            &mut del_args,
+            "sv_duellimit",
+            zandronum.sv_duellimit,
+        );
+        push_to_string(
+            &mut set_args,
+            &mut del_args,
+            "sv_roundlimit",
+            zandronum.sv_roundlimit,
+        );
+        push_bool(
+            &mut set_args,
+            &mut del_args,
+            "sv_allowrun",
+            zandronum.sv_allowrun,
+        );
+        push_bool(
+            &mut set_args,
+            &mut del_args,
+            "sv_allowfreelook",
+            zandronum.sv_allowfreelook,
+        );
+    }
 
     if set_args.is_empty() && del_args.is_empty() {
         return response::bad_request(anyhow!("No fields to update"));
