@@ -93,7 +93,6 @@
 
 	let topExpandedAnchor = $state<string | null>(null);
 	let bottomExpandedAnchor = $state<string | null>(null);
-	let screenshotsExpanded = $state(false);
 
 	function recomputeTopRows() {
 		topRowByKey = groupVisualRows(topGridEl, [
@@ -229,7 +228,7 @@
 		<div bind:this={mapInfoEl} class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
 			<button
 				type="button"
-				class="flex w-full items-center justify-center border-b border-zinc-800 px-4 py-3"
+				class="flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3"
 				onclick={() => toggleTop('mapInfo')}
 				aria-expanded={isTopExpanded('mapInfo')}
 			>
@@ -276,7 +275,7 @@
 		<div bind:this={statsEl} class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
 			<button
 				type="button"
-				class="flex w-full items-center justify-center border-b border-zinc-800 px-4 py-3"
+				class="flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3"
 				onclick={() => toggleTop('stats')}
 				aria-expanded={isTopExpanded('stats')}
 			>
@@ -308,7 +307,7 @@
 		>
 			<button
 				type="button"
-				class="flex w-full items-center justify-center border-b border-zinc-800 px-4 py-3"
+				class="flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3"
 				onclick={() => toggleTop('difficulty')}
 				aria-expanded={isTopExpanded('difficulty')}
 			>
@@ -357,7 +356,7 @@
 		<div bind:this={monstersEl} class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
 			<button
 				type="button"
-				class="flex w-full items-center justify-center border-b border-zinc-800 px-4 py-3"
+				class="flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3"
 				onclick={() => toggleBottom('monsters')}
 				aria-expanded={isBottomExpanded('monsters')}
 			>
@@ -393,7 +392,7 @@
 		<div bind:this={itemsEl} class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
 			<button
 				type="button"
-				class="flex w-full items-center justify-center border-b border-zinc-800 px-4 py-3"
+				class="flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3"
 				onclick={() => toggleBottom('items')}
 				aria-expanded={isBottomExpanded('items')}
 			>
@@ -429,7 +428,7 @@
 		<div bind:this={texturesEl} class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
 			<button
 				type="button"
-				class="flex w-full items-center justify-center border-b border-zinc-800 px-4 py-3"
+				class="flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3"
 				onclick={() => toggleBottom('textures')}
 				aria-expanded={isBottomExpanded('textures')}
 			>
@@ -455,50 +454,43 @@
 	</section>
 
 	<section class="mt-6 overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
-		<button
-			type="button"
-			class="flex w-full items-center justify-center border-b border-zinc-800 px-4 py-3"
-			onclick={() => (screenshotsExpanded = !screenshotsExpanded)}
-			aria-expanded={screenshotsExpanded}
-		>
+		<div class="border-b border-zinc-800 px-4 py-3">
 			<h2 class="text-center text-sm font-semibold text-zinc-200">
 				Screenshots
 				<span class="ml-2 text-xs font-normal text-zinc-500">({data.map.images?.length ?? 0})</span>
 			</h2>
-		</button>
-		{#if screenshotsExpanded}
-			<div class="p-4">
-				{#if (data.map.images?.length ?? 0) === 0}
-					<div class="text-sm text-zinc-400">No screenshots are available for this map yet.</div>
-				{:else}
-					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-						{#each data.map.images ?? [] as img (img.id ?? img.url)}
-							{#if isPano(img)}
-								<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset">
-									<PanoViewer url={img.url} />
-								</div>
-							{:else}
-								<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset">
-									<button
-										type="button"
-										class="block w-full"
-										onclick={() => (modalImageUrl = img.url)}
-										aria-label="Open screenshot"
-									>
-										<img
-											src={img.url}
-											alt=""
-											class="aspect-[16/9] w-full cursor-zoom-in object-cover"
-											loading="lazy"
-										/>
-									</button>
-								</div>
-							{/if}
-						{/each}
-					</div>
-				{/if}
-			</div>
-		{/if}
+		</div>
+		<div class="p-4">
+			{#if (data.map.images?.length ?? 0) === 0}
+				<div class="text-sm text-zinc-400">No screenshots are available for this map yet.</div>
+			{:else}
+				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+					{#each data.map.images ?? [] as img (img.id ?? img.url)}
+						{#if isPano(img)}
+							<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset">
+								<PanoViewer url={img.url} />
+							</div>
+						{:else}
+							<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset">
+								<button
+									type="button"
+									class="block w-full"
+									onclick={() => (modalImageUrl = img.url)}
+									aria-label="Open screenshot"
+								>
+									<img
+										src={img.url}
+										alt=""
+										class="aspect-[16/9] w-full cursor-zoom-in object-cover"
+										loading="lazy"
+									/>
+								</button>
+							</div>
+						{/if}
+					{/each}
+				</div>
+			{/if}
+		</div>
 	</section>
 </section>
 
