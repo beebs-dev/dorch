@@ -98,9 +98,33 @@
 
 	let modalImageUrl = $state<string | null>(null);
 	let showSha256 = $state(false);
+	let toastMessage = $state<string | null>(null);
+	let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function closeModal() {
 		modalImageUrl = null;
+	}
+
+	async function copyToClipboard(text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+		} catch {
+			const ta = document.createElement('textarea');
+			ta.value = text;
+			ta.setAttribute('readonly', '');
+			ta.style.position = 'fixed';
+			ta.style.left = '-9999px';
+			document.body.appendChild(ta);
+			ta.select();
+			document.execCommand('copy');
+			document.body.removeChild(ta);
+		}
+
+		toastMessage = 'Copied to clipboard';
+		if (toastTimer) clearTimeout(toastTimer);
+		toastTimer = setTimeout(() => {
+			toastMessage = null;
+		}, 1800);
 	}
 
 	$effect(() => {
@@ -175,18 +199,40 @@
 						</div>
 						<div class="flex flex-wrap justify-between gap-2">
 							<dt class="text-zinc-500">WAD ID</dt>
-							<dd class="font-mono text-xs text-zinc-200">{data.wad.meta.id}</dd>
+							<dd class="text-xs">
+								<button
+									type="button"
+									class="font-mono text-xs text-zinc-200 cursor-pointer"
+									onclick={() => copyToClipboard(data.wad.meta.id)}
+								>
+									{data.wad.meta.id}
+								</button>
+							</dd>
 						</div>
 						<div class="flex flex-wrap justify-between gap-2">
 							<dt class="text-zinc-500">SHA1</dt>
-							<dd class="font-mono text-xs text-zinc-200">{data.wad.meta.sha1}</dd>
+							<dd class="text-xs">
+								<button
+									type="button"
+									class="font-mono text-xs text-zinc-200 cursor-pointer"
+									onclick={() => copyToClipboard(data.wad.meta.sha1)}
+								>
+									{data.wad.meta.sha1}
+								</button>
+							</dd>
 						</div>
 						{#if data.wad.meta.sha256}
 							<div class="flex flex-wrap justify-between gap-2">
 								<dt class="text-zinc-500">SHA256</dt>
 								<dd class="text-xs">
 									{#if showSha256}
-										<span class="font-mono text-zinc-200">{data.wad.meta.sha256}</span>
+										<button
+											type="button"
+											class="font-mono text-zinc-200 cursor-pointer"
+											onclick={() => copyToClipboard(data.wad.meta.sha256 ?? '')}
+										>
+											{data.wad.meta.sha256}
+										</button>
 									{:else}
 										<button
 											type="button"
@@ -504,6 +550,12 @@
 		</section>
 	{/if}
 </section>
+
+{#if toastMessage}
+	<div class="fixed top-4 left-1/2 z-[60] -translate-x-1/2 rounded-md bg-zinc-900 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800">
+		{toastMessage}
+	</div>
+{/if}
 
 {#if modalImageUrl}
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
