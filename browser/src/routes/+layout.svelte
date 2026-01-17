@@ -2,6 +2,7 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import DorchLogo from '$lib/components/DorchLogo.svelte';
+	import { toastMessage } from '$lib/stores/toast';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 
@@ -51,4 +52,13 @@
 		</div>
 	</header>
 	<main class="min-w-0">{@render children()}</main>
+	{#if $toastMessage}
+		<div
+			class="fixed top-4 left-1/2 z-[999] -translate-x-1/2 rounded-md bg-zinc-900 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800"
+			role="status"
+			aria-live="polite"
+		>
+			{$toastMessage}
+		</div>
+	{/if}
 </div>

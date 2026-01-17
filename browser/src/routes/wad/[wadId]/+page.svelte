@@ -6,6 +6,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { WadImage } from '$lib/types/wadinfo';
 	import { ellipsize, humanBytes, wadLabel, withParams } from '$lib/utils/format';
+	import { showToast } from '$lib/stores/toast';
 
 	let { data }: { data: PageData } = $props();
 
@@ -130,8 +131,6 @@
 
 	let modalImageUrl = $state<string | null>(null);
 	let showSha256 = $state(false);
-	let toastMessage = $state<string | null>(null);
-	let toastTimer: ReturnType<typeof setTimeout> | null = null;
 	let isFavorite = $state(false);
 
 	function closeModal() {
@@ -152,24 +151,14 @@
 			document.execCommand('copy');
 			document.body.removeChild(ta);
 		}
-
-		toastMessage = 'Copied to clipboard';
-		if (toastTimer) clearTimeout(toastTimer);
-		toastTimer = setTimeout(() => {
-			toastMessage = null;
-		}, 1800);
+		showToast('Copied to clipboard');
 	}
 
 	function toggleFavorite() {
 		// Stub for now.
 		isFavorite = !isFavorite;
 		console.log('favorite (stub)', { wadId: data.wad.meta.id, favorite: isFavorite });
-
-		toastMessage = isFavorite ? 'Marked as favorite (stub)' : 'Removed favorite (stub)';
-		if (toastTimer) clearTimeout(toastTimer);
-		toastTimer = setTimeout(() => {
-			toastMessage = null;
-		}, 1800);
+		showToast(isFavorite ? 'Marked as favorite (stub)' : 'Removed favorite (stub)');
 	}
 
 	$effect(() => {
@@ -738,14 +727,6 @@
 		</section>
 	{/if}
 </section>
-
-{#if toastMessage}
-	<div
-		class="fixed top-4 left-1/2 z-[60] -translate-x-1/2 rounded-md bg-zinc-900 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800"
-	>
-		{toastMessage}
-	</div>
-{/if}
 
 {#if modalImageUrl}
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
