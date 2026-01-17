@@ -1,5 +1,10 @@
 export type Uuid = string;
 
+export type WadReference = {
+	name: string;
+	id: Uuid;
+};
+
 export type GameInfo = {
 	game_id: Uuid;
 	private: boolean;
@@ -37,8 +42,8 @@ export type GameInfo = {
 
 export type GameSummary = {
 	game_id: Uuid;
-	iwad: string;
-	files?: string[] | null;
+	iwad: WadReference;
+	files?: WadReference[] | null;
 	info?: GameInfo | null;
 };
 

@@ -130,6 +130,25 @@ export interface WadImage {
 	kind?: string | null;
 }
 
+export interface MapReference {
+	wad_id: Uuid;
+	map: string;
+}
+
+export interface MapThumbnail {
+	wad_id: Uuid;
+	map: string;
+	url: string;
+}
+
+export interface ResolveMapThumbnailsRequest {
+	items: MapReference[];
+}
+
+export interface ResolveMapThumbnailsResponse {
+	items: MapThumbnail[];
+}
+
 // Future wiring: ratings are not in the schema yet.
 export interface RatingSummary {
 	average?: number | null; // 1..5

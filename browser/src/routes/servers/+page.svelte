@@ -135,7 +135,7 @@
 											</div>
 											<div class="truncate text-xs text-zinc-400">
 												{#if row.game.files?.length}
-													PWAD: {row.game.files[0]}
+													PWAD: {row.game.files[0].name}
 												{:else}
 													&nbsp;
 												{/if}
@@ -176,7 +176,7 @@
 
 								<td class="px-4 py-3">
 									<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
-										{row.game.iwad}
+											{row.game.iwad.name}
 									</div>
 								</td>
 

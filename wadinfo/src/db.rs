@@ -66,6 +66,7 @@ mod sql {
     pub const GET_WAD: &str = include_str!("sql/get_wad.sql");
     pub const GET_WAD_PUBLIC: &str = include_str!("sql/get_wad_public.sql");
     pub const RESOLVE_WAD_URLS: &str = include_str!("sql/resolve_wad_urls.sql");
+    pub const RESOLVE_MAP_THUMBNAILS: &str = include_str!("sql/resolve_map_thumbnails.sql");
     pub const GET_WAD_MAPS: &str = include_str!("sql/get_wad_maps.sql");
     pub const GET_WAD_MAP: &str = include_str!("sql/get_wad_map.sql");
 
@@ -136,6 +137,11 @@ impl Database {
             .prepare(sql::RESOLVE_WAD_URLS)
             .await
             .context("failed to prepare RESOLVE_WAD_URLS")?;
+
+        _ = conn
+            .prepare(sql::RESOLVE_MAP_THUMBNAILS)
+            .await
+            .context("failed to prepare RESOLVE_MAP_THUMBNAILS")?;
 
         _ = conn
             .prepare(sql::GET_WAD)
@@ -371,7 +377,45 @@ impl Database {
         &self,
         items: &[MapReference],
     ) -> Result<Vec<MapThumbnail>> {
-        todo!()
+        if items.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut wad_ids = Vec::with_capacity(items.len());
+        let mut map_names = Vec::with_capacity(items.len());
+        for item in items {
+            wad_ids.push(item.wad_id);
+            map_names.push(item.map.clone());
+        }
+        let map_names = escape_nul_in_vec(&map_names).unwrap_or(map_names);
+
+        let mut conn = self.pool.get().await.context("failed to get connection")?;
+        let tx = conn
+            .transaction()
+            .await
+            .context("failed to begin transaction")?;
+        let stmt = tx
+            .prepare_cached(sql::RESOLVE_MAP_THUMBNAILS)
+            .await
+            .context("failed to prepare RESOLVE_MAP_THUMBNAILS")?;
+
+        let rows = tx
+            .query(&stmt, &[&wad_ids, &map_names])
+            .await
+            .context("failed to execute RESOLVE_MAP_THUMBNAILS")?;
+
+        let out = rows
+            .into_iter()
+            .map(|row| {
+                Ok(MapThumbnail {
+                    wad_id: row.try_get("wad_id")?,
+                    map: row.try_get("map_name")?,
+                    url: row.try_get("url")?,
+                })
+            })
+            .collect::<Result<Vec<MapThumbnail>>>()?;
+
+        Ok(out)
     }
 
     pub async fn replace_wad_map_images(

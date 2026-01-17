@@ -3,6 +3,9 @@ import type {
 	GetWadMapResponse,
 	GetWadResponse,
 	ListWadsResponse,
+	MapReference,
+	MapThumbnail,
+	ResolveMapThumbnailsResponse,
 	WadMeta,
 	WadImage,
 	WadSearchResults
@@ -59,6 +62,13 @@ function normalizeWadSearchResults(res: WadSearchResults): WadSearchResults {
 	};
 }
 
+function normalizeMapThumbnail(t: MapThumbnail): MapThumbnail {
+	return {
+		...t,
+		url: rewriteS3SpacesUrl(t.url) ?? t.url
+	};
+}
+
 class WadinfoHttpError extends Error {
 	readonly status: number;
 	readonly body?: string;
@@ -79,13 +89,28 @@ function getBaseUrl(): string {
 	return base.endsWith('/') ? base : `${base}/`;
 }
 
-function buildUrl(path: string): URL {
-	const base = getBaseUrl();
+function getInternalBaseUrl(): string {
+	// Some endpoints (like POST /thumbnails) are only exposed on wadinfo's internal router.
+	// Allow the browser SSR server to target that service if configured.
+	const base = env.WADINFO_INTERNAL_BASE_URL ?? env.WADINFO_BASE_URL;
+	if (!base) {
+		throw new Error('Missing required private env var WADINFO_BASE_URL');
+	}
+	return base.endsWith('/') ? base : `${base}/`;
+}
+
+function buildUrl(path: string, opts?: { internal?: boolean }): URL {
+	const base = opts?.internal ? getInternalBaseUrl() : getBaseUrl();
 	return new URL(path.replace(/^\//, ''), base);
 }
 
-async function requestJson<T>(fetchFn: typeof fetch, path: string, init?: RequestInit): Promise<T> {
-	const url = buildUrl(path);
+async function requestJson<T>(
+	fetchFn: typeof fetch,
+	path: string,
+	init?: RequestInit,
+	opts?: { internal?: boolean }
+): Promise<T> {
+	const url = buildUrl(path, opts);
 	const res = await fetchFn(url, {
 		...init,
 		headers: {
@@ -175,6 +200,22 @@ export function createWadinfoClient(fetchFn: typeof fetch) {
 				fetchFn,
 				`/wad/${encodeURIComponent(wadId)}/maps/${encodeURIComponent(mapName)}/images`
 			);
+		},
+
+		async resolveMapThumbnails(items: MapReference[]): Promise<MapThumbnail[]> {
+			const res = await requestJson<ResolveMapThumbnailsResponse>(
+				fetchFn,
+				'/thumbnails',
+				{
+					method: 'POST',
+					headers: {
+						'content-type': 'application/json'
+					},
+					body: JSON.stringify({ items })
+				},
+				{ internal: true }
+			);
+			return (res.items ?? []).map(normalizeMapThumbnail);
 		},
 
 		WadinfoHttpError
