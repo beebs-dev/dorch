@@ -48,4 +48,45 @@
 	*::-webkit-scrollbar-corner {
 		background-color: var(--dorch-scrollbar-track);
 	}
+
+	/* Subtle sanguine glow for pano frames */
+	.dorch-pano-glow {
+		position: relative;
+	}
+
+	.dorch-pano-glow::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		pointer-events: none;
+		box-shadow:
+			0 0 0 1px color-mix(in oklab, var(--color-red-950) 60%, transparent),
+			0 0 20px 2px color-mix(in oklab, var(--color-red-950) 60%, transparent);
+	}
+
+	.dorch-pano-label {
+		position: relative;
+	}
+
+	.dorch-pano-label::before {
+		content: 'PANORAMIC';
+		position: absolute;
+		top: 0.5rem;
+		left: 0.5rem;
+		background: black;
+		padding: 0 4px;
+		z-index: 1;
+		pointer-events: none;
+		font-family: var(--dorch-mono);
+		font-size: 0.8rem;
+		letter-spacing: 0.08em;
+		color: color-mix(in oklab, var(--color-red-900) 100%, white);
+		opacity: 1;
+		transition: opacity 160ms ease;
+	}
+
+	.dorch-pano-label:hover::before {
+		opacity: 0;
+	}
 }

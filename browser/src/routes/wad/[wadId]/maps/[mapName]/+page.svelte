@@ -540,8 +540,12 @@
 				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{#each data.map.images ?? [] as img (img.id ?? img.url)}
 						{#if isPano(img)}
-							<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset">
-								<PanoViewer url={img.url} />
+							<div
+								class="dorch-pano-glow dorch-pano-label rounded-xl bg-zinc-950 ring-1 ring-red-950/60 ring-inset"
+							>
+								<div class="overflow-hidden rounded-xl">
+									<PanoViewer url={img.url} />
+								</div>
 							</div>
 						{:else}
 							<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset">

@@ -166,13 +166,13 @@
 	</header>
 
 	<nav
-		class="mt-6 -mx-1 flex flex-nowrap gap-1 overflow-x-auto overflow-y-hidden border-b border-zinc-800"
+		class="-mx-1 mt-6 flex flex-nowrap gap-1 overflow-x-auto overflow-y-hidden border-b border-zinc-800"
 		aria-label="WAD tabs"
 	>
 		{#each tabs as t (t.key)}
 			<a
 				href={withParams($page.url, { tab: t.key })}
-				class={`inline-flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+				class={`inline-flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 focus-visible:outline-none ${
 					data.tab === t.key
 						? 'border-b-2 border-zinc-100 text-zinc-100'
 						: 'border-b-2 border-transparent text-zinc-400 hover:text-zinc-200'
@@ -202,7 +202,7 @@
 							<dd class="text-xs">
 								<button
 									type="button"
-									class="font-mono text-xs text-zinc-200 cursor-pointer"
+									class="cursor-pointer font-mono text-xs text-zinc-200"
 									onclick={() => copyToClipboard(data.wad.meta.id)}
 								>
 									{data.wad.meta.id}
@@ -214,7 +214,7 @@
 							<dd class="text-xs">
 								<button
 									type="button"
-									class="font-mono text-xs text-zinc-200 cursor-pointer"
+									class="cursor-pointer font-mono text-xs text-zinc-200"
 									onclick={() => copyToClipboard(data.wad.meta.sha1)}
 								>
 									{data.wad.meta.sha1}
@@ -228,7 +228,7 @@
 									{#if showSha256}
 										<button
 											type="button"
-											class="font-mono text-zinc-200 cursor-pointer"
+											class="cursor-pointer font-mono text-zinc-200"
 											onclick={() => copyToClipboard(data.wad.meta.sha256 ?? '')}
 										>
 											{data.wad.meta.sha256}
@@ -252,7 +252,9 @@
 					</dl>
 				</div>
 
-				<div class="flex min-h-0 flex-1 flex-col rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
+				<div
+					class="flex min-h-0 flex-1 flex-col rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset"
+				>
 					<h2 class="text-sm font-semibold text-zinc-200">Guesses</h2>
 					<div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<div>
@@ -443,9 +445,11 @@
 								{#each m.images ?? [] as img (img.id ?? img.url)}
 									{#if isPano(img)}
 										<div
-											class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset"
+											class="dorch-pano-glow dorch-pano-label rounded-xl bg-zinc-950 ring-1 ring-red-950/60 ring-inset"
 										>
-											<PanoViewer url={img.url} />
+											<div class="overflow-hidden rounded-xl">
+												<PanoViewer url={img.url} />
+											</div>
 										</div>
 									{:else}
 										<div
@@ -490,8 +494,8 @@
 						<tbody class="divide-y divide-zinc-800">
 							{#each countEntries() as [k, v] (k)}
 								<tr>
-									<td class="py-2 pl-3 pr-3 text-right font-mono text-xs text-zinc-500">{k}</td>
-									<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{v}</td>
+									<td class="py-2 pr-3 pl-3 text-right font-mono text-xs text-zinc-500">{k}</td>
+									<td class="py-2 pr-3 pl-3 text-left text-zinc-200">{v}</td>
 								</tr>
 							{/each}
 						</tbody>
@@ -510,24 +514,24 @@
 					</colgroup>
 					<tbody class="divide-y divide-zinc-800">
 						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Things</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{totals().things}</td>
+							<td class="py-2 pr-3 pl-3 text-right text-zinc-500">Things</td>
+							<td class="py-2 pr-3 pl-3 text-left text-zinc-200">{totals().things}</td>
 						</tr>
 						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Linedefs</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{totals().linedefs}</td>
+							<td class="py-2 pr-3 pl-3 text-right text-zinc-500">Linedefs</td>
+							<td class="py-2 pr-3 pl-3 text-left text-zinc-200">{totals().linedefs}</td>
 						</tr>
 						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Sectors</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{totals().sectors}</td>
+							<td class="py-2 pr-3 pl-3 text-right text-zinc-500">Sectors</td>
+							<td class="py-2 pr-3 pl-3 text-left text-zinc-200">{totals().sectors}</td>
 						</tr>
 						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Monsters</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{totals().monsters}</td>
+							<td class="py-2 pr-3 pl-3 text-right text-zinc-500">Monsters</td>
+							<td class="py-2 pr-3 pl-3 text-left text-zinc-200">{totals().monsters}</td>
 						</tr>
 						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Items</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{totals().items}</td>
+							<td class="py-2 pr-3 pl-3 text-right text-zinc-500">Items</td>
+							<td class="py-2 pr-3 pl-3 text-left text-zinc-200">{totals().items}</td>
 						</tr>
 					</tbody>
 				</table>
@@ -552,7 +556,9 @@
 </section>
 
 {#if toastMessage}
-	<div class="fixed top-4 left-1/2 z-[60] -translate-x-1/2 rounded-md bg-zinc-900 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800">
+	<div
+		class="fixed top-4 left-1/2 z-[60] -translate-x-1/2 rounded-md bg-zinc-900 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800"
+	>
 		{toastMessage}
 	</div>
 {/if}
