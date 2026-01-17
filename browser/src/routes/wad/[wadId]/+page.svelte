@@ -359,15 +359,7 @@
 											<PanoViewer url={img.url} />
 											<div class="px-3 py-2 text-xs text-zinc-500">
 												<div class="flex flex-wrap items-center justify-between gap-2">
-													<span>pano</span>
-													<a
-														class="underline hover:text-zinc-300"
-														href={img.url}
-														target="_blank"
-														rel="noreferrer"
-													>
-														Open image
-													</a>
+													<span>panoramic</span>
 												</div>
 											</div>
 										</div>
