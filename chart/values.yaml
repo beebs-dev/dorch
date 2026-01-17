@@ -64,7 +64,7 @@ redis:
 
 livekit:
   internalUrl: "ws://livekit-livekit-server.livekit.svc.cluster.local"
-  externalUrl: "wss://livekit.example.com"
+  externalUrl: "wss://webrtc.beebs.dev"
   secret: livekit-cred
   apiKey:
     valueFrom:
