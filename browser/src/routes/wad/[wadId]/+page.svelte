@@ -397,17 +397,21 @@
 		<section class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
 			<div class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
 				<div class="border-b border-zinc-800 px-4 py-3">
-					<h2 class="text-sm font-semibold text-zinc-200">Counts</h2>
+					<h2 class="text-center text-sm font-semibold text-zinc-200">Counts</h2>
 				</div>
 				{#if countEntries().length === 0}
 					<div class="px-4 py-3 text-sm text-zinc-400">No counts are available.</div>
 				{:else}
-					<table class="w-full text-left text-sm">
+					<table class="w-full table-fixed text-left text-sm">
+						<colgroup>
+							<col class="w-1/2" />
+							<col class="w-1/2" />
+						</colgroup>
 						<tbody class="divide-y divide-zinc-800">
 							{#each countEntries() as [k, v] (k)}
 								<tr>
-									<td class="px-3 py-2 font-mono text-xs text-zinc-500">{k}</td>
-									<td class="px-3 py-2 text-right text-zinc-200">{v}</td>
+									<td class="py-2 pl-3 pr-3 text-right font-mono text-xs text-zinc-500">{k}</td>
+									<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{v}</td>
 								</tr>
 							{/each}
 						</tbody>
@@ -417,29 +421,33 @@
 
 			<div class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
 				<div class="border-b border-zinc-800 px-4 py-3">
-					<h2 class="text-sm font-semibold text-zinc-200">Totals (across maps)</h2>
+					<h2 class="text-center text-sm font-semibold text-zinc-200">Totals (across maps)</h2>
 				</div>
-				<table class="w-full text-left text-sm">
+				<table class="w-full table-fixed text-left text-sm">
+					<colgroup>
+						<col class="w-1/2" />
+						<col class="w-1/2" />
+					</colgroup>
 					<tbody class="divide-y divide-zinc-800">
 						<tr>
-							<td class="px-3 py-2 text-zinc-500">Things</td>
-							<td class="px-3 py-2 text-right text-zinc-200">{totals().things}</td>
+							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Things</td>
+							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{totals().things}</td>
 						</tr>
 						<tr>
-							<td class="px-3 py-2 text-zinc-500">Linedefs</td>
-							<td class="px-3 py-2 text-right text-zinc-200">{totals().linedefs}</td>
+							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Linedefs</td>
+							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{totals().linedefs}</td>
 						</tr>
 						<tr>
-							<td class="px-3 py-2 text-zinc-500">Sectors</td>
-							<td class="px-3 py-2 text-right text-zinc-200">{totals().sectors}</td>
+							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Sectors</td>
+							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{totals().sectors}</td>
 						</tr>
 						<tr>
-							<td class="px-3 py-2 text-zinc-500">Monsters</td>
-							<td class="px-3 py-2 text-right text-zinc-200">{totals().monsters}</td>
+							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Monsters</td>
+							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{totals().monsters}</td>
 						</tr>
 						<tr>
-							<td class="px-3 py-2 text-zinc-500">Items</td>
-							<td class="px-3 py-2 text-right text-zinc-200">{totals().items}</td>
+							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Items</td>
+							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{totals().items}</td>
 						</tr>
 					</tbody>
 				</table>
