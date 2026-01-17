@@ -62,6 +62,22 @@ pub struct SearchOptions {
 }
 
 #[derive(Deserialize)]
+pub struct ResolveWadURLsRequest {
+    pub wad_ids: Vec<Uuid>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ResolvedWadURL {
+    pub wad_id: Uuid,
+    pub url: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ResolveWadURLsResponse {
+    pub items: Vec<ResolvedWadURL>,
+}
+
+#[derive(Deserialize)]
 pub struct ListWadsRequest {
     #[serde(flatten)]
     pub pagination: Pagination,

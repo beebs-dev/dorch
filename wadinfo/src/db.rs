@@ -1,6 +1,6 @@
 use crate::client::{
-    GetWadMapResponse, ListWadsResponse, ReadMapStat, ReadWad, ReadWadMetaWithTextFiles, WadImage,
-    WadSearchResults,
+    GetWadMapResponse, ListWadsResponse, ReadMapStat, ReadWad, ReadWadMetaWithTextFiles,
+    ResolveWadURLsResponse, ResolvedWadURL, WadImage, WadSearchResults,
 };
 use anyhow::{Context, Result};
 use dorch_common::{
@@ -62,6 +62,7 @@ mod sql {
     pub const FEATURED_WADS: &str = include_str!("sql/featured_wads.sql");
 
     pub const GET_WAD: &str = include_str!("sql/get_wad.sql");
+    pub const RESOLVE_WAD_URLS: &str = include_str!("sql/resolve_wad_urls.sql");
     pub const GET_WAD_MAPS: &str = include_str!("sql/get_wad_maps.sql");
     pub const GET_WAD_MAP: &str = include_str!("sql/get_wad_map.sql");
 
@@ -123,6 +124,11 @@ impl Database {
             .prepare(sql::FEATURED_WADS)
             .await
             .context("failed to prepare FEATURED_WADS")?;
+
+        _ = conn
+            .prepare(sql::RESOLVE_WAD_URLS)
+            .await
+            .context("failed to prepare RESOLVE_WAD_URLS")?;
 
         _ = conn
             .prepare(sql::GET_WAD)
@@ -437,6 +443,31 @@ impl Database {
             limit,
             truncated: offset + limit < full_count,
         })
+    }
+
+    pub async fn resolve_wad_urls(&self, wad_ids: &[Uuid]) -> Result<Vec<ResolvedWadURL>> {
+        let mut conn = self.pool.get().await.context("failed to get connection")?;
+        let tx = conn
+            .transaction()
+            .await
+            .context("failed to begin transaction")?;
+        let stmt = tx
+            .prepare_cached(sql::RESOLVE_WAD_URLS)
+            .await
+            .context("failed to prepare RESOLVE_WAD_URLS")?;
+        let items = tx
+            .query(&stmt, &[&wad_ids])
+            .await
+            .context("failed to execute RESOLVE_WAD_URLS")?
+            .into_iter()
+            .map(|row| {
+                Ok(ResolvedWadURL {
+                    wad_id: row.try_get("wad_id")?,
+                    url: row.try_get("file_url")?,
+                })
+            })
+            .collect::<Result<Vec<ResolvedWadURL>>>()?;
+        Ok(items)
     }
 
     pub async fn list_wads(

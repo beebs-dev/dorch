@@ -1,0 +1,1 @@
+SELECT wad_id, file_url FROM wads WHERE wad_id = ANY($1::UUID[]);

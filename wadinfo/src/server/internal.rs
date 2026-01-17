@@ -1,6 +1,8 @@
 use crate::{
     app::App,
-    client::{ListWadsRequest, WadImage, WadSearchRequest},
+    client::{
+        ListWadsRequest, ResolveWadURLsRequest, ResolveWadURLsResponse, WadImage, WadSearchRequest,
+    },
 };
 use anyhow::{Context, Result};
 use axum::{
@@ -37,6 +39,7 @@ pub async fn run_server(
         .layer(middleware::from_fn(access_log::internal));
     let router = Router::new()
         .route("/wad", get(list_wads))
+        .route("/wad_urls", post(resolve_wad_urls))
         .route("/featured", get(featured_wads))
         .route("/wad/{id}", get(get_wad))
         .route("/wad/{id}/map/{map}", get(get_wad_map))
@@ -108,6 +111,16 @@ pub async fn upsert_wad(State(state): State<App>, Json(req): Json<InsertWad>) ->
         req.meta.sha1.green().dimmed()
     );
     (StatusCode::OK, Json(wad_id)).into_response()
+}
+
+pub async fn resolve_wad_urls(
+    State(state): State<App>,
+    Json(req): Json<ResolveWadURLsRequest>,
+) -> impl IntoResponse {
+    match state.db.resolve_wad_urls(&req.wad_ids).await {
+        Ok(items) => (StatusCode::OK, Json(ResolveWadURLsResponse { items })).into_response(),
+        Err(e) => response::error(e.context("Failed to resolve wad URLs")),
+    }
 }
 
 pub async fn list_wads(
