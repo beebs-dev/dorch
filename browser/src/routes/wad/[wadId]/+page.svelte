@@ -107,10 +107,10 @@
 				<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
 					{data.wad.meta.file?.type ?? '—'}
 				</span>
-				<span class="rounded bg-zinc-900 px-2 py-1 text-zinc-200 ring-1 ring-zinc-800 ring-inset">
+				<span class="rounded bg-zinc-900 px-2 py-1 text-zinc-400 ring-1 ring-zinc-800 ring-inset">
 					{humanBytes(data.wad.meta.file?.size ?? null)}
 				</span>
-				<span class="rounded bg-zinc-900 px-2 py-1 text-zinc-200 ring-1 ring-zinc-800 ring-inset">
+				<span class="rounded bg-zinc-900 px-2 py-1 text-zinc-400 ring-1 ring-zinc-800 ring-inset">
 					{data.wad.maps.length} map(s)
 				</span>
 			</div>
