@@ -42,8 +42,8 @@ export type GameInfo = {
 
 export type GameSummary = {
 	game_id: Uuid;
-	iwad: WadReference;
-	files?: WadReference[] | null;
+	iwad: Uuid;
+	files?: Uuid[] | null;
 	info?: GameInfo | null;
 };
 
