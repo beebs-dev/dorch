@@ -179,19 +179,29 @@ impl GameInfoStore {
         }))
     }
 
-    pub async fn update_game_info<T>(&self, game_id: Uuid, values: &[(&str, T)]) -> Result<()>
-    where
-        T: redis::ToRedisArgs,
-    {
+    pub async fn update_game_info(
+        &self,
+        game_id: Uuid,
+        set_values: &[(&str, String)],
+        del_fields: &[&str],
+    ) -> Result<()> {
         let game_id = game_id.to_string();
         let key = key_game_info(&game_id);
         let script = redis::Script::new(scripts::SET_GAME_INFO_FIELDS);
-        // Build invocation: KEYS[1] = key, ARGV = field/value pairs..., game_id, channel, ttl
+        // Build invocation:
+        // KEYS[1] = key
+        // ARGV = set_pair_count, del_count, (field,value)*, (field)*, game_id, channel, ttl
         let mut inv = script.key(key);
         let mut inv = &mut inv;
-        for (field, value) in values {
+        inv = inv.arg(set_values.len()).arg(del_fields.len());
+
+        for (field, value) in set_values {
             inv = inv.arg(*field).arg(value);
         }
+        for field in del_fields {
+            inv = inv.arg(*field);
+        }
+
         inv = inv
             .arg(game_id)
             .arg(dorch_common::MASTER_TOPIC)

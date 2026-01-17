@@ -13,7 +13,7 @@ use axum::{
 };
 use dorch_common::{
     access_log, response,
-    types::{GameInfo, GameInfoUpdate},
+    types::{GameInfo, GameInfoUpdate, Settable},
 };
 use dorch_types::Game;
 use kube::{Api, api::ObjectMeta};
@@ -70,98 +70,202 @@ pub async fn update_game_info(
     Path(game_id): Path<Uuid>,
     Json(info): Json<GameInfoUpdate>,
 ) -> impl IntoResponse {
-    let mut args = Vec::new();
-    if let Some(name) = info.name {
-        args.push(("name", name));
+    fn push_string(
+        set_args: &mut Vec<(&'static str, String)>,
+        del_args: &mut Vec<&'static str>,
+        key: &'static str,
+        v: Option<Settable<String>>,
+    ) {
+        match v {
+            None => {}
+            Some(Settable::Set(value)) => set_args.push((key, value)),
+            Some(Settable::Unset) => del_args.push(key),
+        }
     }
-    if let Some(private) = info.private {
-        args.push(("private", (private as u8).to_string()));
+
+    fn push_to_string<T: ToString>(
+        set_args: &mut Vec<(&'static str, String)>,
+        del_args: &mut Vec<&'static str>,
+        key: &'static str,
+        v: Option<Settable<T>>,
+    ) {
+        match v {
+            None => {}
+            Some(Settable::Set(value)) => set_args.push((key, value.to_string())),
+            Some(Settable::Unset) => del_args.push(key),
+        }
     }
-    if let Some(current_map) = info.current_map {
-        args.push(("current_map", current_map));
+
+    fn push_bool(
+        set_args: &mut Vec<(&'static str, String)>,
+        del_args: &mut Vec<&'static str>,
+        key: &'static str,
+        v: Option<Settable<bool>>,
+    ) {
+        match v {
+            None => {}
+            Some(Settable::Set(value)) => set_args.push((key, (value as u8).to_string())),
+            Some(Settable::Unset) => del_args.push(key),
+        }
     }
-    if let Some(max_players) = info.max_players {
-        args.push(("max_players", max_players.to_string()));
-    }
-    if let Some(player_count) = info.player_count {
-        args.push(("player_count", player_count.to_string()));
-    }
-    if let Some(skill) = info.skill {
-        args.push(("skill", skill.to_string()));
-    }
-    if let Some(monster_kill_count) = info.monster_kill_count {
-        args.push(("monster_kill_count", monster_kill_count.to_string()));
-    }
-    if let Some(monster_count) = info.monster_count {
-        args.push(("monster_count", monster_count.to_string()));
-    }
-    if let Some(motd) = info.motd {
-        args.push(("motd", motd));
-    }
-    if let Some(v) = info.sv_cheats {
-        args.push(("sv_cheats", (v as u8).to_string()));
-    }
-    if let Some(v) = info.sv_allowchat {
-        args.push(("sv_allowchat", (v as u8).to_string()));
-    }
-    if let Some(v) = info.sv_allowvoicechat {
-        args.push(("sv_allowvoicechat", (v as u8).to_string()));
-    }
-    if let Some(v) = info.sv_fastmonsters {
-        args.push(("sv_fastmonsters", (v as u8).to_string()));
-    }
-    if let Some(v) = info.sv_monsters {
-        args.push(("sv_monsters", (v as u8).to_string()));
-    }
-    if let Some(v) = info.sv_nomonsters {
-        args.push(("sv_nomonsters", (v as u8).to_string()));
-    }
-    if let Some(v) = info.sv_itemsrespawn {
-        args.push(("sv_itemsrespawn", (v as u8).to_string()));
-    }
-    if let Some(v) = info.sv_itemrespawntime {
-        args.push(("sv_itemrespawntime", v.to_string()));
-    }
-    if let Some(v) = info.sv_coop_damagefactor {
-        args.push(("sv_coop_damagefactor", v.to_string()));
-    }
-    if let Some(v) = info.sv_nojump {
-        args.push(("sv_nojump", (v as u8).to_string()));
-    }
-    if let Some(v) = info.sv_nocrouch {
-        args.push(("sv_nocrouch", (v as u8).to_string()));
-    }
-    if let Some(v) = info.sv_nofreelook {
-        args.push(("sv_nofreelook", (v as u8).to_string()));
-    }
-    if let Some(v) = info.sv_respawnonexit {
-        args.push(("sv_respawnonexit", (v as u8).to_string()));
-    }
-    if let Some(v) = info.sv_timelimit {
-        args.push(("sv_timelimit", v.to_string()));
-    }
-    if let Some(v) = info.sv_fraglimit {
-        args.push(("sv_fraglimit", v.to_string()));
-    }
-    if let Some(v) = info.sv_scorelimit {
-        args.push(("sv_scorelimit", v.to_string()));
-    }
-    if let Some(v) = info.sv_duellimit {
-        args.push(("sv_duellimit", v.to_string()));
-    }
-    if let Some(v) = info.sv_roundlimit {
-        args.push(("sv_roundlimit", v.to_string()));
-    }
-    if let Some(v) = info.sv_allowrun {
-        args.push(("sv_allowrun", (v as u8).to_string()));
-    }
-    if let Some(v) = info.sv_allowfreelook {
-        args.push(("sv_allowfreelook", (v as u8).to_string()));
-    }
-    if args.is_empty() {
+
+    let mut set_args: Vec<(&'static str, String)> = Vec::new();
+    let mut del_args: Vec<&'static str> = Vec::new();
+
+    push_string(&mut set_args, &mut del_args, "name", info.name);
+    push_bool(&mut set_args, &mut del_args, "private", info.private);
+    push_string(
+        &mut set_args,
+        &mut del_args,
+        "current_map",
+        info.current_map,
+    );
+    push_to_string(
+        &mut set_args,
+        &mut del_args,
+        "max_players",
+        info.max_players,
+    );
+    push_to_string(
+        &mut set_args,
+        &mut del_args,
+        "player_count",
+        info.player_count,
+    );
+    push_to_string(&mut set_args, &mut del_args, "skill", info.skill);
+    push_to_string(
+        &mut set_args,
+        &mut del_args,
+        "monster_kill_count",
+        info.monster_kill_count,
+    );
+    push_to_string(
+        &mut set_args,
+        &mut del_args,
+        "monster_count",
+        info.monster_count,
+    );
+    push_string(&mut set_args, &mut del_args, "motd", info.motd);
+
+    push_bool(&mut set_args, &mut del_args, "sv_cheats", info.sv_cheats);
+    push_bool(
+        &mut set_args,
+        &mut del_args,
+        "sv_allowchat",
+        info.sv_allowchat,
+    );
+    push_bool(
+        &mut set_args,
+        &mut del_args,
+        "sv_allowvoicechat",
+        info.sv_allowvoicechat,
+    );
+    push_bool(
+        &mut set_args,
+        &mut del_args,
+        "sv_fastmonsters",
+        info.sv_fastmonsters,
+    );
+    push_bool(
+        &mut set_args,
+        &mut del_args,
+        "sv_monsters",
+        info.sv_monsters,
+    );
+    push_bool(
+        &mut set_args,
+        &mut del_args,
+        "sv_nomonsters",
+        info.sv_nomonsters,
+    );
+    push_bool(
+        &mut set_args,
+        &mut del_args,
+        "sv_itemsrespawn",
+        info.sv_itemsrespawn,
+    );
+    push_to_string(
+        &mut set_args,
+        &mut del_args,
+        "sv_itemrespawntime",
+        info.sv_itemrespawntime,
+    );
+    push_to_string(
+        &mut set_args,
+        &mut del_args,
+        "sv_coop_damagefactor",
+        info.sv_coop_damagefactor,
+    );
+    push_bool(&mut set_args, &mut del_args, "sv_nojump", info.sv_nojump);
+    push_bool(
+        &mut set_args,
+        &mut del_args,
+        "sv_nocrouch",
+        info.sv_nocrouch,
+    );
+    push_bool(
+        &mut set_args,
+        &mut del_args,
+        "sv_nofreelook",
+        info.sv_nofreelook,
+    );
+    push_bool(
+        &mut set_args,
+        &mut del_args,
+        "sv_respawnonexit",
+        info.sv_respawnonexit,
+    );
+    push_to_string(
+        &mut set_args,
+        &mut del_args,
+        "sv_timelimit",
+        info.sv_timelimit,
+    );
+    push_to_string(
+        &mut set_args,
+        &mut del_args,
+        "sv_fraglimit",
+        info.sv_fraglimit,
+    );
+    push_to_string(
+        &mut set_args,
+        &mut del_args,
+        "sv_scorelimit",
+        info.sv_scorelimit,
+    );
+    push_to_string(
+        &mut set_args,
+        &mut del_args,
+        "sv_duellimit",
+        info.sv_duellimit,
+    );
+    push_to_string(
+        &mut set_args,
+        &mut del_args,
+        "sv_roundlimit",
+        info.sv_roundlimit,
+    );
+    push_bool(
+        &mut set_args,
+        &mut del_args,
+        "sv_allowrun",
+        info.sv_allowrun,
+    );
+    push_bool(
+        &mut set_args,
+        &mut del_args,
+        "sv_allowfreelook",
+        info.sv_allowfreelook,
+    );
+
+    if set_args.is_empty() && del_args.is_empty() {
         return response::bad_request(anyhow!("No fields to update"));
     }
-    if let Err(e) = state.store.update_game_info(game_id, &args).await {
+    if let Err(e) = state
+        .store
+        .update_game_info(game_id, &set_args, &del_args)
+        .await
+    {
         return response::error(anyhow!("Failed to update game info: {:?}", e));
     }
     println!(

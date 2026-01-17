@@ -34,68 +34,75 @@ pub struct GameInfo {
     pub sv_allowfreelook: bool,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(tag = "op", content = "value", rename_all = "lowercase")]
+pub enum Settable<T> {
+    Set(T),
+    Unset,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GameInfoUpdate {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub private: Option<bool>,
+    pub private: Option<Settable<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
+    pub name: Option<Settable<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_players: Option<i32>,
+    pub max_players: Option<Settable<i32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub player_count: Option<i32>,
+    pub player_count: Option<Settable<i32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub skill: Option<i32>,
+    pub skill: Option<Settable<i32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub current_map: Option<String>,
+    pub current_map: Option<Settable<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub monster_kill_count: Option<i32>,
+    pub monster_kill_count: Option<Settable<i32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub monster_count: Option<i32>,
+    pub monster_count: Option<Settable<i32>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub motd: Option<String>,
+    pub motd: Option<Settable<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_cheats: Option<bool>,
+    pub sv_cheats: Option<Settable<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_allowchat: Option<bool>,
+    pub sv_allowchat: Option<Settable<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_allowvoicechat: Option<bool>,
+    pub sv_allowvoicechat: Option<Settable<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_fastmonsters: Option<bool>,
+    pub sv_fastmonsters: Option<Settable<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_monsters: Option<bool>,
+    pub sv_monsters: Option<Settable<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_nomonsters: Option<bool>,
+    pub sv_nomonsters: Option<Settable<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_itemsrespawn: Option<bool>,
+    pub sv_itemsrespawn: Option<Settable<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_itemrespawntime: Option<i32>,
+    pub sv_itemrespawntime: Option<Settable<i32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_coop_damagefactor: Option<f32>,
+    pub sv_coop_damagefactor: Option<Settable<f32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_nojump: Option<bool>,
+    pub sv_nojump: Option<Settable<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_nocrouch: Option<bool>,
+    pub sv_nocrouch: Option<Settable<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_nofreelook: Option<bool>,
+    pub sv_nofreelook: Option<Settable<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_respawnonexit: Option<bool>,
+    pub sv_respawnonexit: Option<Settable<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_timelimit: Option<i32>,
+    pub sv_timelimit: Option<Settable<i32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_fraglimit: Option<i32>,
+    pub sv_fraglimit: Option<Settable<i32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_scorelimit: Option<i32>,
+    pub sv_scorelimit: Option<Settable<i32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_duellimit: Option<i32>,
+    pub sv_duellimit: Option<Settable<i32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_roundlimit: Option<i32>,
+    pub sv_roundlimit: Option<Settable<i32>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_allowrun: Option<bool>,
+    pub sv_allowrun: Option<Settable<bool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sv_allowfreelook: Option<bool>,
+    pub sv_allowfreelook: Option<Settable<bool>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
