@@ -27,12 +27,7 @@
 </script>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
-	<div class="flex items-end justify-between gap-4">
-		
-		
-	</div>
-
-	<div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+	<div class="flex flex-wrap items-center justify-between gap-3">
 		<div class="flex flex-wrap gap-2" role="tablist" aria-label="Sorting">
 			{#each sortOptions as opt}
 				<a
@@ -47,19 +42,19 @@
 				</a>
 			{/each}
 		</div>
-		<div class="text-xs text-zinc-500">
-			{#if data.q}
+		{#if data.q}
+			<div class="text-xs text-zinc-500">
 				Search results for “<span class="text-zinc-200">{data.q}</span>”
-			{/if}
-		</div>
+			</div>
+		{:else}
+			<div class="text-right text-sm text-zinc-400">
+				<div>{data.results.full_count.toLocaleString()} WADs</div>
+			</div>
+		{/if}
 	</div>
 
 	{#if !data.q}
-		<div class="text-right text-sm text-zinc-400">
-			<div>{data.results.full_count.toLocaleString()} WADs</div>
-		</div>
 		<section class="mt-6">
-			<h2 class="text-sm font-semibold text-zinc-200">Featured</h2>
 			<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 				{#each data.featured as item (item.wad.id)}
 					<a
