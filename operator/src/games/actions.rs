@@ -73,6 +73,11 @@ fn game_pod(
             ..Default::default()
         },
         EnvVar {
+            name: "MASTER_BASE_URL".to_string(),
+            value: Some("http://dorch-master".to_string()),
+            ..Default::default()
+        },
+        EnvVar {
             name: "IWAD".to_string(),
             value: Some(instance.spec.iwad.clone()),
             ..Default::default()
