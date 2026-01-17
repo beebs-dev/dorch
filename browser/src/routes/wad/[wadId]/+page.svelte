@@ -168,9 +168,9 @@
 	</nav>
 
 	{#if data.tab === 'overview'}
-		<section class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-			<div class="flex flex-col gap-4">
-				<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
+		<section class="mt-6 grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
+			<div class="flex h-full flex-col gap-4">
+				<div class="shrink-0 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
 					<h2 class="text-sm font-semibold text-zinc-200">Summary</h2>
 					<dl class="mt-3 grid grid-cols-1 gap-2 text-sm">
 						<div class="flex flex-wrap justify-between gap-2">
@@ -206,7 +206,7 @@
 					</dl>
 				</div>
 
-				<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
+				<div class="flex min-h-0 flex-1 flex-col rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
 					<h2 class="text-sm font-semibold text-zinc-200">Guesses</h2>
 					<div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<div>
