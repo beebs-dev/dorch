@@ -407,7 +407,7 @@
 							{#each countEntries() as [k, v] (k)}
 								<tr>
 									<td class="px-3 py-2 font-mono text-xs text-zinc-500">{k}</td>
-									<td class="px-3 py-2 text-zinc-200">{v}</td>
+									<td class="px-3 py-2 text-right text-zinc-200">{v}</td>
 								</tr>
 							{/each}
 						</tbody>
@@ -423,23 +423,23 @@
 					<tbody class="divide-y divide-zinc-800">
 						<tr>
 							<td class="px-3 py-2 text-zinc-500">Things</td>
-							<td class="px-3 py-2 text-zinc-200">{totals().things}</td>
+							<td class="px-3 py-2 text-right text-zinc-200">{totals().things}</td>
 						</tr>
 						<tr>
 							<td class="px-3 py-2 text-zinc-500">Linedefs</td>
-							<td class="px-3 py-2 text-zinc-200">{totals().linedefs}</td>
+							<td class="px-3 py-2 text-right text-zinc-200">{totals().linedefs}</td>
 						</tr>
 						<tr>
 							<td class="px-3 py-2 text-zinc-500">Sectors</td>
-							<td class="px-3 py-2 text-zinc-200">{totals().sectors}</td>
+							<td class="px-3 py-2 text-right text-zinc-200">{totals().sectors}</td>
 						</tr>
 						<tr>
 							<td class="px-3 py-2 text-zinc-500">Monsters</td>
-							<td class="px-3 py-2 text-zinc-200">{totals().monsters}</td>
+							<td class="px-3 py-2 text-right text-zinc-200">{totals().monsters}</td>
 						</tr>
 						<tr>
 							<td class="px-3 py-2 text-zinc-500">Items</td>
-							<td class="px-3 py-2 text-zinc-200">{totals().items}</td>
+							<td class="px-3 py-2 text-right text-zinc-200">{totals().items}</td>
 						</tr>
 					</tbody>
 				</table>
