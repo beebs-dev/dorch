@@ -1,7 +1,7 @@
 use kube::CustomResource;
-use schemars::JsonSchema;
+use schemars::{JsonSchema, Schema};
 use serde::{Deserialize, Serialize};
-use std::{fmt, str::FromStr};
+use std::{borrow::Cow, fmt, str::FromStr};
 
 #[derive(CustomResource, Serialize, Deserialize, Default, Debug, PartialEq, Clone, JsonSchema)]
 #[kube(
@@ -23,12 +23,17 @@ use std::{fmt, str::FromStr};
 pub struct GameSpec {
     pub game_id: String,
     pub s3_secret_name: String,
-    pub iwad: String,
+    pub iwad: WadReference,
     pub max_players: i32,
-    pub files: Option<Vec<String>>,
+    pub files: Option<Vec<WadReference>>,
     pub name: String,
     pub warp: Option<String>,
     pub skill: Option<i32>,
+
+    /// If true, doom1.wad will be prepended to the file list automatically.
+    /// This allows users to create modded games using Doom 1 assets while
+    /// respecting IWAD licensing.
+    pub use_doom1_assets: bool,
 
     /// If true, the game will only be visible to the creator.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -36,6 +41,13 @@ pub struct GameSpec {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub debug_udp: Option<bool>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default, JsonSchema)]
+pub struct WadReference {
+    pub name: String,
+
+    pub id: String,
 }
 
 /// Status object for the [`Game`] resource.

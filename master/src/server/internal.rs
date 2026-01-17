@@ -1,6 +1,6 @@
 use crate::{
     app::App,
-    client::{GameSummary, ListGamesResponse, NewGameRequest, NewGameResponse},
+    client::{GameSummary, ListGamesResponse, NewGameRequest, NewGameResponse, WadReference},
 };
 use anyhow::{Context, Result, anyhow, bail};
 use axum::{
@@ -329,12 +329,23 @@ pub async fn new_game(
         },
         spec: dorch_types::GameSpec {
             game_id: game_id_str,
-            files: req.files,
+            files: req.files.map(|files| {
+                files
+                    .into_iter()
+                    .map(|f| dorch_types::WadReference {
+                        name: f.name,
+                        id: f.id.to_string(),
+                    })
+                    .collect()
+            }),
             private: Some(req.private),
             skill: req.skill,
             warp: req.warp.clone(),
             max_players: 64,
-            iwad: req.iwad,
+            iwad: dorch_types::WadReference {
+                name: req.iwad.name,
+                id: req.iwad.id.to_string(),
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -457,8 +468,25 @@ pub async fn list_games(State(state): State<App>) -> impl IntoResponse {
 fn game_to_summary(g: dorch_types::Game, info: Option<GameInfo>) -> Result<GameSummary> {
     Ok(GameSummary {
         game_id: Uuid::parse_str(&g.spec.game_id).context("Invalid game ID")?,
-        iwad: g.spec.iwad,
-        files: g.spec.files,
+        iwad: WadReference {
+            name: g.spec.iwad.name,
+            id: Uuid::parse_str(&g.spec.iwad.id).context("Invalid IWAD ID")?,
+        },
+        files: g
+            .spec
+            .files
+            .map(|files| {
+                files
+                    .into_iter()
+                    .map(|f| {
+                        Ok(WadReference {
+                            name: f.name,
+                            id: Uuid::parse_str(&f.id).context("Invalid file ID")?,
+                        })
+                    })
+                    .collect::<Result<Vec<_>>>()
+            })
+            .transpose()?,
         creator_id: g
             .metadata
             .annotations

@@ -9,7 +9,6 @@
 	const navItems = [
 		{ label: 'WAD BROWSER', href: '/' },
 		{ label: 'SERVERS', href: '/servers' },
-		{ label: 'PARTY', href: '/party' },
 		{ label: 'SETTINGS', href: '/settings' }
 	] as const;
 

@@ -9,7 +9,7 @@ spec:
   max_players: 64
   s3_secret_name: s3-cred
   iwad: freedoom2.wad
+  use_doom1_assets: true
   files:
-    - doom1.wad
     - sunlust.wad
   #debug_udp: true

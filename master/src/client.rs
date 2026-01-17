@@ -14,7 +14,7 @@ pub struct NewGameRequest {
 
     pub user_ids: Vec<Uuid>,
 
-    pub iwad: String,
+    pub iwad: WadReference,
 
     #[serde(default)]
     pub private: bool,
@@ -22,11 +22,20 @@ pub struct NewGameRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub warp: Option<String>,
 
+    #[serde(default)]
+    pub use_doom1_assets: bool,
+
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub files: Option<Vec<String>>,
+    pub files: Option<Vec<WadReference>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skill: Option<i32>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
+pub struct WadReference {
+    pub name: String,
+    pub id: Uuid,
 }
 
 #[derive(Serialize)]
@@ -57,13 +66,13 @@ pub struct SearchGamesRequest {
 pub struct GameSummary {
     pub game_id: Uuid,
 
-    pub iwad: String,
+    pub iwad: WadReference,
 
     #[serde(default, skip_serializing_if = "Uuid::is_nil")]
     pub creator_id: Uuid,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub files: Option<Vec<String>>,
+    pub files: Option<Vec<WadReference>>,
 
     pub info: Option<GameInfo>,
 }

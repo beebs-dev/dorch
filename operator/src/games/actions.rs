@@ -78,8 +78,8 @@ fn game_pod(
             ..Default::default()
         },
         EnvVar {
-            name: "IWAD".to_string(),
-            value: Some(instance.spec.iwad.clone()),
+            name: "IWAD_ID".to_string(),
+            value: Some(instance.spec.iwad.id.clone()),
             ..Default::default()
         },
         EnvVar {
@@ -88,13 +88,28 @@ fn game_pod(
             ..Default::default()
         },
     ];
-    if let Some(files) = instance.spec.files.as_deref() {
+    let mut wad_list = Vec::new();
+    if instance.spec.use_doom1_assets {
         server_env.push(EnvVar {
-            name: "WAD_LIST".to_string(),
-            value: Some(files.join(",")),
+            name: "USE_DOOM1_ASSETS".to_string(),
+            value: Some("1".to_string()),
             ..Default::default()
         });
     }
+    if let Some(files) = instance.spec.files.as_deref() {
+        server_env.push(EnvVar {
+            name: "WAD_ID_LIST".to_string(),
+            value: Some(
+                files
+                    .iter()
+                    .map(|f| f.id.clone())
+                    .collect::<Vec<String>>()
+                    .join(","),
+            ),
+            ..Default::default()
+        });
+    }
+    if !wad_list.is_empty() {}
     if let Some(warp) = instance.spec.warp.as_deref() {
         server_env.push(EnvVar {
             name: "WARP".to_string(),
@@ -190,11 +205,11 @@ fn game_pod(
                         name: "DOWNLOAD_LIST".to_string(),
                         value: Some({
                             let mut downloads: Vec<String> = Vec::new();
-                            downloads.push(instance.spec.iwad.clone());
+                            downloads.push(instance.spec.iwad.id.clone());
                             if let Some(files) = instance.spec.files.as_ref() {
-                                for f in files {
-                                    if f != &instance.spec.iwad {
-                                        downloads.push(f.clone());
+                                for file in files {
+                                    if file != &instance.spec.iwad {
+                                        downloads.push(file.id.clone());
                                     }
                                 }
                             }

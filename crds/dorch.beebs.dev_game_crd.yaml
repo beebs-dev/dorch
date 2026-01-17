@@ -31,13 +31,29 @@ spec:
                 type: boolean
               files:
                 items:
-                  type: string
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                  required:
+                  - id
+                  - name
+                  type: object
                 nullable: true
                 type: array
               game_id:
                 type: string
               iwad:
-                type: string
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                required:
+                - id
+                - name
+                type: object
               max_players:
                 format: int32
                 type: integer
@@ -53,6 +69,12 @@ spec:
                 format: int32
                 nullable: true
                 type: integer
+              use_doom1_assets:
+                description: |-
+                  If true, doom1.wad will be prepended to the file list automatically.
+                  This allows users to create modded games using Doom 1 assets while
+                  respecting IWAD licensing.
+                type: boolean
               warp:
                 nullable: true
                 type: string
@@ -62,6 +84,7 @@ spec:
             - max_players
             - name
             - s3_secret_name
+            - use_doom1_assets
             type: object
           status:
             description: Status object for the [`Game`] resource.
