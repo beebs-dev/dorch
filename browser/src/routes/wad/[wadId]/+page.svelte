@@ -3,7 +3,7 @@
 	import { page } from '$app/stores';
 	import PanoViewer from '$lib/components/PanoViewer.svelte';
 	import type { WadImage } from '$lib/types/wadinfo';
-	import { humanBytes, shortSha, withParams } from '$lib/utils/format';
+	import { humanBytes, wadLabel, withParams } from '$lib/utils/format';
 
 	let { data }: { data: PageData } = $props();
 
@@ -15,9 +15,7 @@
 		{ key: 'statistics', label: 'Statistics' }
 	];
 
-	const wadTitle = $derived(
-		() => data.wad.meta.title ?? `${shortSha(data.wad.meta.sha1)} (untitled)`
-	);
+	const wadTitle = $derived(() => wadLabel(data.wad.meta));
 
 	function isPano(img: any): boolean {
 		const t = (img?.type ?? img?.kind) as string | null | undefined;
@@ -225,7 +223,7 @@
 					<dl class="mt-3 grid grid-cols-1 gap-2 text-sm">
 						<div class="flex flex-wrap justify-between gap-2">
 							<dt class="text-zinc-500">Title</dt>
-							<dd class="text-zinc-100">{data.wad.meta.title ?? '(untitled)'}</dd>
+							<dd class="text-zinc-100">{wadTitle()}</dd>
 						</div>
 						<div class="flex flex-wrap justify-between gap-2">
 							<dt class="text-zinc-500">Author(s)</dt>

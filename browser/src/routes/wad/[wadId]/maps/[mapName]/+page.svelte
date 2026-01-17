@@ -1,13 +1,11 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import PanoViewer from '$lib/components/PanoViewer.svelte';
-	import { shortSha } from '$lib/utils/format';
+		import { wadLabel } from '$lib/utils/format';
 
 	let { data }: { data: PageData } = $props();
 
-	const wadTitle = $derived(
-		() => data.map.wad_meta.title ?? `${shortSha(data.map.wad_meta.sha1)} (untitled)`
-	);
+		const wadTitle = $derived(() => wadLabel(data.map.wad_meta));
 	const mapTitle = $derived(() => data.map.metadata?.title ?? data.map.map);
 
 	function isPano(img: any): boolean {
