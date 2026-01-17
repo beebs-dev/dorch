@@ -17,8 +17,6 @@ download_all() {
         return 0
     fi
 
-    mkdir -p "$DATA_ROOT"
-
     # Build JSON body: {"items": ["id1","id2",...]}
     # Requires jq. DOWNLOAD_LIST is comma-separated.
     json_body=$(jq -nc --arg ids "$DOWNLOAD_LIST" '
@@ -46,7 +44,7 @@ download_all() {
                 echo "Skipping malformed item (wad_id or url empty)" >&2
                 continue
             fi
-            dst="$DATA_ROOT/$wad_id"
+            dst="$wad_id"
             aws s3 cp "$url" "$dst" \
                 --endpoint-url "$S3_ENDPOINT" \
                 --region "$S3_REGION" \
