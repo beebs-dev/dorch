@@ -200,7 +200,7 @@
 			<div class="shrink-0 rounded-xl bg-zinc-950/40 p-1.5 ring-1 ring-red-950/60 ring-inset">
 				<a
 					href={`/servers?wad=${encodeURIComponent(data.wad.meta.id)}`}
-					class="flex items-center justify-center rounded-lg bg-red-950/30 px-5 py-3 text-base font-semibold text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+					class="dorch-play-button flex items-center justify-center rounded-lg bg-red-950/30 px-5 py-3 text-base font-semibold text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 					aria-label={`Play ${wadTitle()}`}
 				>
 					Play
@@ -719,3 +719,155 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	.dorch-play-button {
+		position: relative;
+		isolation: isolate;
+		overflow: hidden;
+		transform: translateZ(0);
+		animation: dorch-play-idle 7.5s ease-in-out infinite;
+		transition: transform 120ms ease, filter 180ms ease;
+		will-change: transform, filter;
+	}
+
+	.dorch-play-button::before {
+		content: '';
+		position: absolute;
+		inset: -60%;
+		background:
+			radial-gradient(
+				circle at 35% 45%,
+				color-mix(in oklab, var(--color-red-700) 28%, transparent),
+				transparent 55%
+			),
+			radial-gradient(
+				circle at 70% 30%,
+				color-mix(in oklab, var(--color-red-500) 18%, transparent),
+				transparent 60%
+			);
+		opacity: 0;
+		transform: rotate(18deg) translate3d(-4%, 0, 0) scale(0.98);
+		pointer-events: none;
+		z-index: 0;
+		animation: dorch-play-sheen 7.5s ease-in-out infinite;
+	}
+
+	.dorch-play-button > :global(*) {
+		position: relative;
+		z-index: 1;
+	}
+
+	.dorch-play-button:hover,
+	.dorch-play-button:focus-visible {
+		animation: dorch-play-rage 900ms ease-in-out infinite;
+		filter: brightness(1.08) saturate(1.08);
+	}
+
+	.dorch-play-button:hover::before,
+	.dorch-play-button:focus-visible::before {
+		opacity: 1;
+		animation: dorch-play-splatter 1100ms ease-in-out infinite;
+	}
+
+	.dorch-play-button:active {
+		animation: dorch-play-hit 160ms ease-out 1;
+		transform: scale(0.98);
+		filter: brightness(1.12) saturate(1.12);
+	}
+
+	@keyframes dorch-play-idle {
+		0%,
+		78% {
+			transform: none;
+			filter: none;
+		}
+		82% {
+			transform: translateY(-1px) scale(1.01);
+			filter: brightness(1.05) saturate(1.06);
+		}
+		86% {
+			transform: translateY(0px) scale(1.015);
+			filter: brightness(1.07) saturate(1.08);
+		}
+		92% {
+			transform: translateY(-1px) scale(1.01);
+			filter: brightness(1.05) saturate(1.06);
+		}
+		100% {
+			transform: none;
+			filter: none;
+		}
+	}
+
+	@keyframes dorch-play-sheen {
+		0%,
+		80% {
+			opacity: 0;
+			transform: rotate(18deg) translate3d(-10%, 0, 0) scale(0.98);
+		}
+		84% {
+			opacity: 0.45;
+			transform: rotate(18deg) translate3d(-2%, 0, 0) scale(1.02);
+		}
+		88% {
+			opacity: 0.65;
+			transform: rotate(18deg) translate3d(6%, 0, 0) scale(1.03);
+		}
+		92% {
+			opacity: 0.25;
+			transform: rotate(18deg) translate3d(10%, 0, 0) scale(1.01);
+		}
+		100% {
+			opacity: 0;
+			transform: rotate(18deg) translate3d(14%, 0, 0) scale(0.99);
+		}
+	}
+
+	@keyframes dorch-play-rage {
+		0%,
+		100% {
+			transform: translate3d(0, 0, 0) scale(1.02);
+		}
+		25% {
+			transform: translate3d(0.5px, -0.5px, 0) scale(1.02);
+		}
+		50% {
+			transform: translate3d(-0.5px, 0.5px, 0) scale(1.02);
+		}
+		75% {
+			transform: translate3d(0.5px, 0.25px, 0) scale(1.02);
+		}
+	}
+
+	@keyframes dorch-play-splatter {
+		0%,
+		100% {
+			opacity: 0.35;
+			transform: rotate(18deg) translate3d(-6%, 0, 0) scale(1.02);
+		}
+		50% {
+			opacity: 0.7;
+			transform: rotate(18deg) translate3d(10%, -2%, 0) scale(1.06);
+		}
+	}
+
+	@keyframes dorch-play-hit {
+		0% {
+			transform: scale(1.02);
+			filter: brightness(1.18) saturate(1.2);
+		}
+		100% {
+			transform: scale(0.98);
+			filter: brightness(1.08) saturate(1.08);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.dorch-play-button,
+		.dorch-play-button::before {
+			animation: none !important;
+			transition: none !important;
+		}
+	}
+</style>
