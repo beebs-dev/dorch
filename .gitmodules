@@ -1,6 +1,3 @@
-[submodule "Dwasm"]
-	path = Dwasm
-	url = git@github.com:beebs-dev/Dwasm.git
 [submodule "zandronum"]
 	path = zandronum
 	url = git@github.com:beebs-dev/zandronum.git
