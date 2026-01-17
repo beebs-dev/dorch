@@ -97,6 +97,7 @@
 	}
 
 	let modalImageUrl = $state<string | null>(null);
+	let showSha256 = $state(false);
 
 	function closeModal() {
 		modalImageUrl = null;
@@ -183,7 +184,19 @@
 						{#if data.wad.meta.sha256}
 							<div class="flex flex-wrap justify-between gap-2">
 								<dt class="text-zinc-500">SHA256</dt>
-								<dd class="font-mono text-xs text-zinc-200">{data.wad.meta.sha256}</dd>
+								<dd class="text-xs">
+									{#if showSha256}
+										<span class="font-mono text-zinc-200">{data.wad.meta.sha256}</span>
+									{:else}
+										<button
+											type="button"
+											class="text-zinc-400 underline hover:text-zinc-200"
+											onclick={() => (showSha256 = true)}
+										>
+											Show
+										</button>
+									{/if}
+								</dd>
 							</div>
 						{/if}
 						<div class="flex flex-wrap justify-between gap-2">
