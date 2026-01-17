@@ -1,5 +1,9 @@
 registry: "" # same as "docker.io/"
 
+cors:
+  accessControlAllowOrigins:
+    - https://dorch.beebs.dev
+
 prometheus:
   enabled: false
 

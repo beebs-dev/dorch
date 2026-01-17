@@ -95,6 +95,8 @@ spec:
           value: {{ .Values.master.logLevel }}
         - name: AUTH_ENDPOINT
           value: http://{{ .Release.Name }}-auth
+        - name: ACCESS_CONTROL_ALLOW_ORIGINS
+          value: {{ join "," .Values.cors.accessControlAllowOrigins }}
 {{ include "dorch.keycloak-env" . | indent 8 }}
 {{ include "dorch.metrics-env" . | indent 8 }}
 {{ include "dorch.nats-env" . | indent 8 }}
