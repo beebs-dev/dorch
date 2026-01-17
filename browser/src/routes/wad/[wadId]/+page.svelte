@@ -148,9 +148,11 @@
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
 	<header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
 		<div class="flex items-center justify-end gap-3">
-			<h1 class="min-w-0 truncate text-2xl font-semibold tracking-tight">
-				{wadTitle()}
-			</h1>
+			<a href="/wad/{encodeURIComponent(data.wad.meta.id)}" class="min-w-0">
+				<h1 class="min-w-0 truncate text-2xl font-semibold tracking-tight">
+					{wadTitle()}
+				</h1>
+			</a>
 			<div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-400">
 				<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
 					{data.wad.meta.file?.type ?? '—'}
@@ -197,22 +199,22 @@
 							<dt class="text-zinc-500">Title</dt>
 							<dd class="text-zinc-100">{data.wad.meta.title ?? '(untitled)'}</dd>
 						</div>
-							<div class="flex flex-wrap justify-between gap-2">
-								<dt class="text-zinc-500">Author(s)</dt>
-								{#if (data.wad.meta.authors?.length ?? 0) > 0}
-									<dd class="flex flex-wrap justify-end gap-2">
-										{#each data.wad.meta.authors ?? [] as author (author)}
-											<span
-												class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
-											>
-												{author}
-											</span>
-										{/each}
-									</dd>
-								{:else}
-									<dd class="text-zinc-400">—</dd>
-								{/if}
-							</div>
+						<div class="flex flex-wrap justify-between gap-2">
+							<dt class="text-zinc-500">Author(s)</dt>
+							{#if (data.wad.meta.authors?.length ?? 0) > 0}
+								<dd class="flex flex-wrap justify-end gap-2">
+									{#each data.wad.meta.authors ?? [] as author (author)}
+										<span
+											class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
+										>
+											{author}
+										</span>
+									{/each}
+								</dd>
+							{:else}
+								<dd class="text-zinc-400">—</dd>
+							{/if}
+						</div>
 						<div class="flex flex-wrap justify-between gap-2">
 							<dt class="text-zinc-500">WAD ID</dt>
 							<dd class="text-xs">
@@ -303,7 +305,9 @@
 				</div>
 			</div>
 
-			<div class="group relative aspect-[16/9] overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset">
+			<div
+				class="group relative aspect-[16/9] overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset"
+			>
 				{#if randomScreenshot?.image?.url}
 					<a
 						href={`/wad/${encodeURIComponent(data.wad.meta.id)}/maps/${encodeURIComponent(
