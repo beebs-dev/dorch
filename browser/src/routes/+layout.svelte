@@ -22,51 +22,27 @@
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
 <div class="min-h-dvh bg-zinc-950 text-zinc-100">
-	<div class="grid min-h-dvh grid-cols-[14rem_1fr]">
-		<aside class="sticky top-0 h-dvh bg-zinc-950/80 backdrop-blur" aria-label="Primary">
-			<nav class="flex h-full flex-col">
-				<div class="px-3 py-4">
-					{#each navItems as item (item.href)}
-						<a
-							href={item.href}
-							class={`font-[var(--dorch-mono)] block px-4 py-3 text-base tracking-wide hover:bg-zinc-900/40 ${
-								isActive(item.href, $page.url.pathname) ? 'bg-zinc-900/50 text-zinc-100' : 'text-zinc-300'
-							}`}
-						>
-							{item.label}
-						</a>
-					{/each}
-				</div>
+	<header class="sticky top-0 z-10 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur">
+		<div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+			<div class="shrink-0">
+				<DorchLogo />
+			</div>
+			<nav class="ml-auto flex flex-wrap items-center justify-end gap-1" aria-label="Primary">
+				{#each navItems as item (item.href)}
+					<a
+						href={item.href}
+						aria-current={isActive(item.href, $page.url.pathname) ? 'page' : undefined}
+						class={`font-[var(--dorch-mono)] rounded-lg px-3 py-2 text-sm tracking-wide ring-1 ring-inset ring-zinc-800 hover:bg-zinc-900/50 ${
+							isActive(item.href, $page.url.pathname)
+								? 'bg-zinc-900/60 text-zinc-100'
+								: 'text-zinc-300'
+						}`}
+					>
+						{item.label}
+					</a>
+				{/each}
 			</nav>
-		</aside>
-
-		<div class="min-w-0">
-			<header class="sticky top-0 z-10 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur">
-				<div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-					<div class="flex-1">
-						<DorchLogo />
-					</div>
-					<div class="w-full max-w-[640px] flex-[2]">
-						<form action="/" method="get" class="flex w-full">
-							<label class="sr-only" for="global-search">Search WADs</label>
-							<input
-								id="global-search"
-								name="q"
-								value={$page.url.searchParams.get('q') ?? ''}
-								placeholder="Search title, author, description, sha1…"
-								class="w-full rounded-lg bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500"
-							/>
-							<button
-								type="submit"
-								class="ml-2 hidden rounded-lg bg-zinc-900 px-3 py-2 text-sm text-zinc-200 ring-1 ring-inset ring-zinc-800 hover:bg-zinc-800 sm:inline-block"
-							>
-								Search
-							</button>
-						</form>
-					</div>
-				</div>
-			</header>
-			<main>{@render children()}</main>
 		</div>
-	</div>
+	</header>
+	<main class="min-w-0">{@render children()}</main>
 </div>

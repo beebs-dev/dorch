@@ -27,11 +27,41 @@
 </script>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
+	<section class="pt-4 pb-12">
+		<div class="mx-auto max-w-3xl text-center">
+			<h1 class="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+				Search among {data.results.full_count.toLocaleString()} WADs.
+			</h1>
+
+			<form action="/" method="get" class="mt-6">
+				<label class="sr-only" for="home-search">Search WADs</label>
+				<div class="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+					<input
+						id="home-search"
+						name="q"
+						value={$page.url.searchParams.get('q') ?? ''}
+						placeholder="Search by title, author, description, sha1…"
+						enterkeyhint="search"
+						autocomplete="off"
+						spellcheck="false"
+						class="w-full rounded-2xl bg-zinc-900/40 px-5 py-4 text-lg text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-500 focus:outline-none sm:text-xl"
+					/>
+					<button
+						type="submit"
+						class="rounded-2xl bg-zinc-900 px-6 py-4 text-base font-semibold text-zinc-100 ring-1 ring-zinc-800 ring-inset hover:bg-zinc-800"
+					>
+						Search
+					</button>
+				</div>
+			</form>
+		</div>
+	</section>
+
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<div class="flex flex-wrap gap-2" role="tablist" aria-label="Sorting">
 			{#each sortOptions as opt}
 				<a
-					class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-inset ring-zinc-800 hover:bg-zinc-900 ${
+					class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
 						data.sort === opt.key ? 'bg-zinc-900 text-zinc-100' : 'text-zinc-300'
 					}`}
 					href={withParams($page.url, { sort: opt.key, offset: 0 })}
@@ -59,7 +89,7 @@
 				{#each data.featured as item (item.wad.id)}
 					<a
 						href={`/wad/${encodeURIComponent(item.wad.id)}`}
-						class="group overflow-hidden rounded-xl ring-1 ring-inset ring-zinc-800 hover:bg-zinc-900"
+						class="group overflow-hidden rounded-xl ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900"
 					>
 						<div class="aspect-[16/9] w-full overflow-hidden bg-zinc-900">
 							{#if item.images?.[0]?.url}
@@ -86,19 +116,15 @@
 				{/each}
 			</div>
 		</section>
-		
 	{/if}
 
 	<section class="mt-8">
 		<h2 class="text-sm font-semibold text-zinc-200">All WADs</h2>
-		<div class="mt-3 overflow-hidden rounded-xl ring-1 ring-inset ring-zinc-800">
+		<div class="mt-3 overflow-hidden rounded-xl ring-1 ring-zinc-800 ring-inset">
 			<ul class="divide-y divide-zinc-800">
 				{#each data.results.items as wad (wad.id)}
 					<li class="bg-zinc-950/40 hover:bg-zinc-900/40">
-						<a
-							href={`/wad/${encodeURIComponent(wad.id)}`}
-							class="block px-4 py-3"
-						>
+						<a href={`/wad/${encodeURIComponent(wad.id)}`} class="block px-4 py-3">
 							<div class="flex flex-wrap items-center justify-between gap-2">
 								<div class="min-w-0">
 									<div class="truncate text-sm font-semibold text-zinc-100">
@@ -115,12 +141,16 @@
 								</div>
 								<div class="flex flex-wrap justify-end gap-2">
 									{#each wad.content?.engines_guess ?? [] as e (e)}
-										<span class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-inset ring-zinc-800">
+										<span
+											class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
+										>
 											{e}
 										</span>
 									{/each}
 									{#each wad.content?.iwads_guess ?? [] as iwad (iwad)}
-										<span class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-inset ring-zinc-800">
+										<span
+											class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
+										>
 											{iwad}
 										</span>
 									{/each}
@@ -134,7 +164,7 @@
 
 		<div class="mt-4 flex items-center justify-between">
 			<a
-				class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-inset ring-zinc-800 hover:bg-zinc-900 ${
+				class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
 					data.offset <= 0 ? 'pointer-events-none opacity-50' : ''
 				}`}
 				href={withParams($page.url, { offset: Math.max(0, data.offset - data.limit) })}
@@ -146,7 +176,7 @@
 				Offset {data.offset.toLocaleString()} • Limit {data.limit}
 			</div>
 			<a
-				class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-inset ring-zinc-800 hover:bg-zinc-900 ${
+				class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
 					data.results.items.length < data.limit ? 'pointer-events-none opacity-50' : ''
 				}`}
 				href={withParams($page.url, { offset: data.offset + data.limit })}
