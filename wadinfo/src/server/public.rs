@@ -42,7 +42,6 @@ pub async fn run_server(
         .build();
     let protected_router = Router::new()
         .route("/wad", get(internal::list_wads))
-        .route("/wad_urls", post(resolve_wad_public_urls))
         .route("/featured", get(internal::featured_wads))
         .route("/wad/{id}", get(internal::get_wad))
         .route("/wad/{id}/map/{map}", get(internal::get_wad_map))
@@ -58,6 +57,7 @@ pub async fn run_server(
             "/wad/{id}/maps/{map}/images",
             get(internal::list_wad_map_images),
         )
+        .route("/wad_urls", post(resolve_wad_public_urls))
         .with_state(app_state)
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::dev());
