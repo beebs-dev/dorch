@@ -132,6 +132,7 @@
 	let showSha256 = $state(false);
 	let toastMessage = $state<string | null>(null);
 	let toastTimer: ReturnType<typeof setTimeout> | null = null;
+	let isFavorite = $state(false);
 
 	function closeModal() {
 		modalImageUrl = null;
@@ -153,6 +154,18 @@
 		}
 
 		toastMessage = 'Copied to clipboard';
+		if (toastTimer) clearTimeout(toastTimer);
+		toastTimer = setTimeout(() => {
+			toastMessage = null;
+		}, 1800);
+	}
+
+	function toggleFavorite() {
+		// Stub for now.
+		isFavorite = !isFavorite;
+		console.log('favorite (stub)', { wadId: data.wad.meta.id, favorite: isFavorite });
+
+		toastMessage = isFavorite ? 'Marked as favorite (stub)' : 'Removed favorite (stub)';
 		if (toastTimer) clearTimeout(toastTimer);
 		toastTimer = setTimeout(() => {
 			toastMessage = null;
@@ -203,13 +216,39 @@
 		</div>
 		<div class="flex w-full justify-end sm:w-auto">
 			<div class="shrink-0 rounded-xl bg-zinc-950/40 p-1.5 ring-1 ring-red-950/60 ring-inset">
-				<a
-					href={resolve('/servers') + `?wad=${encodeURIComponent(data.wad.meta.id)}`}
-					class="dorch-play-button flex items-center justify-center rounded-lg bg-red-950/30 px-5 py-3 text-base font-semibold text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
-					aria-label={`Play ${wadTitle()}`}
-				>
-					PLAY
-				</a>
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						class="flex items-center justify-center rounded-lg bg-zinc-900/60 p-3 text-zinc-200 ring-1 ring-red-950/60 ring-inset hover:bg-zinc-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+						onclick={toggleFavorite}
+						aria-pressed={isFavorite}
+						aria-label={isFavorite ? 'Unfavorite WAD' : 'Favorite WAD'}
+						title={isFavorite ? 'Unfavorite' : 'Favorite'}
+					>
+						<svg
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill={isFavorite ? 'currentColor' : 'none'}
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<path
+								d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+							></path>
+						</svg>
+					</button>
+					<a
+						href={resolve('/servers') + `?wad=${encodeURIComponent(data.wad.meta.id)}`}
+						class="dorch-play-button flex items-center justify-center rounded-lg bg-red-950/30 px-5 py-3 text-base font-semibold text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+						aria-label={`Play ${wadTitle()}`}
+					>
+						PLAY
+					</a>
+				</div>
 			</div>
 		</div>
 	</header>
