@@ -31,29 +31,13 @@ spec:
                 type: boolean
               files:
                 items:
-                  properties:
-                    id:
-                      type: string
-                    name:
-                      type: string
-                  required:
-                  - id
-                  - name
-                  type: object
+                  type: string
                 nullable: true
                 type: array
               game_id:
                 type: string
               iwad:
-                properties:
-                  id:
-                    type: string
-                  name:
-                    type: string
-                required:
-                - id
-                - name
-                type: object
+                type: string
               max_players:
                 format: int32
                 type: integer

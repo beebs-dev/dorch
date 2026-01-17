@@ -79,7 +79,7 @@ fn game_pod(
         },
         EnvVar {
             name: "IWAD_ID".to_string(),
-            value: Some(instance.spec.iwad.id.clone()),
+            value: Some(instance.spec.iwad.to_string()),
             ..Default::default()
         },
         EnvVar {
@@ -88,7 +88,6 @@ fn game_pod(
             ..Default::default()
         },
     ];
-    let mut wad_list = Vec::new();
     if instance.spec.use_doom1_assets {
         server_env.push(EnvVar {
             name: "USE_DOOM1_ASSETS".to_string(),
@@ -99,17 +98,10 @@ fn game_pod(
     if let Some(files) = instance.spec.files.as_deref() {
         server_env.push(EnvVar {
             name: "WAD_ID_LIST".to_string(),
-            value: Some(
-                files
-                    .iter()
-                    .map(|f| f.id.clone())
-                    .collect::<Vec<String>>()
-                    .join(","),
-            ),
+            value: Some(files.join(",")),
             ..Default::default()
         });
     }
-    if !wad_list.is_empty() {}
     if let Some(warp) = instance.spec.warp.as_deref() {
         server_env.push(EnvVar {
             name: "WARP".to_string(),
@@ -205,11 +197,11 @@ fn game_pod(
                         name: "DOWNLOAD_LIST".to_string(),
                         value: Some({
                             let mut downloads: Vec<String> = Vec::new();
-                            downloads.push(instance.spec.iwad.id.clone());
+                            downloads.push(instance.spec.iwad.to_string());
                             if let Some(files) = instance.spec.files.as_ref() {
                                 for file in files {
                                     if file != &instance.spec.iwad {
-                                        downloads.push(file.id.clone());
+                                        downloads.push(file.to_string());
                                     }
                                 }
                             }
