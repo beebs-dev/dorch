@@ -185,11 +185,6 @@
 					{#if isPano(img)}
 						<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset">
 							<PanoViewer url={img.url} />
-							<div class="px-3 py-2 text-xs text-zinc-500">
-								<div class="flex flex-wrap items-center justify-between gap-2">
-									<span>panoramic</span>
-								</div>
-							</div>
 						</div>
 					{:else}
 						<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset">
@@ -206,7 +201,6 @@
 									loading="lazy"
 								/>
 							</button>
-							<div class="px-3 py-2 text-xs text-zinc-500">{img.type ?? img.kind ?? 'image'}</div>
 						</div>
 					{/if}
 				{/each}
