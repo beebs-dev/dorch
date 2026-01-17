@@ -32,6 +32,8 @@ export interface WadMeta {
 	title?: string | null;
 	authors?: string[] | null;
 	file: WadFileMeta;
+	filenames?: string[] | null;
+	filename?: string | null;
 	content: WadContentMeta;
 	/** Optional, may be omitted by some producers. */
 	text_files?: WadTextFile[] | null;
