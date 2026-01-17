@@ -91,8 +91,15 @@
 	let topRowByKey = $state<Record<string, number>>({});
 	let bottomRowByKey = $state<Record<string, number>>({});
 
-	let topExpandedAnchor = $state<string | null>(null);
+	let topExpandedAnchor = $state<string | null>('mapInfo');
 	let bottomExpandedAnchor = $state<string | null>(null);
+
+	// Reset defaults when navigating between maps.
+	$effect(() => {
+		data.wadId;
+		data.mapName;
+		topExpandedAnchor = 'mapInfo';
+	});
 
 	function recomputeTopRows() {
 		topRowByKey = groupVisualRows(topGridEl, [
@@ -225,14 +232,20 @@
 	</header>
 
 	<section class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3" bind:this={topGridEl}>
-		<div bind:this={mapInfoEl} class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
+		<div
+			bind:this={mapInfoEl}
+			class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset"
+		>
 			<button
 				type="button"
-				class="flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3"
+				class="relative flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3 transition-colors hover:bg-zinc-900/40 focus-visible:bg-zinc-900/40 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset"
 				onclick={() => toggleTop('mapInfo')}
 				aria-expanded={isTopExpanded('mapInfo')}
 			>
 				<h2 class="text-center text-sm font-semibold text-zinc-200">Map Info</h2>
+				{#if !isTopExpanded('mapInfo')}
+					<span class="absolute right-4 text-xs font-normal text-zinc-500">click to expand</span>
+				{/if}
 			</button>
 			{#if isTopExpanded('mapInfo')}
 				<div class="h-64 overflow-auto">
@@ -242,44 +255,62 @@
 							<col class="w-1/2" />
 						</colgroup>
 						<tbody class="divide-y divide-zinc-800">
-						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Title</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{data.map.metadata?.title ?? '—'}</td>
-						</tr>
-						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Music</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{data.map.metadata?.music ?? '—'}</td>
-						</tr>
-						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Source</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{data.map.metadata?.source ?? '—'}</td>
-						</tr>
-						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Teleports</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.mechanics?.teleports)}</td>
-						</tr>
-						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Keys</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.mechanics?.keys)}</td>
-						</tr>
-						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Secret Exit</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.mechanics?.secret_exit)}</td>
-						</tr>
+							<tr>
+								<td class="py-2 pr-3 pl-3 text-right text-zinc-500">Title</td>
+								<td class="py-2 pr-3 pl-3 text-left text-zinc-200"
+									>{data.map.metadata?.title ?? '—'}</td
+								>
+							</tr>
+							<tr>
+								<td class="py-2 pr-3 pl-3 text-right text-zinc-500">Music</td>
+								<td class="py-2 pr-3 pl-3 text-left text-zinc-200"
+									>{data.map.metadata?.music ?? '—'}</td
+								>
+							</tr>
+							<tr>
+								<td class="py-2 pr-3 pl-3 text-right text-zinc-500">Source</td>
+								<td class="py-2 pr-3 pl-3 text-left text-zinc-200"
+									>{data.map.metadata?.source ?? '—'}</td
+								>
+							</tr>
+							<tr>
+								<td class="py-2 pr-3 pl-3 text-right text-zinc-500">Teleports</td>
+								<td class="py-2 pr-3 pl-3 text-left text-zinc-200"
+									>{asText(data.map.mechanics?.teleports)}</td
+								>
+							</tr>
+							<tr>
+								<td class="py-2 pr-3 pl-3 text-right text-zinc-500">Keys</td>
+								<td class="py-2 pr-3 pl-3 text-left text-zinc-200"
+									>{asText(data.map.mechanics?.keys)}</td
+								>
+							</tr>
+							<tr>
+								<td class="py-2 pr-3 pl-3 text-right text-zinc-500">Secret Exit</td>
+								<td class="py-2 pr-3 pl-3 text-left text-zinc-200"
+									>{asText(data.map.mechanics?.secret_exit)}</td
+								>
+							</tr>
 						</tbody>
 					</table>
 				</div>
 			{/if}
 		</div>
 
-		<div bind:this={statsEl} class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
+		<div
+			bind:this={statsEl}
+			class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset"
+		>
 			<button
 				type="button"
-				class="flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3"
+				class="relative flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3 transition-colors hover:bg-zinc-900/40 focus-visible:bg-zinc-900/40 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset"
 				onclick={() => toggleTop('stats')}
 				aria-expanded={isTopExpanded('stats')}
 			>
 				<h2 class="text-center text-sm font-semibold text-zinc-200">Stats</h2>
+				{#if !isTopExpanded('stats')}
+					<span class="absolute right-4 text-xs font-normal text-zinc-500">click to expand</span>
+				{/if}
 			</button>
 			{#if isTopExpanded('stats')}
 				<div class="h-64 overflow-auto">
@@ -289,12 +320,12 @@
 							<col class="w-1/2" />
 						</colgroup>
 						<tbody class="divide-y divide-zinc-800">
-						{#each statRows() as [label, value] (label)}
-							<tr>
-								<td class="py-2 pl-3 pr-3 text-right text-zinc-500">{label}</td>
-								<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(value)}</td>
-							</tr>
-						{/each}
+							{#each statRows() as [label, value] (label)}
+								<tr>
+									<td class="py-2 pr-3 pl-3 text-right text-zinc-500">{label}</td>
+									<td class="py-2 pr-3 pl-3 text-left text-zinc-200">{asText(value)}</td>
+								</tr>
+							{/each}
 						</tbody>
 					</table>
 				</div>
@@ -307,11 +338,14 @@
 		>
 			<button
 				type="button"
-				class="flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3"
+				class="relative flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3 transition-colors hover:bg-zinc-900/40 focus-visible:bg-zinc-900/40 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset"
 				onclick={() => toggleTop('difficulty')}
 				aria-expanded={isTopExpanded('difficulty')}
 			>
 				<h2 class="text-center text-sm font-semibold text-zinc-200">Difficulty</h2>
+				{#if !isTopExpanded('difficulty')}
+					<span class="absolute right-4 text-xs font-normal text-zinc-500">click to expand</span>
+				{/if}
 			</button>
 			{#if isTopExpanded('difficulty')}
 				<div class="h-64 overflow-auto">
@@ -321,30 +355,42 @@
 							<col class="w-1/2" />
 						</colgroup>
 						<tbody class="divide-y divide-zinc-800">
-						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">UV monsters</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.difficulty?.uv_monsters)}</td>
-						</tr>
-						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">HMP monsters</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.difficulty?.hmp_monsters)}</td>
-						</tr>
-						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">HTR monsters</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.difficulty?.htr_monsters)}</td>
-						</tr>
-						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">UV items</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.difficulty?.uv_items)}</td>
-						</tr>
-						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">HMP items</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.difficulty?.hmp_items)}</td>
-						</tr>
-						<tr>
-							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">HTR items</td>
-							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.difficulty?.htr_items)}</td>
-						</tr>
+							<tr>
+								<td class="py-2 pr-3 pl-3 text-right text-zinc-500">UV monsters</td>
+								<td class="py-2 pr-3 pl-3 text-left text-zinc-200"
+									>{asText(data.map.difficulty?.uv_monsters)}</td
+								>
+							</tr>
+							<tr>
+								<td class="py-2 pr-3 pl-3 text-right text-zinc-500">HMP monsters</td>
+								<td class="py-2 pr-3 pl-3 text-left text-zinc-200"
+									>{asText(data.map.difficulty?.hmp_monsters)}</td
+								>
+							</tr>
+							<tr>
+								<td class="py-2 pr-3 pl-3 text-right text-zinc-500">HTR monsters</td>
+								<td class="py-2 pr-3 pl-3 text-left text-zinc-200"
+									>{asText(data.map.difficulty?.htr_monsters)}</td
+								>
+							</tr>
+							<tr>
+								<td class="py-2 pr-3 pl-3 text-right text-zinc-500">UV items</td>
+								<td class="py-2 pr-3 pl-3 text-left text-zinc-200"
+									>{asText(data.map.difficulty?.uv_items)}</td
+								>
+							</tr>
+							<tr>
+								<td class="py-2 pr-3 pl-3 text-right text-zinc-500">HMP items</td>
+								<td class="py-2 pr-3 pl-3 text-left text-zinc-200"
+									>{asText(data.map.difficulty?.hmp_items)}</td
+								>
+							</tr>
+							<tr>
+								<td class="py-2 pr-3 pl-3 text-right text-zinc-500">HTR items</td>
+								<td class="py-2 pr-3 pl-3 text-left text-zinc-200"
+									>{asText(data.map.difficulty?.htr_items)}</td
+								>
+							</tr>
 						</tbody>
 					</table>
 				</div>
@@ -353,21 +399,31 @@
 	</section>
 
 	<section class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3" bind:this={bottomGridEl}>
-		<div bind:this={monstersEl} class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
+		<div
+			bind:this={monstersEl}
+			class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset"
+		>
 			<button
 				type="button"
-				class="flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3"
+				class="relative flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3 transition-colors hover:bg-zinc-900/40 focus-visible:bg-zinc-900/40 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset"
 				onclick={() => toggleBottom('monsters')}
 				aria-expanded={isBottomExpanded('monsters')}
 			>
 				<h2 class="text-center text-sm font-semibold text-zinc-200">
 					Monsters
-					<span class="ml-2 text-xs font-normal text-zinc-500">({data.map.monsters?.total ?? 0} total)</span>
+					<span class="ml-2 text-xs font-normal text-zinc-500"
+						>({data.map.monsters?.total ?? 0} total)</span
+					>
 				</h2>
+				{#if !isBottomExpanded('monsters')}
+					<span class="absolute right-4 text-xs font-normal text-zinc-500">click to expand</span>
+				{/if}
 			</button>
 			{#if isBottomExpanded('monsters')}
 				{#if monsterBreakdown().length === 0}
-					<div class="px-4 py-3 text-sm text-zinc-400">No per-type monster breakdown available.</div>
+					<div class="px-4 py-3 text-sm text-zinc-400">
+						No per-type monster breakdown available.
+					</div>
 				{:else}
 					<div class="h-64 overflow-auto">
 						<table class="w-full table-fixed text-left text-sm">
@@ -376,12 +432,13 @@
 								<col class="w-1/2" />
 							</colgroup>
 							<tbody class="divide-y divide-zinc-800">
-							{#each monsterBreakdown() as [kind, count] (kind)}
-								<tr>
-									<td class="py-2 pl-3 pr-3 text-right font-mono text-xs text-zinc-500">{kind}</td>
-									<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{count}</td>
-								</tr>
-							{/each}
+								{#each monsterBreakdown() as [kind, count] (kind)}
+									<tr>
+										<td class="py-2 pr-3 pl-3 text-right font-mono text-xs text-zinc-500">{kind}</td
+										>
+										<td class="py-2 pr-3 pl-3 text-left text-zinc-200">{count}</td>
+									</tr>
+								{/each}
 							</tbody>
 						</table>
 					</div>
@@ -389,17 +446,25 @@
 			{/if}
 		</div>
 
-		<div bind:this={itemsEl} class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
+		<div
+			bind:this={itemsEl}
+			class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset"
+		>
 			<button
 				type="button"
-				class="flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3"
+				class="relative flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3 transition-colors hover:bg-zinc-900/40 focus-visible:bg-zinc-900/40 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset"
 				onclick={() => toggleBottom('items')}
 				aria-expanded={isBottomExpanded('items')}
 			>
 				<h2 class="text-center text-sm font-semibold text-zinc-200">
 					Items
-					<span class="ml-2 text-xs font-normal text-zinc-500">({data.map.items?.total ?? 0} total)</span>
+					<span class="ml-2 text-xs font-normal text-zinc-500"
+						>({data.map.items?.total ?? 0} total)</span
+					>
 				</h2>
+				{#if !isBottomExpanded('items')}
+					<span class="absolute right-4 text-xs font-normal text-zinc-500">click to expand</span>
+				{/if}
 			</button>
 			{#if isBottomExpanded('items')}
 				{#if itemBreakdown().length === 0}
@@ -412,12 +477,13 @@
 								<col class="w-1/2" />
 							</colgroup>
 							<tbody class="divide-y divide-zinc-800">
-							{#each itemBreakdown() as [kind, count] (kind)}
-								<tr>
-									<td class="py-2 pl-3 pr-3 text-right font-mono text-xs text-zinc-500">{kind}</td>
-									<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{count}</td>
-								</tr>
-							{/each}
+								{#each itemBreakdown() as [kind, count] (kind)}
+									<tr>
+										<td class="py-2 pr-3 pl-3 text-right font-mono text-xs text-zinc-500">{kind}</td
+										>
+										<td class="py-2 pr-3 pl-3 text-left text-zinc-200">{count}</td>
+									</tr>
+								{/each}
 							</tbody>
 						</table>
 					</div>
@@ -425,17 +491,24 @@
 			{/if}
 		</div>
 
-		<div bind:this={texturesEl} class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
+		<div
+			bind:this={texturesEl}
+			class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset"
+		>
 			<button
 				type="button"
-				class="flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3"
+				class="relative flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3 transition-colors hover:bg-zinc-900/40 focus-visible:bg-zinc-900/40 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset"
 				onclick={() => toggleBottom('textures')}
 				aria-expanded={isBottomExpanded('textures')}
 			>
 				<h2 class="text-center text-sm font-semibold text-zinc-200">
 					Textures
-					<span class="ml-2 text-xs font-normal text-zinc-500">({textureList().length} unique)</span>
+					<span class="ml-2 text-xs font-normal text-zinc-500">({textureList().length} unique)</span
+					>
 				</h2>
+				{#if !isBottomExpanded('textures')}
+					<span class="absolute right-4 text-xs font-normal text-zinc-500">click to expand</span>
+				{/if}
 			</button>
 			{#if isBottomExpanded('textures')}
 				{#if textureList().length === 0}

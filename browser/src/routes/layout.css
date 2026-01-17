@@ -4,6 +4,48 @@
 @import '@fontsource-variable/geist-mono';
 
 :root {
-	--dorch-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-		'Liberation Mono', 'Courier New', monospace;
+	--dorch-mono:
+		'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+		'Courier New', monospace;
+
+	/* Scrollbars (use Tailwind v4 zinc palette variables) */
+	--dorch-scrollbar-track: var(--color-zinc-950);
+	--dorch-scrollbar-thumb: var(--color-zinc-700);
+	--dorch-scrollbar-thumb-hover: var(--color-zinc-600);
+}
+
+@layer base {
+	html {
+		color-scheme: dark;
+	}
+
+	/* Firefox */
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--dorch-scrollbar-thumb) var(--dorch-scrollbar-track);
+	}
+
+	/* WebKit (Chromium, Safari) */
+	*::-webkit-scrollbar {
+		width: 10px;
+		height: 10px;
+	}
+
+	*::-webkit-scrollbar-track {
+		background-color: var(--dorch-scrollbar-track);
+	}
+
+	*::-webkit-scrollbar-thumb {
+		background-color: var(--dorch-scrollbar-thumb);
+		border-radius: 9999px;
+		border: 2px solid var(--dorch-scrollbar-track);
+	}
+
+	*::-webkit-scrollbar-thumb:hover {
+		background-color: var(--dorch-scrollbar-thumb-hover);
+	}
+
+	*::-webkit-scrollbar-corner {
+		background-color: var(--dorch-scrollbar-track);
+	}
 }
