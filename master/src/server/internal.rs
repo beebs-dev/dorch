@@ -235,14 +235,14 @@ pub async fn list_games_inner(state: App) -> Result<ListGamesResponse> {
         .context("Failed to list games")?;
     let mut games = Vec::with_capacity(list.items.len());
     for game in list.items {
-        let info = try_get_info(&state, &game).await;
-        let private = info.as_ref().is_some_and(|info| info.private)
-            || (info.is_none() && game.spec.private.unwrap_or(false));
-        if private {
+        let Some(info) = try_get_info(&state, &game).await else {
+            continue;
+        };
+        if info.private {
             // Omit private servers from the public listing.
             continue;
         }
-        let Ok(summary) = game_to_summary(game, info) else {
+        let Ok(summary) = game_to_summary(game, Some(info)) else {
             continue;
         };
         games.push(summary);

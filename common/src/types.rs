@@ -1,10 +1,8 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct GameInfo {
-    #[serde(default, skip_serializing_if = "Uuid::is_nil")]
-    pub game_id: Uuid,
     pub private: bool,
     pub name: String,
     pub max_players: i32,

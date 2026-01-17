@@ -147,7 +147,6 @@ impl GameInfoStore {
         let sv_allowrun = parse_bool(&hash, "sv_allowrun", true)?;
         let sv_allowfreelook = parse_bool(&hash, "sv_allowfreelook", true)?;
         Ok(Some(GameInfo {
-            game_id,
             private,
             name,
             max_players,

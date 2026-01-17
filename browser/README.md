@@ -16,6 +16,13 @@ npx sv create my-app
 
 ## Developing
 
+### Environment
+
+Server-side API base URLs are configured via private environment variables:
+
+- `WADINFO_BASE_URL` (existing): base URL for the WAD info service (used by the WAD browser)
+- `DORCH_MASTER_BASE_URL` (new): base URL for the master server list API (used by `/servers`, expects `GET /games`)
+
 Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
 
 ```sh
