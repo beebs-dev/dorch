@@ -28,18 +28,8 @@
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
 	<div class="flex items-end justify-between gap-4">
-		<div>
-			<h1 class="text-2xl font-semibold tracking-tight">WAD Browser</h1>
-			<p class="mt-1 text-sm text-zinc-400">
-				Browse, search, and inspect WADs. Server-rendered; no client-side fetching.
-			</p>
-		</div>
-		<div class="text-right text-sm text-zinc-400">
-			<div>Total: {data.results.full_count.toLocaleString()}</div>
-			{#if data.results.truncated}
-				<div class="text-xs">(truncated)</div>
-			{/if}
-		</div>
+		
+		
 	</div>
 
 	<div class="mt-6 flex flex-wrap items-center justify-between gap-3">
@@ -60,13 +50,14 @@
 		<div class="text-xs text-zinc-500">
 			{#if data.q}
 				Search results for “<span class="text-zinc-200">{data.q}</span>”
-			{:else}
-				Sorting beyond alphabetical is TODO in backend.
 			{/if}
 		</div>
 	</div>
 
 	{#if !data.q}
+		<div class="text-right text-sm text-zinc-400">
+			<div>{data.results.full_count.toLocaleString()} WADs</div>
+		</div>
 		<section class="mt-6">
 			<h2 class="text-sm font-semibold text-zinc-200">Featured</h2>
 			<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -100,6 +91,7 @@
 				{/each}
 			</div>
 		</section>
+		
 	{/if}
 
 	<section class="mt-8">
