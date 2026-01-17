@@ -59,6 +59,9 @@ pub struct GameSummary {
 
     pub iwad: String,
 
+    #[serde(default, skip_serializing_if = "Uuid::is_nil")]
+    pub creator_id: Uuid,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub files: Option<Vec<String>>,
 

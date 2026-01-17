@@ -54,8 +54,8 @@ pub async fn run_server(
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::dev());
     let router = Router::new()
-        .route("/game", get(internal::list_games))
-        .route("/game/{game_id}", get(internal::get_game))
+        .route("/game", get(list_games))
+        .route("/game/{game_id}", get(get_game))
         .with_state(app_state)
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::dev());
@@ -84,6 +84,29 @@ pub async fn run_server(
         humantime::format_duration(start.elapsed()).red().dimmed()
     );
     Ok(())
+}
+
+pub async fn get_game(State(state): State<App>, Path(game_id): Path<Uuid>) -> impl IntoResponse {
+    let mut summary = match internal::get_game_internal(state, game_id).await {
+        Ok(Some(summary)) => summary,
+        Ok(None) => return response::not_found(anyhow!("Game not found")),
+        Err(e) => return response::error(anyhow!("Failed to get game: {:?}", e)),
+    };
+    // Remove creator ID from public response
+    summary.creator_id = Uuid::nil();
+    (StatusCode::OK, Json(summary)).into_response()
+}
+
+pub async fn list_games(State(state): State<App>) -> impl IntoResponse {
+    let mut resp = match internal::list_games_inner(state).await {
+        Ok(resp) => resp,
+        Err(e) => return response::error(e.context("Failed to list games")),
+    };
+    for game in &mut resp.games {
+        // Remove creator ID from public response
+        game.creator_id = Uuid::nil();
+    }
+    (StatusCode::OK, Json(resp)).into_response()
 }
 
 pub async fn new_game(

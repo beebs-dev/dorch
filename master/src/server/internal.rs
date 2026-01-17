@@ -2,7 +2,7 @@ use crate::{
     app::App,
     client::{GameSummary, ListGamesResponse, NewGameRequest, NewGameResponse},
 };
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result, anyhow, bail};
 use axum::{
     Json, Router,
     extract::{Path, State},
@@ -262,6 +262,15 @@ fn game_to_summary(g: dorch_types::Game, info: Option<GameInfo>) -> Result<GameS
         game_id: Uuid::parse_str(&g.spec.game_id).context("Invalid game ID")?,
         iwad: g.spec.iwad,
         files: g.spec.files,
+        creator_id: g
+            .metadata
+            .annotations
+            .as_ref()
+            .and_then(|anns| anns.get(CREATOR_USER_ID_ANNOTATION))
+            .map(|s| s.parse::<Uuid>())
+            .transpose()
+            .context("Invalid creator user ID")?
+            .unwrap_or_else(Uuid::nil),
         info,
     })
 }
@@ -290,24 +299,28 @@ pub async fn delete_game(State(state): State<App>, Path(game_id): Path<Uuid>) ->
     StatusCode::OK.into_response()
 }
 
-pub async fn get_game(State(state): State<App>, Path(game_id): Path<Uuid>) -> impl IntoResponse {
+pub async fn get_game_internal(state: App, game_id: Uuid) -> Result<Option<GameSummary>> {
     let game = match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
         .get(game_id.to_string().as_str())
         .await
     {
         Ok(game) => game,
-        Err(e) => {
-            return match e {
-                kube::Error::Api(ae) if ae.code == 404 => {
-                    response::not_found(anyhow!("Game not found"))
-                }
-                _ => response::error(anyhow!("Failed to get game: {:?}", e)),
-            };
+        Err(kube::Error::Api(ae)) if ae.code == 404 => {
+            return Ok(None);
         }
+        Err(e) => bail!("Failed to get game: {:?}", e),
     };
     let info = try_get_info(&state, &game).await;
     match game_to_summary(game, info) {
-        Ok(summary) => (StatusCode::OK, Json(summary)).into_response(),
-        Err(e) => response::error(anyhow!("Failed to parse game: {:?}", e)),
+        Ok(summary) => Ok(Some(summary)),
+        Err(e) => Err(anyhow!("Failed to parse game: {:?}", e)),
+    }
+}
+
+pub async fn get_game(State(state): State<App>, Path(game_id): Path<Uuid>) -> impl IntoResponse {
+    match get_game_internal(state, game_id).await {
+        Ok(Some(summary)) => (StatusCode::OK, Json(summary)).into_response(),
+        Ok(None) => response::not_found(anyhow!("Game not found")),
+        Err(e) => response::error(anyhow!("Failed to get game: {:?}", e)),
     }
 }
