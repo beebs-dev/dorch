@@ -544,6 +544,11 @@ def render_one_wad_screenshots(
 
 		meta.download_s3_to_path(s3_wads, wad_bucket, s3_key, gz_path)
 		meta.gunzip_file(gz_path, file_path)
+		# Reduce peak temp usage: after gunzip succeeds, the .gz is no longer needed.
+		try:
+			os.unlink(gz_path)
+		except OSError:
+			pass
 
 		# IWAD selection
 		wad_type_upper = str(wad_entry.get("type") or "").upper()

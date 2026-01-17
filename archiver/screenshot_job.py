@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -16,6 +17,38 @@ from screenshots import NoMapsError, RenderConfig, render_screenshots
 
 class TempSpaceExceededError(RuntimeError):
 	pass
+
+
+def _fmt_bytes(n: int) -> str:
+	for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+		if n < 1024 or unit == "TiB":
+			return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+		n /= 1024
+	return f"{n:.1f} TiB"
+
+
+def _log_temp_space_context(*, temp_dir: str, gz_path: str, file_path: str) -> None:
+	# Best-effort debug logging to understand if this is a real ephemeral-storage
+	# constraint (common in k8s) vs. a leak elsewhere.
+	try:
+		usage = shutil.disk_usage(temp_dir)
+		print(
+			"tmp usage: "
+			f"dir={temp_dir} total={_fmt_bytes(int(usage.total))} "
+			f"used={_fmt_bytes(int(usage.used))} free={_fmt_bytes(int(usage.free))}",
+			file=sys.stderr,
+		)
+		exists_gz = os.path.exists(gz_path)
+		exists_file = os.path.exists(file_path)
+		gz_size = os.path.getsize(gz_path) if exists_gz else -1
+		file_size = os.path.getsize(file_path) if exists_file else -1
+		print(
+			f"tmp artifacts: gz_exists={exists_gz} gz_size={_fmt_bytes(int(gz_size)) if gz_size >= 0 else '?'} "
+			f"file_exists={exists_file} file_size={_fmt_bytes(int(file_size)) if file_size >= 0 else '?'}",
+			file=sys.stderr,
+		)
+	except Exception:
+		pass
 
 
 def _spaces_public_base_url(*, bucket: str, endpoint: str) -> str:
@@ -175,9 +208,21 @@ def render_one_wad_screenshots(
 		try:
 			meta.download_s3_to_path(s3_wads, wad_bucket, s3_key, gz_path)
 			meta.gunzip_file(gz_path, file_path)
+			# Reduce peak temp usage: after gunzip succeeds, the .gz is no longer needed.
+			try:
+				os.unlink(gz_path)
+			except OSError:
+				pass
 		except OSError as ex:
 			# Most common when tmpfs/ephemeral is intentionally capped.
 			if getattr(ex, "errno", None) == 28:
+				_log_temp_space_context(temp_dir=td, gz_path=gz_path, file_path=file_path)
+				# Try to free any partial artifacts before raising (best-effort).
+				for p in (file_path, gz_path):
+					try:
+						os.unlink(p)
+					except OSError:
+						pass
 				raise TempSpaceExceededError("temporary storage exhausted while downloading/unpacking") from ex
 			raise
 
