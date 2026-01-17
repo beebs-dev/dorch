@@ -208,7 +208,7 @@
 					class="dorch-play-button flex items-center justify-center rounded-lg bg-red-950/30 px-5 py-3 text-base font-semibold text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 					aria-label={`Play ${wadTitle()}`}
 				>
-					Play
+					PLAY
 				</a>
 			</div>
 		</div>
@@ -732,6 +732,7 @@
 <style>
 	.dorch-play-button {
 		--dorch-tile: 64px;
+		--dorch-tile-scaled: calc(var(--dorch-tile) * 2);
 		position: relative;
 		isolation: isolate;
 		overflow: hidden;
@@ -750,13 +751,13 @@
 		border-radius: inherit;
 		background-image: url('/red-single.png');
 		background-repeat: repeat;
-		background-size: var(--dorch-tile) var(--dorch-tile);
+		background-size: var(--dorch-tile-scaled) var(--dorch-tile-scaled);
 		background-position: 0 0;
-		opacity: 0.3;
-		filter: saturate(1.05) contrast(1.08) brightness(0.95);
+		opacity: 0.24;
+		filter: saturate(1.05) contrast(1.08) brightness(0.96);
 		pointer-events: none;
 		z-index: 0;
-		animation: dorch-play-pan-idle 7s ease-in-out infinite;
+		animation: dorch-play-pan-idle 12s linear infinite;
 	}
 
 	.dorch-play-button > :global(*) {
@@ -767,14 +768,14 @@
 	.dorch-play-button:hover,
 	.dorch-play-button:focus-visible {
 		animation: dorch-play-rage 900ms ease-in-out infinite;
-		filter: brightness(1.08) saturate(1.08);
+		filter: brightness(1.12) saturate(1.16) contrast(1.06);
 	}
 
 	.dorch-play-button:hover::before,
 	.dorch-play-button:focus-visible::before {
-		opacity: 0.22;
-		filter: saturate(1.15) contrast(1.15) brightness(1);
-		animation: dorch-play-pan-rage 1000ms linear infinite;
+		opacity: 0.32;
+		filter: saturate(1.35) contrast(1.25) brightness(1.02);
+		animation: dorch-play-pan-rage 2500ms linear infinite;
 	}
 
 	.dorch-play-button:active {
@@ -814,26 +815,39 @@
 	}
 
 	@keyframes dorch-play-pan-idle {
-		0%,
-		78% {
-			opacity: 0.3;
+		0% {
+			opacity: 0.24;
+			filter: saturate(1.05) contrast(1.08) brightness(0.96);
 			background-position: 0px 0px;
+		}
+		78% {
+			opacity: 0.24;
+			filter: saturate(1.05) contrast(1.08) brightness(0.96);
+			background-position: calc(var(--dorch-tile-scaled) * 0.65)
+				calc(var(--dorch-tile-scaled) * 0.35);
 		}
 		82% {
-			opacity: 0.35;
-			background-position: 8px -5px;
+			opacity: 0.3;
+			filter: saturate(1.2) contrast(1.18) brightness(1.02);
+			background-position: calc(var(--dorch-tile-scaled) * 0.78)
+				calc(var(--dorch-tile-scaled) * 0.5);
 		}
 		86% {
-			opacity: 0.45;
-			background-position: 18px -10px;
+			opacity: 0.44;
+			filter: saturate(1.35) contrast(1.25) brightness(1.06);
+			background-position: calc(var(--dorch-tile-scaled) * 0.9)
+				calc(var(--dorch-tile-scaled) * 0.66);
 		}
 		92% {
-			opacity: 0.35;
-			background-position: 8px -5px;
+			opacity: 0.32;
+			filter: saturate(1.22) contrast(1.18) brightness(1.03);
+			background-position: calc(var(--dorch-tile-scaled) * 0.96)
+				calc(var(--dorch-tile-scaled) * 0.78);
 		}
 		100% {
-			opacity: 0.3;
-			background-position: 0px 0px;
+			opacity: 0.24;
+			filter: saturate(1.05) contrast(1.08) brightness(0.96);
+			background-position: var(--dorch-tile-scaled) var(--dorch-tile-scaled);
 		}
 	}
 
@@ -858,7 +872,7 @@
 			background-position: 0px 0px;
 		}
 		100% {
-			background-position: var(--dorch-tile) var(--dorch-tile);
+			background-position: var(--dorch-tile-scaled) var(--dorch-tile-scaled);
 		}
 	}
 
@@ -867,7 +881,7 @@
 			background-position: 0px 0px;
 		}
 		100% {
-			background-position: calc(var(--dorch-tile) * 2) calc(var(--dorch-tile) * -1);
+			background-position: calc(var(--dorch-tile-scaled) * 2) calc(var(--dorch-tile-scaled) * -1);
 		}
 	}
 
