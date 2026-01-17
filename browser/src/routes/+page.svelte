@@ -29,7 +29,11 @@
 	<section class="pt-4 pb-12">
 		<div class="mx-auto max-w-3xl text-center">
 			<h1 class="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-				Search among {data.results.full_count.toLocaleString()} WADs.
+				{#if data.q}
+					{data.results.full_count.toLocaleString()} WADs matched your query.
+				{:else}
+					Search among {data.results.full_count.toLocaleString()} WADs.
+				{/if}
 			</h1>
 
 			<form action="/" method="get" class="mt-6">
@@ -73,7 +77,7 @@
 		</div>
 		{#if data.q}
 			<div class="text-xs text-zinc-500">
-				Search results for “<span class="text-zinc-200">{data.q}</span>”
+				Showing {data.results.items.length.toLocaleString()} of {data.results.full_count.toLocaleString()} results for “<span class="text-zinc-200">{data.q}</span>”
 			</div>
 		{:else}
 			<div class="text-right text-sm text-zinc-400">
@@ -118,7 +122,11 @@
 	{/if}
 
 	<section class="mt-8">
-		<h2 class="text-sm font-semibold text-zinc-200">All WADs</h2>
+		{#if data.q}
+			<h2 class="text-sm font-semibold text-zinc-200">Search Results</h2>
+		{:else}
+			<h2 class="text-sm font-semibold text-zinc-200">All WADs</h2>
+		{/if}
 		<div class="mt-3 overflow-hidden rounded-xl ring-1 ring-zinc-800 ring-inset">
 			<ul class="divide-y divide-zinc-800">
 				{#each data.results.items as wad (wad.id)}
@@ -172,7 +180,7 @@
 				Prev
 			</a>
 			<div class="text-xs text-zinc-500">
-				Offset {data.offset.toLocaleString()} • Limit {data.limit}
+				Page {Math.floor(data.offset / data.limit) + 1} of {Math.max(1, Math.ceil(data.results.full_count / data.limit))}
 			</div>
 			<a
 				class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
