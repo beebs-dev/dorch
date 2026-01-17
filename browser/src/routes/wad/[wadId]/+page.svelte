@@ -370,7 +370,14 @@
 					{#each mapsWithAnyImages() as m (m.map)}
 						<section class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
 							<div class="flex flex-wrap items-baseline justify-between gap-2">
-								<h2 class="text-sm font-semibold text-zinc-200">{m.map}</h2>
+								<h2 class="text-sm font-semibold text-zinc-200">
+									<a
+										href={`/wad/${encodeURIComponent(data.wad.meta.id)}/maps/${encodeURIComponent(m.map)}`}
+										class="hover:text-zinc-100 hover:underline"
+									>
+										{m.map}
+									</a>
+								</h2>
 								<div class="text-xs text-zinc-500">{m.metadata?.title ?? ''}</div>
 							</div>
 							<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
