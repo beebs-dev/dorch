@@ -395,65 +395,54 @@
 		</section>
 	{:else if data.tab === 'statistics'}
 		<section class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-			<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
-				<h2 class="text-sm font-semibold text-zinc-200">Counts</h2>
+			<div class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
+				<div class="border-b border-zinc-800 px-4 py-3">
+					<h2 class="text-sm font-semibold text-zinc-200">Counts</h2>
+				</div>
 				{#if countEntries().length === 0}
-					<div class="mt-3 text-sm text-zinc-400">No counts are available.</div>
+					<div class="px-4 py-3 text-sm text-zinc-400">No counts are available.</div>
 				{:else}
-					<div class="mt-3 overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset">
-						<table class="w-full text-left text-sm">
-							<thead class="bg-zinc-950 text-xs text-zinc-500">
+					<table class="w-full text-left text-sm">
+						<tbody class="divide-y divide-zinc-800">
+							{#each countEntries() as [k, v] (k)}
 								<tr>
-									<th class="px-3 py-2 font-medium">Key</th>
-									<th class="px-3 py-2 font-medium">Value</th>
+									<td class="px-3 py-2 font-mono text-xs text-zinc-500">{k}</td>
+									<td class="px-3 py-2 text-zinc-200">{v}</td>
 								</tr>
-							</thead>
-							<tbody class="divide-y divide-zinc-800">
-								{#each countEntries() as [k, v] (k)}
-									<tr>
-										<td class="px-3 py-2 font-mono text-xs text-zinc-200">{k}</td>
-										<td class="px-3 py-2 text-zinc-200">{v}</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
+							{/each}
+						</tbody>
+					</table>
 				{/if}
 			</div>
 
-			<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
-				<h2 class="text-sm font-semibold text-zinc-200">Totals (across maps)</h2>
-				<div class="mt-3 overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset">
-					<table class="w-full text-left text-sm">
-						<tbody class="divide-y divide-zinc-800">
-							<tr
-								><td class="px-3 py-2 text-zinc-500">Things</td><td class="px-3 py-2 text-zinc-200"
-									>{totals().things}</td
-								></tr
-							>
-							<tr
-								><td class="px-3 py-2 text-zinc-500">Linedefs</td><td
-									class="px-3 py-2 text-zinc-200">{totals().linedefs}</td
-								></tr
-							>
-							<tr
-								><td class="px-3 py-2 text-zinc-500">Sectors</td><td class="px-3 py-2 text-zinc-200"
-									>{totals().sectors}</td
-								></tr
-							>
-							<tr
-								><td class="px-3 py-2 text-zinc-500">Monsters</td><td
-									class="px-3 py-2 text-zinc-200">{totals().monsters}</td
-								></tr
-							>
-							<tr
-								><td class="px-3 py-2 text-zinc-500">Items</td><td class="px-3 py-2 text-zinc-200"
-									>{totals().items}</td
-								></tr
-							>
-						</tbody>
-					</table>
+			<div class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
+				<div class="border-b border-zinc-800 px-4 py-3">
+					<h2 class="text-sm font-semibold text-zinc-200">Totals (across maps)</h2>
 				</div>
+				<table class="w-full text-left text-sm">
+					<tbody class="divide-y divide-zinc-800">
+						<tr>
+							<td class="px-3 py-2 text-zinc-500">Things</td>
+							<td class="px-3 py-2 text-zinc-200">{totals().things}</td>
+						</tr>
+						<tr>
+							<td class="px-3 py-2 text-zinc-500">Linedefs</td>
+							<td class="px-3 py-2 text-zinc-200">{totals().linedefs}</td>
+						</tr>
+						<tr>
+							<td class="px-3 py-2 text-zinc-500">Sectors</td>
+							<td class="px-3 py-2 text-zinc-200">{totals().sectors}</td>
+						</tr>
+						<tr>
+							<td class="px-3 py-2 text-zinc-500">Monsters</td>
+							<td class="px-3 py-2 text-zinc-200">{totals().monsters}</td>
+						</tr>
+						<tr>
+							<td class="px-3 py-2 text-zinc-500">Items</td>
+							<td class="px-3 py-2 text-zinc-200">{totals().items}</td>
+						</tr>
+					</tbody>
+				</table>
 			</div>
 		</section>
 
