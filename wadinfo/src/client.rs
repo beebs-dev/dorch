@@ -6,6 +6,29 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MapReference {
+    pub wad_id: Uuid,
+    pub map: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ResolveMapThumbnailsRequest {
+    pub items: Vec<MapReference>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MapThumbnail {
+    pub wad_id: Uuid,
+    pub map: String,
+    pub url: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ResolveMapThumbnailsResponse {
+    pub items: Vec<MapThumbnail>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WadImage {
     /// Optional on PUT; always present on GET.
     #[serde(default)]

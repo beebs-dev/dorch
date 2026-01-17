@@ -1,6 +1,6 @@
 use crate::client::{
-    GetWadMapResponse, ListWadsResponse, ReadMapStat, ReadWad, ReadWadMetaWithTextFiles,
-    ResolvedWadURL, WadImage, WadSearchResults,
+    GetWadMapResponse, ListWadsResponse, MapReference, MapThumbnail, ReadMapStat, ReadWad,
+    ReadWadMetaWithTextFiles, ResolvedWadURL, WadImage, WadSearchResults,
 };
 use anyhow::{Context, Result};
 use dorch_common::{
@@ -365,6 +365,13 @@ impl Database {
             });
         }
         Ok(out)
+    }
+
+    pub async fn resolve_map_thumbnails(
+        &self,
+        items: &[MapReference],
+    ) -> Result<Vec<MapThumbnail>> {
+        todo!()
     }
 
     pub async fn replace_wad_map_images(

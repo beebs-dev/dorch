@@ -1,7 +1,8 @@
 use crate::{
     app::App,
     client::{
-        ListWadsRequest, ResolveWadURLsRequest, ResolveWadURLsResponse, WadImage, WadSearchRequest,
+        ListWadsRequest, ResolveMapThumbnailsRequest, ResolveMapThumbnailsResponse,
+        ResolveWadURLsRequest, ResolveWadURLsResponse, WadImage, WadSearchRequest,
     },
 };
 use anyhow::{Context, Result};
@@ -38,6 +39,7 @@ pub async fn run_server(
         .with_state(app_state.clone())
         .layer(middleware::from_fn(access_log::internal));
     let router = Router::new()
+        .route("/thumbnails", post(resolve_map_thumbnails))
         .route("/wad", get(list_wads))
         .route("/wad_urls", post(resolve_wad_urls))
         .route("/featured", get(featured_wads))
@@ -120,6 +122,16 @@ pub async fn resolve_wad_urls(
     match state.db.resolve_wad_urls(&req.wad_ids).await {
         Ok(items) => (StatusCode::OK, Json(ResolveWadURLsResponse { items })).into_response(),
         Err(e) => response::error(e.context("Failed to resolve wad URLs")),
+    }
+}
+
+pub async fn resolve_map_thumbnails(
+    State(state): State<App>,
+    Json(req): Json<ResolveMapThumbnailsRequest>,
+) -> impl IntoResponse {
+    match state.db.resolve_map_thumbnails(&req.items).await {
+        Ok(items) => (StatusCode::OK, Json(ResolveMapThumbnailsResponse { items })).into_response(),
+        Err(e) => response::error(e.context("Failed to resolve map thumbnails")),
     }
 }
 

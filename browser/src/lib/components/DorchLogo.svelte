@@ -13,6 +13,8 @@
 
 <style>
 	.logo {
+		font-family: 'Orbitron', var(--dorch-mono);
+		font-weight: 900;
 		line-height: 1;
 		letter-spacing: 0.22em;
 	}
