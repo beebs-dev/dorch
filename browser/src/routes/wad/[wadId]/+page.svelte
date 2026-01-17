@@ -87,7 +87,35 @@
 	});
 
 	const textFiles = $derived(() => data.wad.meta.text_files ?? []);
-	let selectedTextFileIndex = $state(0);
+
+	type FilesTab = { kind: 'file' } | { kind: 'text'; idx: number };
+	let selectedFilesTab = $state<FilesTab>({ kind: 'file' });
+
+	const fileNames = $derived(() => {
+		const out: string[] = [];
+		const seen = new Set<string>();
+		const add = (name: string | null | undefined) => {
+			if (!name) return;
+			const trimmed = name.trim();
+			if (!trimmed) return;
+			const key = trimmed.toLowerCase();
+			if (seen.has(key)) return;
+			seen.add(key);
+			out.push(trimmed);
+		};
+
+		add(data.wad.meta.filename ?? null);
+		for (const n of data.wad.meta.filenames ?? []) add(n);
+		return out;
+	});
+
+	const fileTabLabel = $derived(() => fileNames()[0] ?? data.wad.meta.file?.type ?? 'File');
+
+	$effect(() => {
+		if (selectedFilesTab.kind === 'text' && selectedFilesTab.idx >= textFiles().length) {
+			selectedFilesTab = { kind: 'file' };
+		}
+	});
 
 	function textFileLabel(tf: any, idx: number): string {
 		const name = tf?.name as string | null | undefined;
@@ -336,58 +364,134 @@
 			</div>
 		</section>
 
-		{#if textFiles().length > 0}
-			<section class="mt-4 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
-				<h2 class="text-sm font-semibold text-zinc-200">Text files</h2>
-				<div class="mt-3 flex flex-wrap gap-2">
-					{#each textFiles() as tf, idx (idx)}
-						<button
-							type="button"
-							onclick={() => (selectedTextFileIndex = idx)}
-							class={`inline-flex items-center gap-2 px-3 py-2 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
-								idx === selectedTextFileIndex ? 'bg-zinc-900 text-zinc-100' : 'text-zinc-300'
-							}`}
+		<section class="mt-4 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
+			<h2 class="text-sm font-semibold text-zinc-200">Files</h2>
+			<div class="mt-3 flex flex-wrap gap-2">
+				<button
+					type="button"
+					onclick={() => (selectedFilesTab = { kind: 'file' })}
+					class={`inline-flex items-center gap-2 px-3 py-2 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
+						selectedFilesTab.kind === 'file' ? 'bg-zinc-900 text-zinc-100' : 'text-zinc-300'
+					}`}
+				>
+					<svg
+						viewBox="0 0 24 24"
+						class="h-4 w-4 text-zinc-400"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+						<polyline points="7 10 12 15 17 10" />
+						<line x1="12" y1="15" x2="12" y2="3" />
+					</svg>
+					<span class="truncate">{fileTabLabel()}</span>
+				</button>
+				{#each textFiles() as tf, idx (idx)}
+					<button
+						type="button"
+						onclick={() => (selectedFilesTab = { kind: 'text', idx })}
+						class={`inline-flex items-center gap-2 px-3 py-2 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
+							selectedFilesTab.kind === 'text' && selectedFilesTab.idx === idx
+								? 'bg-zinc-900 text-zinc-100'
+								: 'text-zinc-300'
+						}`}
+					>
+						<svg
+							viewBox="0 0 24 24"
+							class="h-4 w-4 text-zinc-400"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
 						>
-							<svg
-								viewBox="0 0 24 24"
-								class="h-4 w-4 text-zinc-400"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							>
-								<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-								<path d="M14 2v6h6" />
-								<path d="M8 13h8" />
-								<path d="M8 17h8" />
-								<path d="M8 9h2" />
-							</svg>
-							<span class="truncate">{textFileLabel(tf, idx)}</span>
-						</button>
-					{/each}
-				</div>
+							<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+							<path d="M14 2v6h6" />
+							<path d="M8 13h8" />
+							<path d="M8 17h8" />
+							<path d="M8 9h2" />
+						</svg>
+						<span class="truncate">{textFileLabel(tf, idx)}</span>
+					</button>
+				{/each}
+			</div>
 
-				{#if textFiles()[selectedTextFileIndex]}
+			{#if selectedFilesTab.kind === 'file'}
+				<dl class="mt-4 grid grid-cols-1 gap-2 text-sm">
+					<div class="flex flex-wrap justify-between gap-2">
+						<dt class="text-zinc-500">Name(s)</dt>
+						{#if fileNames().length > 0}
+							<dd class="flex flex-wrap justify-end gap-2">
+								{#each fileNames() as n (n)}
+									<span
+										class="rounded bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
+									>
+										{n}
+									</span>
+								{/each}
+							</dd>
+						{:else}
+							<dd class="text-zinc-400">—</dd>
+						{/if}
+					</div>
+					<div class="flex flex-wrap justify-between gap-2">
+						<dt class="text-zinc-500">Type</dt>
+						<dd class="text-zinc-100">{data.wad.meta.file?.type ?? '—'}</dd>
+					</div>
+					<div class="flex flex-wrap justify-between gap-2">
+						<dt class="text-zinc-500">Size</dt>
+						<dd class="text-zinc-100">{humanBytes(data.wad.meta.file?.size ?? null)}</dd>
+					</div>
+					<div class="flex flex-wrap justify-between gap-2">
+						<dt class="text-zinc-500">URL</dt>
+						{#if data.wad.meta.file?.url}
+							<dd class="min-w-0 text-right">
+								<a
+									href={data.wad.meta.file.url}
+									class="truncate text-zinc-300 underline hover:text-zinc-100"
+									target="_blank"
+									rel="noreferrer"
+								>
+									Download
+								</a>
+							</dd>
+						{:else}
+							<dd class="text-zinc-400">—</dd>
+						{/if}
+					</div>
+					{#if data.wad.meta.file?.corrupt}
+						<div class="flex flex-wrap justify-between gap-2">
+							<dt class="text-zinc-500">Status</dt>
+							<dd class="text-zinc-100">
+								Corrupt{data.wad.meta.file?.corruptMessage
+									? `: ${data.wad.meta.file.corruptMessage}`
+									: ''}
+							</dd>
+						</div>
+					{/if}
+				</dl>
+			{:else}
+				{#if textFiles()[selectedFilesTab.idx]}
 					<div class="mt-4 overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset">
 						<div
 							class="flex flex-wrap items-center justify-between gap-2 bg-zinc-950 px-3 py-2 text-xs text-zinc-500"
 						>
 							<div class="min-w-0 truncate">
-								{textFileLabel(textFiles()[selectedTextFileIndex], selectedTextFileIndex)}
+								{textFileLabel(textFiles()[selectedFilesTab.idx], selectedFilesTab.idx)}
 							</div>
-							<div class="shrink-0">
-								{textFiles()[selectedTextFileIndex].source}
-							</div>
+							<div class="shrink-0">{textFiles()[selectedFilesTab.idx].source}</div>
 						</div>
 						<pre
 							class="max-h-[420px] overflow-auto bg-zinc-950 p-3 text-xs text-zinc-200">{textFiles()[
-								selectedTextFileIndex
+								selectedFilesTab.idx
 							].contents}</pre>
 					</div>
 				{/if}
-			</section>
-		{/if}
+			{/if}
+		</section>
 	{:else if data.tab === 'maps'}
 		<section class="mt-6">
 			<div class="overflow-hidden rounded-xl ring-1 ring-zinc-800 ring-inset">
