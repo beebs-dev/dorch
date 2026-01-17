@@ -18,7 +18,10 @@
 	}
 </script>
 
-<svelte:head><link rel="icon" href={favicon} /></svelte:head>
+<svelte:head>
+	<title>DORCH</title>
+	<link rel="icon" href={favicon} />
+</svelte:head>
 
 <div class="min-h-dvh bg-zinc-950 text-zinc-100">
 	<header class="sticky top-0 z-10 border-b border-red-950/60 bg-red-950/35 backdrop-blur">

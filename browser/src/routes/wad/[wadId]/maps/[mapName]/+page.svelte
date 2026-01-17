@@ -1,12 +1,15 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import PanoViewer from '$lib/components/PanoViewer.svelte';
-		import { wadLabel } from '$lib/utils/format';
+		import { ellipsize, wadLabel } from '$lib/utils/format';
 
 	let { data }: { data: PageData } = $props();
 
 		const wadTitle = $derived(() => wadLabel(data.map.wad_meta));
 	const mapTitle = $derived(() => data.map.metadata?.title ?? data.map.map);
+	const pageTitle = $derived(
+		() => `${ellipsize(wadTitle(), 64)} // ${ellipsize(data.mapName, 24)} - DORCH`
+	);
 
 	function isPano(img: any): boolean {
 		const t = (img?.type ?? img?.kind) as string | null | undefined;
@@ -190,6 +193,10 @@
 		};
 	});
 </script>
+
+<svelte:head>
+	<title>{pageTitle()}</title>
+</svelte:head>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
 	<header class="mt-3 flex items-start gap-4">

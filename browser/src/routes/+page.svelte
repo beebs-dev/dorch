@@ -25,6 +25,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>ONLINE SLAUGHTER - DORCH</title>
+</svelte:head>
+
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
 	<section class="pt-4 pb-12">
 		<div class="mx-auto max-w-3xl text-center">

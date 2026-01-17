@@ -3,7 +3,7 @@
 	import { page } from '$app/stores';
 	import PanoViewer from '$lib/components/PanoViewer.svelte';
 	import type { WadImage } from '$lib/types/wadinfo';
-	import { humanBytes, wadLabel, withParams } from '$lib/utils/format';
+	import { ellipsize, humanBytes, wadLabel, withParams } from '$lib/utils/format';
 
 	let { data }: { data: PageData } = $props();
 
@@ -16,6 +16,7 @@
 	];
 
 	const wadTitle = $derived(() => wadLabel(data.wad.meta));
+	const pageTitle = $derived(() => `${ellipsize(wadTitle(), 64)} - DORCH`);
 
 	function isPano(img: any): boolean {
 		const t = (img?.type ?? img?.kind) as string | null | undefined;
@@ -170,6 +171,10 @@
 		};
 	});
 </script>
+
+<svelte:head>
+	<title>{pageTitle()}</title>
+</svelte:head>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
 	<header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

@@ -69,3 +69,12 @@ export function withParams(url: URL, next: Record<string, string | number | null
 	// Normalize trailing '?' away
 	return copy.pathname + (copy.searchParams.toString() ? `?${copy.searchParams.toString()}` : '');
 }
+
+export function ellipsize(input: string | null | undefined, maxChars = 80): string {
+	const s = (input ?? '').trim();
+	if (!s) return '';
+	const max = Math.max(1, Math.trunc(maxChars));
+	if (s.length <= max) return s;
+	if (max === 1) return '…';
+	return s.slice(0, max - 1).trimEnd() + '…';
+}

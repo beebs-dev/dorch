@@ -54,6 +54,10 @@
 	const fetchedAt = $derived(() => (data.fetchedAt ? new Date(data.fetchedAt) : null));
 </script>
 
+<svelte:head>
+	<title>SERVERS - DORCH</title>
+</svelte:head>
+
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
 	<div class="flex flex-wrap items-end justify-between gap-4">
 		<div>
