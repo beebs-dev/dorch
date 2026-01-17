@@ -104,6 +104,8 @@ spec:
         command:
           - dorch-operator
           - manage-games
+          - --wadinfo-base-url
+          - http://{{ .Release.Name }}-wadinfo
 {{- if .Values.prometheus.enabled }}
         ports:
         - containerPort: 2112

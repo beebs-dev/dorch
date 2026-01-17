@@ -17,6 +17,22 @@ pub struct ResolveMapThumbnailsRequest {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ResolveWadDownloadsRequest {
+    pub wad_ids: Vec<Uuid>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ResolveWadDownloadsResponse {
+    pub items: Vec<ResolvedWadDownload>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ResolvedWadDownload {
+    pub wad_id: Uuid,
+    pub url: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MapThumbnail {
     pub wad_id: Uuid,
     pub map: String,

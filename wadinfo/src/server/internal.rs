@@ -120,6 +120,18 @@ pub async fn resolve_wad_urls(
     Json(req): Json<ResolveWadURLsRequest>,
 ) -> impl IntoResponse {
     match state.db.resolve_wad_urls(&req.wad_ids).await {
+        Ok(items) if items.len() != req.wad_ids.len() => {
+            let resolved = items.iter().map(|item| item.wad_id).collect::<Vec<Uuid>>();
+            let unresolved = req
+                .wad_ids
+                .iter()
+                .filter(|id| !resolved.contains(id))
+                .collect::<Vec<&Uuid>>();
+            response::error(anyhow::anyhow!(
+                "Some WAD IDs could not be resolved: {}",
+                serde_json::to_string(&unresolved).unwrap_or_default(),
+            ))
+        }
         Ok(items) => (StatusCode::OK, Json(ResolveWadURLsResponse { items })).into_response(),
         Err(e) => response::error(e.context("Failed to resolve wad URLs")),
     }

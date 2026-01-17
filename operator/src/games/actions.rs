@@ -60,6 +60,7 @@ fn game_pod(
     server_image: &str,
     livekit_url: &str,
     livekit_secret: &str,
+    wadinfo_base_url: &str,
 ) -> Pod {
     let game_port = 10666;
 
@@ -88,17 +89,19 @@ fn game_pod(
             ..Default::default()
         },
     ];
+    let mut wad_list = Vec::new();
     if instance.spec.use_doom1_assets {
-        server_env.push(EnvVar {
-            name: "USE_DOOM1_ASSETS".to_string(),
-            value: Some("1".to_string()),
-            ..Default::default()
-        });
+        // SHA1: 5b2e249b9c5133ec987b3ea77596381dc0d6bc1d
+        // SHA256: 1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771
+        wad_list.push("22a0ca23-f044-4319-a7a6-f3b60276d0ce".to_string());
     }
     if let Some(files) = instance.spec.files.as_deref() {
+        wad_list.extend(files.iter().cloned());
+    }
+    if !wad_list.is_empty() {
         server_env.push(EnvVar {
-            name: "WAD_ID_LIST".to_string(),
-            value: Some(files.join(",")),
+            name: "WAD_LIST".to_string(),
+            value: Some(wad_list.join(",")),
             ..Default::default()
         });
     }
@@ -194,17 +197,16 @@ fn game_pod(
                         ..Default::default()
                     },
                     EnvVar {
+                        name: "WADINFO_BASE_URL".to_string(),
+                        value: Some(wadinfo_base_url.to_string()),
+                        ..Default::default()
+                    },
+                    EnvVar {
                         name: "DOWNLOAD_LIST".to_string(),
                         value: Some({
                             let mut downloads: Vec<String> = Vec::new();
                             downloads.push(instance.spec.iwad.to_string());
-                            if let Some(files) = instance.spec.files.as_ref() {
-                                for file in files {
-                                    if file != &instance.spec.iwad {
-                                        downloads.push(file.to_string());
-                                    }
-                                }
-                            }
+                            downloads.extend(wad_list.iter().cloned());
                             downloads.join(",")
                         }),
                         ..Default::default()
@@ -314,6 +316,7 @@ pub async fn create_pod(
     server_image: &str,
     livekit_url: &str,
     livekit_secret: &str,
+    wadinfo_base_url: &str,
 ) -> Result<(), Error> {
     let pod = game_pod(
         instance,
@@ -322,6 +325,7 @@ pub async fn create_pod(
         server_image,
         livekit_url,
         livekit_secret,
+        wadinfo_base_url,
     );
     patch_status(client.clone(), instance, |status| {
         status.phase = GamePhase::Starting;
