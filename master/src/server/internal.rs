@@ -354,7 +354,19 @@ pub async fn try_get_info(state: &App, game: &Game) -> Option<GameInfo> {
         }
     };
     match state.store.get_game_info(game_id).await {
-        Ok(Some(info)) => Some(info),
+        Ok(Some(mut info)) => {
+            // Integrate higher-order fields from the Game spec.
+            info.name = game.spec.name.clone();
+            info.private = game.spec.private.unwrap_or(false);
+            println!(
+                "{}{}{}{}",
+                "✅ Retrieved game info • game_id=".green(),
+                game_id.green().dimmed(),
+                " • json=".green(),
+                serde_json::to_string(&info).unwrap().green().dimmed()
+            );
+            Some(info)
+        }
         Ok(None) => {
             eprintln!(
                 "{}{}",
@@ -415,6 +427,11 @@ pub async fn list_games_inner(state: App) -> Result<ListGamesResponse> {
         };
         games.push(summary);
     }
+    eprintln!(
+        "{}{}",
+        "✅ Listed games • json=".green(),
+        serde_json::to_string(&games).unwrap().green().dimmed(),
+    );
     Ok(ListGamesResponse { games })
 }
 

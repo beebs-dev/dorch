@@ -41,12 +41,26 @@ impl GameInfoStore {
             .get()
             .await
             .context("Failed to get Redis connection")?;
-        let hash: HashMap<String, String> = redis::pipe()
+        // NOTE: `redis::pipe()` replies are returned as an array of per-command replies.
+        // With a single non-ignored reply, that means we get a nested array like:
+        //   [ [k1, v1, k2, v2, ...] ]
+        // Decode robustly by unwrapping the first element when needed.
+        let value: redis::Value = redis::pipe()
             .hgetall(&key)
             .expire(&key, TTL_SECONDS)
             .ignore()
             .query_async(&mut conn)
-            .await?;
+            .await
+            .context("Failed to fetch game info from Redis")?;
+
+        let hash: HashMap<String, String> = match value {
+            redis::Value::Array(items) if !items.is_empty() => {
+                redis::from_redis_value(&items[0]).context("Failed to decode HGETALL reply")?
+            }
+            other => {
+                redis::from_redis_value(&other).context("Failed to decode game info hash reply")?
+            }
+        };
         if hash.is_empty() {
             return Ok(None);
         }

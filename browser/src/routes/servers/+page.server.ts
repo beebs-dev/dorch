@@ -43,25 +43,25 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 			const candidate = (game.files?.[0] ?? game.iwad ?? '').trim();
 			if (!candidate) return { game };
 
-			const query = candidate.replace(/\.(wad|pk3|zip)$/i, '');
+			return { game };
+			//const query = candidate.replace(/\.(wad|pk3|zip)$/i, '');
+			// try {
+			// 	// Spend budget only when we actually attempt a wadinfo call.
+			// 	thumbBudget -= 1;
 
-			try {
-				// Spend budget only when we actually attempt a wadinfo call.
-				thumbBudget -= 1;
+			// 	const search = await wadinfo.search({ query, offset: 0, limit: 1 });
+			// 	const hit = search.items?.[0];
+			// 	if (!hit?.id) return { game };
 
-				const search = await wadinfo.search({ query, offset: 0, limit: 1 });
-				const hit = search.items?.[0];
-				if (!hit?.id) return { game };
-
-				const wad = await wadinfo.getWad(hit.id);
-				const map = (wad.maps ?? []).find((m) => (m.map ?? '').toLowerCase() === mapName.toLowerCase());
-				const images = map?.images ?? [];
-				const first = images.find((i) => !isPano(i) && i?.url) ?? images.find((i) => i?.url);
-				const url = first?.url as string | undefined;
-				return url ? { game, thumbnailUrl: url } : { game };
-			} catch {
-				return { game };
-			}
+			// 	const wad = await wadinfo.getWad(hit.id);
+			// 	const map = (wad.maps ?? []).find((m) => (m.map ?? '').toLowerCase() === mapName.toLowerCase());
+			// 	const images = map?.images ?? [];
+			// 	const first = images.find((i) => !isPano(i) && i?.url) ?? images.find((i) => i?.url);
+			// 	const url = first?.url as string | undefined;
+			// 	return url ? { game, thumbnailUrl: url } : { game };
+			// } catch {
+			// 	return { game };
+			// }
 		})
 	);
 

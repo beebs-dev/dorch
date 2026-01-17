@@ -65,7 +65,6 @@ pub struct GameSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub files: Option<Vec<String>>,
 
-    #[serde(flatten)]
     pub info: Option<GameInfo>,
 }
 
