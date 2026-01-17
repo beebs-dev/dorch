@@ -8,8 +8,8 @@ echo "S3 Bucket:   $S3_BUCKET"
 echo "Wad IDs:     $DOWNLOAD_LIST" # comma-separated WAD IDs
 echo "Data Root:   $DATA_ROOT"
 
-mkdir -p $DATA_ROOT
-cd $DATA_ROOT
+mkdir -p "$DATA_ROOT"
+cd "$DATA_ROOT"
 
 download_all() {
     if [[ -z "${DOWNLOAD_LIST:-}" ]]; then
@@ -17,8 +17,7 @@ download_all() {
         return 0
     fi
 
-    # Build JSON body: {"items": ["id1","id2",...]}
-    # Requires jq. DOWNLOAD_LIST is comma-separated.
+    # Build JSON body: {"wad_ids": ["id1","id2",...]}
     json_body=$(jq -nc --arg ids "$DOWNLOAD_LIST" '
         {
           wad_ids: (
@@ -45,8 +44,18 @@ download_all() {
             continue
         fi
 
-        dst="$wad_id"   # uncompressed output path
+        # Derive extension from *inner* filename (strip a trailing .gz)
+        filename=$(basename "${url%%\?*}")   # strip ?query if present
+        base="${filename%.gz}"               # if ends with .gz, remove it
+        ext="${base##*.}"                    # extension from inner name
 
+        [[ "$base" == "$ext" ]] && ext=""    # no dot -> no extension
+
+        if [[ -n "$ext" ]]; then
+            dst="${wad_id}.${ext}"
+        else
+            dst="$wad_id"
+        fi
 
         if [[ "$url" == *.gz ]]; then
             echo "Downloading and extracting $url -> $dst"
