@@ -30,6 +30,7 @@ export interface WadMeta {
 	sha1: string;
 	sha256?: string | null;
 	title?: string | null;
+	authors?: string[] | null;
 	file: WadFileMeta;
 	content: WadContentMeta;
 	/** Optional, may be omitted by some producers. */

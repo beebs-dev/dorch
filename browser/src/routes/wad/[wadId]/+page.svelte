@@ -197,6 +197,22 @@
 							<dt class="text-zinc-500">Title</dt>
 							<dd class="text-zinc-100">{data.wad.meta.title ?? '(untitled)'}</dd>
 						</div>
+							<div class="flex flex-wrap justify-between gap-2">
+								<dt class="text-zinc-500">Author(s)</dt>
+								{#if (data.wad.meta.authors?.length ?? 0) > 0}
+									<dd class="flex flex-wrap justify-end gap-2">
+										{#each data.wad.meta.authors ?? [] as author (author)}
+											<span
+												class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
+											>
+												{author}
+											</span>
+										{/each}
+									</dd>
+								{:else}
+									<dd class="text-zinc-400">—</dd>
+								{/if}
+							</div>
 						<div class="flex flex-wrap justify-between gap-2">
 							<dt class="text-zinc-500">WAD ID</dt>
 							<dd class="text-xs">
@@ -245,10 +261,6 @@
 								</dd>
 							</div>
 						{/if}
-						<div class="flex flex-wrap justify-between gap-2">
-							<dt class="text-zinc-500">Maps (declared)</dt>
-							<dd class="text-zinc-100">{data.wad.meta.content?.maps?.length ?? '—'}</dd>
-						</div>
 					</dl>
 				</div>
 
