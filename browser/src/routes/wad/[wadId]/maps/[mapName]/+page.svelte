@@ -22,6 +22,15 @@
 		return String(v);
 	}
 
+	function asSortedBreakdown(v: unknown): Array<[string, number]> {
+		if (!v || typeof v !== 'object') return [];
+		const entries = Object.entries(v as Record<string, unknown>)
+			.map(([k, n]) => [k, typeof n === 'number' ? n : Number(n)] as const)
+			.filter(([, n]) => Number.isFinite(n));
+		entries.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+		return entries as Array<[string, number]>;
+	}
+
 	const statRows = $derived(() => {
 		const s = data.map.stats ?? {};
 		return [
@@ -35,6 +44,10 @@
 			['Nodes', s.nodes]
 		] as const;
 	});
+
+	const monsterBreakdown = $derived(() => asSortedBreakdown(data.map.monsters?.by_type));
+	const itemBreakdown = $derived(() => asSortedBreakdown(data.map.items?.by_type));
+	const textureList = $derived(() => (data.map.stats?.textures ?? []).filter(Boolean));
 
 	let modalImageUrl = $state<string | null>(null);
 
@@ -169,6 +182,68 @@
 					<div class="text-zinc-100">{asText(data.map.difficulty?.htr_items)}</div>
 				</div>
 			</div>
+		</div>
+	</section>
+
+	<section class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+		<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
+			<div class="flex items-baseline justify-between gap-2">
+				<h2 class="text-sm font-semibold text-zinc-200">Monsters</h2>
+				<span class="text-xs text-zinc-400">{data.map.monsters?.total ?? 0} total</span>
+			</div>
+			{#if monsterBreakdown().length === 0}
+				<div class="mt-3 text-sm text-zinc-400">No per-type monster breakdown available.</div>
+			{:else}
+				<div class="mt-3 max-h-64 overflow-auto pr-1">
+					<div class="divide-y divide-zinc-800">
+						{#each monsterBreakdown() as [kind, count] (kind)}
+							<div class="flex justify-between gap-2 py-2 text-sm">
+								<div class="text-zinc-500">{kind}</div>
+								<div class="text-zinc-100">{count}</div>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+		</div>
+
+		<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
+			<div class="flex items-baseline justify-between gap-2">
+				<h2 class="text-sm font-semibold text-zinc-200">Items</h2>
+				<span class="text-xs text-zinc-400">{data.map.items?.total ?? 0} total</span>
+			</div>
+			{#if itemBreakdown().length === 0}
+				<div class="mt-3 text-sm text-zinc-400">No per-type item breakdown available.</div>
+			{:else}
+				<div class="mt-3 max-h-64 overflow-auto pr-1">
+					<div class="divide-y divide-zinc-800">
+						{#each itemBreakdown() as [kind, count] (kind)}
+							<div class="flex justify-between gap-2 py-2 text-sm">
+								<div class="text-zinc-500">{kind}</div>
+								<div class="text-zinc-100">{count}</div>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+		</div>
+
+		<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
+			<div class="flex items-baseline justify-between gap-2">
+				<h2 class="text-sm font-semibold text-zinc-200">Textures</h2>
+				<span class="text-xs text-zinc-400">{textureList().length} unique</span>
+			</div>
+			{#if textureList().length === 0}
+				<div class="mt-3 text-sm text-zinc-400">No texture list available.</div>
+			{:else}
+				<div class="mt-3 max-h-64 overflow-auto pr-1">
+					<ul class="space-y-1 text-sm">
+						{#each textureList() as tex (tex)}
+							<li class="text-zinc-100">{tex}</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
 		</div>
 	</section>
 
