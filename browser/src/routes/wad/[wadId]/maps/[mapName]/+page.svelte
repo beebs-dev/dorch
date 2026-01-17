@@ -112,134 +112,180 @@
 	</header>
 
 	<section class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-		<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
-			<h2 class="text-sm font-semibold text-zinc-200">Map Info</h2>
-			<dl class="mt-3 grid grid-cols-1 gap-2 text-sm">
-				<div class="flex flex-wrap justify-between gap-2">
-					<dt class="text-zinc-500">Title</dt>
-					<dd class="text-zinc-100">{data.map.metadata?.title ?? '—'}</dd>
-				</div>
-				<div class="flex flex-wrap justify-between gap-2">
-					<dt class="text-zinc-500">Music</dt>
-					<dd class="text-zinc-100">{data.map.metadata?.music ?? '—'}</dd>
-				</div>
-				<div class="flex flex-wrap justify-between gap-2">
-					<dt class="text-zinc-500">Source</dt>
-					<dd class="text-zinc-100">{data.map.metadata?.source ?? '—'}</dd>
-				</div>
-				<div class="flex flex-wrap justify-between gap-2">
-					<dt class="text-zinc-500">Teleports</dt>
-					<dd class="text-zinc-100">{asText(data.map.mechanics?.teleports)}</dd>
-				</div>
-				<div class="flex flex-wrap justify-between gap-2">
-					<dt class="text-zinc-500">Keys</dt>
-					<dd class="text-zinc-100">{asText(data.map.mechanics?.keys)}</dd>
-				</div>
-				<div class="flex flex-wrap justify-between gap-2">
-					<dt class="text-zinc-500">Secret Exit</dt>
-					<dd class="text-zinc-100">{asText(data.map.mechanics?.secret_exit)}</dd>
-				</div>
-			</dl>
+		<div class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
+			<div class="border-b border-zinc-800 px-4 py-3">
+				<h2 class="text-center text-sm font-semibold text-zinc-200">Map Info</h2>
+			</div>
+			<table class="w-full table-fixed text-left text-sm">
+				<colgroup>
+					<col class="w-1/2" />
+					<col class="w-1/2" />
+				</colgroup>
+				<tbody class="divide-y divide-zinc-800">
+					<tr>
+						<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Title</td>
+						<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{data.map.metadata?.title ?? '—'}</td>
+					</tr>
+					<tr>
+						<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Music</td>
+						<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{data.map.metadata?.music ?? '—'}</td>
+					</tr>
+					<tr>
+						<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Source</td>
+						<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{data.map.metadata?.source ?? '—'}</td>
+					</tr>
+					<tr>
+						<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Teleports</td>
+						<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.mechanics?.teleports)}</td>
+					</tr>
+					<tr>
+						<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Keys</td>
+						<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.mechanics?.keys)}</td>
+					</tr>
+					<tr>
+						<td class="py-2 pl-3 pr-3 text-right text-zinc-500">Secret Exit</td>
+						<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.mechanics?.secret_exit)}</td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 
-		<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
-			<h2 class="text-sm font-semibold text-zinc-200">Stats</h2>
-			<div class="mt-3 divide-y divide-zinc-800">
-				{#each statRows() as [label, value] (label)}
-					<div class="flex justify-between gap-2 py-2 text-sm">
-						<div class="text-zinc-500">{label}</div>
-						<div class="text-zinc-100">{asText(value)}</div>
-					</div>
-				{/each}
+		<div class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
+			<div class="border-b border-zinc-800 px-4 py-3">
+				<h2 class="text-center text-sm font-semibold text-zinc-200">Stats</h2>
 			</div>
+			<table class="w-full table-fixed text-left text-sm">
+				<colgroup>
+					<col class="w-1/2" />
+					<col class="w-1/2" />
+				</colgroup>
+				<tbody class="divide-y divide-zinc-800">
+					{#each statRows() as [label, value] (label)}
+						<tr>
+							<td class="py-2 pl-3 pr-3 text-right text-zinc-500">{label}</td>
+							<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(value)}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
 		</div>
 
-		<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
-			<h2 class="text-sm font-semibold text-zinc-200">Difficulty</h2>
-			<div class="mt-3 divide-y divide-zinc-800">
-				<div class="flex justify-between gap-2 py-2 text-sm">
-					<div class="text-zinc-500">UV monsters</div>
-					<div class="text-zinc-100">{asText(data.map.difficulty?.uv_monsters)}</div>
-				</div>
-				<div class="flex justify-between gap-2 py-2 text-sm">
-					<div class="text-zinc-500">HMP monsters</div>
-					<div class="text-zinc-100">{asText(data.map.difficulty?.hmp_monsters)}</div>
-				</div>
-				<div class="flex justify-between gap-2 py-2 text-sm">
-					<div class="text-zinc-500">HTR monsters</div>
-					<div class="text-zinc-100">{asText(data.map.difficulty?.htr_monsters)}</div>
-				</div>
-				<div class="flex justify-between gap-2 py-2 text-sm">
-					<div class="text-zinc-500">UV items</div>
-					<div class="text-zinc-100">{asText(data.map.difficulty?.uv_items)}</div>
-				</div>
-				<div class="flex justify-between gap-2 py-2 text-sm">
-					<div class="text-zinc-500">HMP items</div>
-					<div class="text-zinc-100">{asText(data.map.difficulty?.hmp_items)}</div>
-				</div>
-				<div class="flex justify-between gap-2 py-2 text-sm">
-					<div class="text-zinc-500">HTR items</div>
-					<div class="text-zinc-100">{asText(data.map.difficulty?.htr_items)}</div>
-				</div>
+		<div class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
+			<div class="border-b border-zinc-800 px-4 py-3">
+				<h2 class="text-center text-sm font-semibold text-zinc-200">Difficulty</h2>
 			</div>
+			<table class="w-full table-fixed text-left text-sm">
+				<colgroup>
+					<col class="w-1/2" />
+					<col class="w-1/2" />
+				</colgroup>
+				<tbody class="divide-y divide-zinc-800">
+					<tr>
+						<td class="py-2 pl-3 pr-3 text-right text-zinc-500">UV monsters</td>
+						<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.difficulty?.uv_monsters)}</td>
+					</tr>
+					<tr>
+						<td class="py-2 pl-3 pr-3 text-right text-zinc-500">HMP monsters</td>
+						<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.difficulty?.hmp_monsters)}</td>
+					</tr>
+					<tr>
+						<td class="py-2 pl-3 pr-3 text-right text-zinc-500">HTR monsters</td>
+						<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.difficulty?.htr_monsters)}</td>
+					</tr>
+					<tr>
+						<td class="py-2 pl-3 pr-3 text-right text-zinc-500">UV items</td>
+						<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.difficulty?.uv_items)}</td>
+					</tr>
+					<tr>
+						<td class="py-2 pl-3 pr-3 text-right text-zinc-500">HMP items</td>
+						<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.difficulty?.hmp_items)}</td>
+					</tr>
+					<tr>
+						<td class="py-2 pl-3 pr-3 text-right text-zinc-500">HTR items</td>
+						<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{asText(data.map.difficulty?.htr_items)}</td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 	</section>
 
 	<section class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-		<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
-			<div class="flex items-baseline justify-between gap-2">
-				<h2 class="text-sm font-semibold text-zinc-200">Monsters</h2>
-				<span class="text-xs text-zinc-400">{data.map.monsters?.total ?? 0} total</span>
+		<div class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
+			<div class="border-b border-zinc-800 px-4 py-3">
+				<h2 class="text-center text-sm font-semibold text-zinc-200">
+					Monsters
+					<span class="ml-2 text-xs font-normal text-zinc-500"
+						>({data.map.monsters?.total ?? 0} total)</span
+					>
+				</h2>
 			</div>
 			{#if monsterBreakdown().length === 0}
-				<div class="mt-3 text-sm text-zinc-400">No per-type monster breakdown available.</div>
+				<div class="px-4 py-3 text-sm text-zinc-400">No per-type monster breakdown available.</div>
 			{:else}
-				<div class="mt-3 max-h-64 overflow-auto pr-1">
-					<div class="divide-y divide-zinc-800">
-						{#each monsterBreakdown() as [kind, count] (kind)}
-							<div class="flex justify-between gap-2 py-2 text-sm">
-								<div class="text-zinc-500">{kind}</div>
-								<div class="text-zinc-100">{count}</div>
-							</div>
-						{/each}
-					</div>
+				<div class="max-h-64 overflow-auto">
+					<table class="w-full table-fixed text-left text-sm">
+						<colgroup>
+							<col class="w-1/2" />
+							<col class="w-1/2" />
+						</colgroup>
+						<tbody class="divide-y divide-zinc-800">
+							{#each monsterBreakdown() as [kind, count] (kind)}
+								<tr>
+									<td class="py-2 pl-3 pr-3 text-right font-mono text-xs text-zinc-500">{kind}</td>
+									<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{count}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
 				</div>
 			{/if}
 		</div>
 
-		<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
-			<div class="flex items-baseline justify-between gap-2">
-				<h2 class="text-sm font-semibold text-zinc-200">Items</h2>
-				<span class="text-xs text-zinc-400">{data.map.items?.total ?? 0} total</span>
+		<div class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
+			<div class="border-b border-zinc-800 px-4 py-3">
+				<h2 class="text-center text-sm font-semibold text-zinc-200">
+					Items
+					<span class="ml-2 text-xs font-normal text-zinc-500"
+						>({data.map.items?.total ?? 0} total)</span
+					>
+				</h2>
 			</div>
 			{#if itemBreakdown().length === 0}
-				<div class="mt-3 text-sm text-zinc-400">No per-type item breakdown available.</div>
+				<div class="px-4 py-3 text-sm text-zinc-400">No per-type item breakdown available.</div>
 			{:else}
-				<div class="mt-3 max-h-64 overflow-auto pr-1">
-					<div class="divide-y divide-zinc-800">
-						{#each itemBreakdown() as [kind, count] (kind)}
-							<div class="flex justify-between gap-2 py-2 text-sm">
-								<div class="text-zinc-500">{kind}</div>
-								<div class="text-zinc-100">{count}</div>
-							</div>
-						{/each}
-					</div>
+				<div class="max-h-64 overflow-auto">
+					<table class="w-full table-fixed text-left text-sm">
+						<colgroup>
+							<col class="w-1/2" />
+							<col class="w-1/2" />
+						</colgroup>
+						<tbody class="divide-y divide-zinc-800">
+							{#each itemBreakdown() as [kind, count] (kind)}
+								<tr>
+									<td class="py-2 pl-3 pr-3 text-right font-mono text-xs text-zinc-500">{kind}</td>
+									<td class="py-2 pl-3 pr-3 text-left text-zinc-200">{count}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
 				</div>
 			{/if}
 		</div>
 
-		<div class="rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
-			<div class="flex items-baseline justify-between gap-2">
-				<h2 class="text-sm font-semibold text-zinc-200">Textures</h2>
-				<span class="text-xs text-zinc-400">{textureList().length} unique</span>
+		<div class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
+			<div class="border-b border-zinc-800 px-4 py-3">
+				<h2 class="text-center text-sm font-semibold text-zinc-200">
+					Textures
+					<span class="ml-2 text-xs font-normal text-zinc-500">({textureList().length} unique)</span>
+				</h2>
 			</div>
 			{#if textureList().length === 0}
-				<div class="mt-3 text-sm text-zinc-400">No texture list available.</div>
+				<div class="px-4 py-3 text-sm text-zinc-400">No texture list available.</div>
 			{:else}
-				<div class="mt-3 max-h-64 overflow-auto pr-1">
+				<div class="max-h-64 overflow-auto px-4 py-3">
 					<ul class="space-y-1 text-sm">
 						{#each textureList() as tex (tex)}
-							<li class="text-zinc-100">{tex}</li>
+							<li class="font-mono text-xs text-zinc-200">{tex}</li>
 						{/each}
 					</ul>
 				</div>
