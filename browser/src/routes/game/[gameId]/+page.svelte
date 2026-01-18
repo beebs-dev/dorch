@@ -52,7 +52,7 @@
 	}
 
 	function joinUrl(): string {
-		return `https://dorch.beebs.dev/play/?g=${encodeURIComponent(data.gameId)}&identity=${encodeURIComponent(identity)}`;
+		return `/play/?g=${encodeURIComponent(data.gameId)}&identity=${encodeURIComponent(identity)}`;
 	}
 
 	function difficultyLabel(skill: number | undefined): string {
