@@ -873,7 +873,7 @@ pub async fn login(State(state): State<App>, Json(req): Json<LoginRequest>) -> i
             );
         }
     };
-    creds_response(state, &req.username, jwt_like).await
+    creds_response(state, &username, jwt_like).await
 }
 
 async fn creds_response(state: App, username: &str, jwt_like: JwtLike) -> Response {
