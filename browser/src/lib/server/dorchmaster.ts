@@ -4,6 +4,9 @@ import type { ListGamesResponse } from '$lib/types/games';
 export type JumbotronItem = {
 	game_id: string;
 	url: string;
+	name?: string;
+	player_count?: number;
+	max_players?: number;
 };
 
 export type JumbotronResponse = {

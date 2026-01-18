@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { createDorchMasterClient } from '$lib/server/dorchmaster';
+import { createDorchMasterClient, type JumbotronItem } from '$lib/server/dorchmaster';
 import { createWadinfoClient } from '$lib/server/wadinfo';
 import type { GameSummary } from '$lib/types/games';
 import type { WadMeta } from '$lib/types/wadinfo';
@@ -19,7 +19,7 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 	const dorch = createDorchMasterClient(fetch);
 	const wadinfo = createWadinfoClient(fetch);
 
-	let jumbotronItems: { game_id: string; url: string }[] = [];
+	let jumbotronItems: JumbotronItem[] = [];
 	try {
 		const resp = await dorch.getJumbotron();
 		jumbotronItems = resp.items ?? [];

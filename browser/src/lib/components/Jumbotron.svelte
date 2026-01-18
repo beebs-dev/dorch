@@ -5,6 +5,9 @@
 	type JumbotronItem = {
 		game_id: string;
 		url: string;
+		name?: string;
+		player_count?: number;
+		max_players?: number;
 	};
 
 	export let items: JumbotronItem[] = [];
@@ -175,7 +178,6 @@
 		const video = standbyVideo();
 		if (!video) return false;
 
-		statusText = 'Preloading next stream…';
 		stopAndResetVideo(video);
 
 		const { hls } = await attachStreamToVideo(item.url, video, standbyHls());
@@ -337,7 +339,7 @@
 	<a
 		href={resolve(current ? `/servers/${encodeURIComponent(current.game_id)}` : '/servers')}
 		class="group block"
-		aria-label={current ? `Open server ${current.game_id}` : 'Jumbotron'}
+		aria-label={current ? `Open server ${current.name ?? current.game_id}` : 'Jumbotron'}
 	>
 		<div class="relative aspect-[16/6] w-full">
 			<video
@@ -373,14 +375,27 @@
 						{#if statusText}
 							<div class="text-xs text-zinc-300">{statusText}</div>
 						{/if}
-						<div
-							class="mt-2 inline-flex items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-white/10 backdrop-blur"
-						>
-							<span class="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_18px_rgba(239,68,68,0.65)]"
-							></span>
-							LIVE
-							{#if current}
-								<span class="ml-2 truncate text-zinc-200">{current.game_id}</span>
+						<div class="mt-2 flex flex-wrap items-center gap-2">
+							<div
+								class="inline-flex min-w-0 items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-white/10 backdrop-blur"
+							>
+								<span
+									class="h-2 w-2 shrink-0 rounded-full bg-red-500 shadow-[0_0_18px_rgba(239,68,68,0.65)]"
+								></span>
+								LIVE
+								{#if current}
+									<span class="ml-2 truncate text-zinc-200">
+										{current.name ?? current.game_id}
+									</span>
+								{/if}
+							</div>
+
+							{#if current && current.max_players != null}
+								<div
+									class="inline-flex items-center rounded-full bg-black/35 px-3 py-1 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-200 ring-1 ring-white/10 backdrop-blur"
+								>
+									{current.player_count ?? 0}/{current.max_players} players
+								</div>
 							{/if}
 						</div>
 					</div>

@@ -84,6 +84,8 @@ pub struct JumbotronItem {
     pub name: String,
     pub player_count: i32,
     pub max_players: i32,
+    pub monster_kill_count: i32,
+    pub monster_total: i32,
 }
 
 #[derive(Serialize, Default, Clone)]
