@@ -8,7 +8,7 @@
 
 	const wadTitle = $derived(() => wadLabel(data.map.wad_meta));
 	const pageTitle = $derived(
-		() => `${ellipsize(wadTitle(), 64)} // ${ellipsize(data.mapName, 24)} - DORCH`
+		() => `${ellipsize(wadTitle(), 64)} // ${ellipsize(data.mapName, 24)} - GIB.GG`
 	);
 
 	function isPano(img: unknown): boolean {

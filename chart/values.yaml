@@ -108,6 +108,35 @@ iam:
     limits:
       memory: "64Mi"
 
+jumbotron:
+  enabled: false
+  replicas: 1
+  updater:
+    image: curlimages/curl:8.18.0
+    imagePullPolicy: Always
+    resources:
+      limits:
+        memory: "32Mi"
+  ffmpeg:
+    image: thavlik/strim-peggy:latest
+    imagePullPolicy: Always
+    resources:
+      limits:
+        memory: "128Mi"
+  peggy:
+    image: thavlik/strim-peggy:latest
+    imagePullPolicy: Always
+    resources:
+      limits:
+        memory: "64Mi"
+    s3:
+      accessKeyId: {}
+      secretAccessKey: {}
+      region: "us-east-1"
+      endpoint: ""
+      bucket: ""
+      keyPrefix: "jumbotron/"
+
 wadinfo:
   image: thavlik/dorch-wadinfo:latest
   imagePullPolicy: Always

@@ -12,7 +12,7 @@
 	const currentMap = $derived(() => data.currentMap);
 	const currentMapWadId = $derived(() => data.currentMapWadId);
 
-	const pageTitle = $derived(() => `${info()?.name ?? data.gameId} - DORCH`);
+	const pageTitle = $derived(() => `${info()?.name ?? data.gameId} - GIB.GG`);
 	const videoSrc = $derived(
 		() => `https://gibstrim.nyc3.digitaloceanspaces.com/${encodeURIComponent(data.gameId)}/index.m3u8`
 	);

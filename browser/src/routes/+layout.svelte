@@ -21,7 +21,7 @@
 </script>
 
 <svelte:head>
-	<title>DORCH</title>
+	<title>GIB.GG</title>
 	<link rel="icon" href={favicon} />
 </svelte:head>
 

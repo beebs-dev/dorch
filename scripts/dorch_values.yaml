@@ -93,6 +93,23 @@ keycloak:
         name: keycloak-client-cred
         key: clientsecret
 
+jumbotron:
+  peggy:
+    s3:
+      accessKeyId:
+        valueFrom:
+          secretKeyRef:
+            name: strim-spaces-cred
+            key: access_key_id
+      secretAccessKey:
+        valueFrom:
+          secretKeyRef:
+            name: strim-spaces-cred
+            key: secret_access_key
+      region: "nyc3"
+      endpoint: "https://nyc3.digitaloceanspaces.com"
+      bucket: "gibstrim"
+
 archiver:
   init:
     s3:

@@ -8,18 +8,19 @@
 >
 	<span class="logo relative text-2xl font-black tracking-[0.25em] select-none">
 		<span class="text">GIB.GG</span>
+		<span class="alpha">[alpha]</span>
 	</span>
 </a>
 
 <style>
 	.logo {
-		font-family: 'Orbitron', var(--dorch-mono);
 		font-weight: 900;
 		line-height: 1;
 		letter-spacing: 0.22em;
 	}
 
 	.logo .text {
+		font-family: 'Orbitron', var(--dorch-mono);
 		display: inline-block;
 		padding: 0.05em 0.1em;
 		text-transform: uppercase;
@@ -27,8 +28,20 @@
 		color: currentColor;
 	}
 
+	.logo .alpha {
+		font-family: var(--dorch-sans);
+		font-weight: 600;
+		font-size: 0.5em;
+		opacity: 0.5;
+		margin-left: -0.1em;
+		margin-top: 0.15em;
+		display: inline-block;
+		vertical-align: middle;
+		pointer-events: none;
+	}
+
 	.logo::after {
-		content: 'DORCH';
+		content: 'GIB.GG';
 		position: absolute;
 		inset: 0;
 		transform: skewX(-8deg);

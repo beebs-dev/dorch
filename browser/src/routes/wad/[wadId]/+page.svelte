@@ -20,7 +20,7 @@
 	];
 
 	const wadTitle = $derived(() => wadLabel(data.wad.meta));
-	const pageTitle = $derived(() => `${ellipsize(wadTitle(), 64)} - DORCH`);
+	const pageTitle = $derived(() => `${ellipsize(wadTitle(), 64)} - GIB.GG`);
 
 	function isPano(img: unknown): boolean {
 		if (!img || typeof img !== 'object') return false;

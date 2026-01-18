@@ -1,0 +1,128 @@
+{{- if .Values.jumbotron.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-jumbotron
+spec:
+  replicas: {{ .Values.jumbotron.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-jumbotron
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-jumbotron
+    spec:
+{{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 10 }}
+{{- end }}
+      volumes:
+      - name: jumbotron-data
+        emptyDir: {}
+      containers:
+      - name: updater
+        imagePullPolicy: {{ .Values.jumbotron.updater.imagePullPolicy }}
+        image: {{ .Values.jumbotron.updater.image }}
+        command:
+        - sh
+        - -c
+        - |
+          #!/bin/sh
+          set -u
+          : "${MASTER_BASE_URL:?MASTER_BASE_URL is required}"
+          : "${RTMP_URLS_FILE:?RTMP_URLS_FILE is required}"
+          : "${INTERVAL:?INTERVAL is required (seconds)}"
+          URL="${MASTER_BASE_URL%/}/jumbotron"
+          TMP_FILE="${RTMP_URLS_FILE}.tmp"
+          log() {
+              printf '[%s] %s\n' "$(date -Is)" "$*" >&2
+          }
+          cleanup() {
+              log "Received SIGTERM, exiting immediately"
+              rm -f "$TMP_FILE" 2>/dev/null || true
+              exit 143   # 128 + 15 (SIGTERM)
+          }
+          trap cleanup TERM INT
+          while :; do
+              if curl -fsS "$URL" -o "$TMP_FILE"; then
+                  if [ ! -f "$RTMP_URLS_FILE" ] || ! cmp -s "$TMP_FILE" "$RTMP_URLS_FILE"; then
+                      # Only update if different
+                      mv "$TMP_FILE" "$RTMP_URLS_FILE"
+                      log "Updated ${RTMP_URLS_FILE} from ${URL}"
+                  else
+                      # No change → discard tmp
+                      rm -f "$TMP_FILE"
+                      log "No change in ${RTMP_URLS_FILE}"
+                  fi
+                  # interruptible sleep
+                  sleep "$INTERVAL" &
+                  wait $!
+              else
+                  log "ERROR: Failed to fetch ${URL}"
+                  rm -f "$TMP_FILE" 2>/dev/null || true
+                  sleep 3 &
+                  wait $!
+              fi
+          done
+        env:
+        - name: MASTER_BASE_URL
+          value: "http://{{ .Release.Name }}-master"
+        - name: RTMP_URLS_FILE
+          value: "/var/jumbotron/rtmp_urls"
+        - name: INTERVAL
+          value: "60"
+        volumeMounts:
+        - name: jumbotron-data
+          mountPath: /var/jumbotron
+{{- if .Values.jumbotron.updater.resources }}
+        resources:
+{{ toYaml .Values.jumbotron.updater.resources | indent 10 }}
+{{- end }}
+      - name: ffmpeg
+        imagePullPolicy: {{ .Values.jumbotron.ffmpeg.imagePullPolicy }}
+        image: {{ .Values.jumbotron.ffmpeg.image }}
+        command:
+        - /usr/local/bin/run-jumbotron.sh
+        env:
+        - name: RTMP_URLS_FILE
+          value: "/var/jumbotron/rtmp_urls"
+        - name: HLS_DIR
+          value: "/var/jumbotron/hls"
+        volumeMounts:
+        - name: jumbotron-data
+          mountPath: /var/jumbotron
+{{- if .Values.jumbotron.ffmpeg.resources }}
+        resources:
+{{ toYaml .Values.jumbotron.ffmpeg.resources | indent 10 }}
+{{- end }}
+      - name: peggy
+        imagePullPolicy: {{ .Values.jumbotron.peggy.imagePullPolicy }}
+        image: {{ .Values.jumbotron.peggy.image }}
+        env:
+        - name: HLS_DIR
+          value: "/var/jumbotron/hls"
+        - name: NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: AWS_ACCESS_KEY_ID
+{{ toYaml .Values.jumbotron.peggy.s3.accessKeyId | indent 10 }}
+        - name: AWS_SECRET_ACCESS_KEY
+{{ toYaml .Values.jumbotron.peggy.s3.secretAccessKey | indent 10 }}
+        - name: S3_REGION
+          value: {{ .Values.jumbotron.peggy.s3.region }}
+        - name: S3_ENDPOINT
+          value: {{ .Values.jumbotron.peggy.s3.endpoint }}
+        - name: S3_BUCKET
+          value: {{ .Values.jumbotron.peggy.s3.bucket }}
+        - name: S3_KEY_PREFIX
+          value: {{ .Values.jumbotron.peggy.s3.keyPrefix }}
+        volumeMounts:
+        - name: jumbotron-data
+          mountPath: /var/jumbotron
+{{- if .Values.jumbotron.peggy.resources }}
+        resources:
+{{ toYaml .Values.jumbotron.peggy.resources | indent 10 }}
+{{- end }}
+{{- end }}

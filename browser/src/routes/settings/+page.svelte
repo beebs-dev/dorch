@@ -1,5 +1,5 @@
 <svelte:head>
-	<title>SETTINGS - DORCH</title>
+	<title>SETTINGS - GIB.GG</title>
 </svelte:head>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">

@@ -40,3 +40,4 @@ k8s-openapi = { version = "0.26.0", default-features = true, features = [
 ] }
 schemars = { version = "1" }
 base64 = { workspace = true }
+rand = { workspace = true }

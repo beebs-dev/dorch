@@ -1,6 +1,7 @@
 use crate::{
     app::App,
     client::{GameSummary, ListGamesResponse, NewGameRequest, NewGameResponse},
+    server::internal,
 };
 use anyhow::{Context, Result, anyhow, bail};
 use axum::{
@@ -30,6 +31,7 @@ pub async fn run_server(cancel: CancellationToken, port: u16, app_state: App) ->
         .route("/healthz", get(health))
         .route("/readyz", get(health));
     let router = Router::new()
+        .route("/jumbotron", get(list_jumbotron_rtmp_urls))
         .route("/game", get(list_games).post(new_game))
         .route("/game/{game_id}", get(get_game).delete(delete_game))
         .route("/game/{game_id}/info", post(update_game_info))
@@ -346,6 +348,36 @@ pub async fn update_game_info(
         del_args.len().to_string().green().dimmed()
     );
     StatusCode::OK.into_response()
+}
+
+pub async fn list_jumbotron_rtmp_urls(State(state): State<App>) -> impl IntoResponse {
+    let mut games = match list_games_inner(state).await {
+        Ok(resp) => resp.games,
+        Err(e) => {
+            return response::error(e.context("Failed to list games for jumbotron RTMP URLs"));
+        }
+    };
+    let mut rng = rand::rng();
+    let games = if games.len() <= 5 {
+        games
+    } else {
+        use rand::seq::SliceRandom;
+        games.shuffle(&mut rng);
+        games.into_iter().take(5).collect()
+    };
+    let resp: Bytes = games
+        .into_iter()
+        .map(|g| g.game_id)
+        .map(|id| {
+            format!(
+                "rtmp://strim-strim.strim.svc.cluster.local:7080/live/{}",
+                id
+            )
+        })
+        .collect::<Vec<String>>()
+        .join("\n")
+        .into();
+    (StatusCode::OK, resp).into_response()
 }
 
 pub async fn new_game(
