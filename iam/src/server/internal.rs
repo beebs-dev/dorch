@@ -806,7 +806,7 @@ pub async fn register(
 
 pub async fn login(State(state): State<App>, Json(req): Json<LoginRequest>) -> impl IntoResponse {
     // Is the username actually an email?
-    let username = if req.username.contains('@') {
+    let (user, username) = if req.username.contains('@') {
         // Resolve the username based on the email
         match get_user_by_email(&state, &req.username).await {
             Ok(Some(user)) => {
@@ -817,13 +817,14 @@ pub async fn login(State(state): State<App>, Json(req): Json<LoginRequest>) -> i
                     " • resolved username=".cyan(),
                     user.username.cyan().dimmed()
                 );
-                user.username
+                let username = user.username.clone();
+                (Some(user), username)
             }
             Ok(None) => return response::invalid_credentials(),
             Err(e) => return response::error(e.context("Failed to get user by email")),
         }
     } else {
-        req.username
+        (None, req.username)
     };
 
     // Build the token endpoint. Support KC_ENDPOINT with or without trailing "/realms/{realm}"
@@ -873,35 +874,47 @@ pub async fn login(State(state): State<App>, Json(req): Json<LoginRequest>) -> i
             );
         }
     };
-    creds_response(state, &username, jwt_like).await
+    creds_response(state, &username, user, jwt_like).await
 }
 
-async fn creds_response(state: App, username: &str, jwt_like: JwtLike) -> Response {
-    match get_user_by_username(&state, username).await {
-        Ok(Some(user)) => {
-            println!(
-                "{}{}{}{}",
-                "🔓 User logged in successfully • username=".cyan(),
-                user.username.cyan().dimmed(),
-                "• id=".cyan(),
-                user.id.cyan().dimmed()
-            );
-            (
-                axum::http::StatusCode::OK,
-                Json(UserCredentials {
-                    id: user.id,
-                    email: user.email.unwrap_or_default(),
-                    first_name: user.first_name.unwrap_or_default(),
-                    last_name: user.last_name.unwrap_or_default(),
-                    username: user.username,
-                    jwt: jwt_like,
-                }),
-            )
-                .into_response()
-        }
-        Ok(None) => {
-            response::not_found(anyhow::anyhow!("User '{}' not found after login", username))
-        }
-        Err(e) => response::error(e.context("Failed to get user by username")),
-    }
+async fn creds_response(
+    state: App,
+    username: &str,
+    user: Option<User>,
+    jwt_like: JwtLike,
+) -> Response {
+    let user = match user {
+        Some(u) => u,
+        None => match get_user_by_username(&state, username).await {
+            Ok(Some(u)) => u,
+            Ok(None) => {
+                return response::not_found(anyhow::anyhow!(
+                    "User '{}' not found after login",
+                    username
+                ));
+            }
+            Err(e) => {
+                return response::error(e.context("Failed to get user by username"));
+            }
+        },
+    };
+    println!(
+        "{}{}{}{}",
+        "🔓 User logged in successfully • username=".cyan(),
+        user.username.cyan().dimmed(),
+        "• id=".cyan(),
+        user.id.cyan().dimmed()
+    );
+    (
+        axum::http::StatusCode::OK,
+        Json(UserCredentials {
+            id: user.id,
+            email: user.email.unwrap_or_default(),
+            first_name: user.first_name.unwrap_or_default(),
+            last_name: user.last_name.unwrap_or_default(),
+            username: user.username,
+            jwt: jwt_like,
+        }),
+    )
+        .into_response()
 }
