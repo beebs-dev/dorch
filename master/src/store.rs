@@ -19,6 +19,39 @@ impl GameInfoStore {
         Self { pool }
     }
 
+    pub async fn get_live_shot(&self, game_id: Uuid) -> Result<Option<Vec<u8>>> {
+        let key = key_live_shot(game_id.to_string().as_str());
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .context("Failed to get Redis connection")?;
+        let value: Option<Vec<u8>> = redis::cmd("GET")
+            .arg(&key)
+            .query_async(&mut conn)
+            .await
+            .context("Failed to fetch live shot from Redis")?;
+        Ok(value)
+    }
+
+    pub async fn set_live_shot(&self, game_id: Uuid, data: &[u8]) -> Result<()> {
+        let key = key_live_shot(game_id.to_string().as_str());
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .context("Failed to get Redis connection")?;
+        let _: () = redis::cmd("SET")
+            .arg(&key)
+            .arg(data)
+            .arg("EX")
+            .arg(TTL_SECONDS)
+            .query_async(&mut conn)
+            .await
+            .context("Failed to set live shot in Redis")?;
+        Ok(())
+    }
+
     pub async fn delete_game_info(&self, game_id: Uuid) -> Result<()> {
         let key = key_game_info(game_id.to_string().as_str());
         let mut conn = self
@@ -247,4 +280,8 @@ impl GameInfoStore {
 
 fn key_game_info(game_id: &str) -> String {
     format!("gi:{}", game_id)
+}
+
+fn key_live_shot(game_id: &str) -> String {
+    format!("gls:{}", game_id)
 }

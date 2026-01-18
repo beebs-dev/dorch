@@ -11,6 +11,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
+use bytes::Bytes;
 use dorch_common::{
     access_log, response,
     types::{GameInfo, GameInfoUpdate, Settable},
@@ -32,6 +33,10 @@ pub async fn run_server(cancel: CancellationToken, port: u16, app_state: App) ->
         .route("/game", get(list_games).post(new_game))
         .route("/game/{game_id}", get(get_game).delete(delete_game))
         .route("/game/{game_id}/info", post(update_game_info))
+        .route(
+            "/game/{game_id}/liveshot",
+            get(get_live_shot).put(put_live_shot),
+        )
         .with_state(app_state)
         .layer(middleware::from_fn(access_log::internal));
     let addr: SocketAddr = format!("0.0.0.0:{}", port)
@@ -63,6 +68,28 @@ pub async fn run_server(cancel: CancellationToken, port: u16, app_state: App) ->
 
 async fn health() -> impl IntoResponse {
     StatusCode::OK.into_response()
+}
+
+pub async fn get_live_shot(
+    State(state): State<App>,
+    Path(game_id): Path<Uuid>,
+) -> impl IntoResponse {
+    match state.store.get_live_shot(game_id).await {
+        Ok(Some(liveshot)) => (StatusCode::OK, Json(liveshot)).into_response(),
+        Ok(None) => response::not_found(anyhow!("Game live shot not found")),
+        Err(e) => response::error(e.context("Failed to get game live shot")),
+    }
+}
+
+pub async fn put_live_shot(
+    State(state): State<App>,
+    Path(game_id): Path<Uuid>,
+    body: Bytes,
+) -> impl IntoResponse {
+    match state.store.set_live_shot(game_id, &body).await {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(e) => response::error(e.context("Failed to set game live shot")),
+    }
 }
 
 pub async fn update_game_info(
