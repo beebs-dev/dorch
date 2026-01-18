@@ -7,7 +7,7 @@
 	class="group inline-flex items-baseline gap-2 text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
 >
 	<span class="logo relative text-2xl font-black tracking-[0.25em] select-none">
-		<span class="text">DORCH</span>
+		<span class="text">GIB.GG</span>
 	</span>
 </a>
 
