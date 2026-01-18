@@ -75,6 +75,11 @@ fn game_pod(
             ..Default::default()
         },
         EnvVar {
+            name: "MAX_PLAYERS".to_string(),
+            value: Some(instance.spec.max_players.to_string()),
+            ..Default::default()
+        },
+        EnvVar {
             name: "MASTER_BASE_URL".to_string(),
             value: Some("http://dorch-master".to_string()),
             ..Default::default()
