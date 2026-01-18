@@ -189,7 +189,7 @@
 					<div class="shrink-0">
 						<DorchPlayButton
 							href={joinUrl()}
-							label="JOIN"
+							label="J O I N"
 							ariaLabel="Join"
 							className="inline-flex rounded-xl px-8 py-4 text-xl"
 						/>
