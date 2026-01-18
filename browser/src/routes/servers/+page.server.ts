@@ -64,7 +64,7 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 		const wadId = game.files?.[game.files.length - 1] ?? game.iwad;
 		const thumbnailUrl =
 			currentMap && wadId
-				? `/game/${encodeURIComponent(game.game_id)}/thumb?wad_id=${encodeURIComponent(wadId)}&map=${encodeURIComponent(currentMap)}`
+				? `/servers/${encodeURIComponent(game.game_id)}/thumb?wad_id=${encodeURIComponent(wadId)}&map=${encodeURIComponent(currentMap)}`
 				: undefined;
 
 		return {

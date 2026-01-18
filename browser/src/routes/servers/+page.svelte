@@ -79,7 +79,7 @@
 	}
 
 	function gameHref(gameId: string): string {
-		return `/game/${encodeURIComponent(gameId)}`;
+		return `/servers/${encodeURIComponent(gameId)}`;
 	}
 
 	async function openGame(gameId: string) {

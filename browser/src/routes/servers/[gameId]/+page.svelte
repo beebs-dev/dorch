@@ -173,7 +173,7 @@
 	</header>
 
 	<div class="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
-		<!-- Left: basic server info + PLAY -->
+		<!-- Left: basic server info + JOIN -->
 		<div class="space-y-4">
 			<div class="rounded-xl bg-zinc-950 ring-1 ring-red-950/60 ring-inset p-4">
 				<div class="flex items-start justify-between gap-4">
