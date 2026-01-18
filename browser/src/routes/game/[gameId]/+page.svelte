@@ -301,8 +301,13 @@
 		<div class="space-y-4">
 			<div class="rounded-xl bg-zinc-950 ring-1 ring-red-950/60 ring-inset overflow-hidden">
 				<div class="flex items-center justify-between px-4 py-3 bg-red-950/25">
-					<div class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-200">
-						LIVE VIEW
+					<div class="flex items-center gap-2 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-200">
+						<span
+							class="inline-block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-red-200/20"
+							aria-label="Recording"
+							title="Recording"
+						></span>
+						<span>LIVE VIEW</span>
 					</div>
 					<div class="text-xs text-zinc-400 font-[var(--dorch-mono)] tracking-wide">
 						{#if data.fetchedAt}
@@ -324,9 +329,6 @@
 							HLS error: {hlsError}
 						</div>
 					{/if}
-				</div>
-				<div class="px-4 py-3 text-xs text-zinc-500 font-[var(--dorch-mono)] tracking-wide">
-					{videoSrc()}
 				</div>
 			</div>
 
