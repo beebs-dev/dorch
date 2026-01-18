@@ -19,6 +19,8 @@
 
 <style>
 	.dorch-play-button {
+		outline: 1px solid rgba(239, 68, 68, 0.9);
+		outline-offset: 3px;
 		background-image: url('/red-single.png');
 		background-repeat: repeat;
 		background-size: 128px 128px;
