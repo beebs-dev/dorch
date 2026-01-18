@@ -371,6 +371,20 @@
 				class="pointer-events-none absolute inset-0 z-10 ring-1 ring-white/10 ring-inset group-hover:ring-white/15"
 			></div>
 
+			<div class="pointer-events-none absolute top-0 left-0 z-20 p-4">
+				<div
+					class="inline-flex min-w-0 items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-white/10 backdrop-blur"
+				>
+					<span
+						class="h-2 w-2 shrink-0 rounded-full bg-red-500 shadow-[0_0_18px_rgba(239,68,68,0.65)]"
+					></span>
+					LIVE
+					{#if current}
+						<span class="ml-2 truncate text-zinc-200">{current.name ?? current.game_id}</span>
+					{/if}
+				</div>
+			</div>
+
 			<div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 p-4">
 				<div class="flex items-end justify-between gap-4">
 					<div class="min-w-0">
@@ -378,23 +392,9 @@
 							<div class="text-xs text-zinc-300">{statusText}</div>
 						{/if}
 						<div class="mt-2 flex flex-wrap items-center gap-2">
-							<div
-								class="inline-flex min-w-0 items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-white/10 backdrop-blur"
-							>
-								<span
-									class="h-2 w-2 shrink-0 rounded-full bg-red-500 shadow-[0_0_18px_rgba(239,68,68,0.65)]"
-								></span>
-								LIVE
-								{#if current}
-									<span class="ml-2 truncate text-zinc-200">
-										{current.name ?? current.game_id}
-									</span>
-								{/if}
-							</div>
-
 							{#if current && current.max_players != null}
 								<div
-									class="inline-flex items-center rounded-full bg-black/35 px-3 py-1 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-200 ring-1 ring-white/10 backdrop-blur"
+									class="inline-flex items-center rounded-full bg-sky-950/30 px-3 py-1 text-xs font-[var(--dorch-mono)] tracking-wide text-sky-100 ring-1 ring-sky-400/20 backdrop-blur"
 								>
 									{current.player_count ?? 0}/{current.max_players} players
 								</div>
@@ -402,9 +402,9 @@
 
 							{#if current && current.monster_total != null}
 								<div
-									class="inline-flex items-center rounded-full bg-black/35 px-3 py-1 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-200 ring-1 ring-white/10 backdrop-blur"
+									class="inline-flex items-center rounded-full bg-red-950/35 px-3 py-1 text-xs font-[var(--dorch-mono)] tracking-wide text-red-100 ring-1 ring-red-400/20 backdrop-blur"
 								>
-									{current.monster_kill_count ?? 0}/{current.monster_total} kills
+									{current.monster_kill_count ?? 0} / {current.monster_total} kills
 								</div>
 							{/if}
 						</div>
