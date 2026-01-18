@@ -234,3 +234,12 @@ client:
   image: thavlik/zandronum-client:latest
   imagePullPolicy: Always
   replicas: 1
+
+browser:
+  image: docker.io/thavlik/dorch-browser:latest
+  imagePullPolicy: Always
+  replicas: 1
+  logLevel: warning
+  resources:
+    limits:
+      memory: "64Mi"

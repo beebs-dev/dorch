@@ -15,6 +15,7 @@ group "default" {
     "webrtc-auth",
     "party",
     "auth",
+    "browser",
     "archiver",
     "downloader"
   ]
@@ -29,6 +30,12 @@ target "base" {
   dockerfile = "Dockerfile.base"
   tags       = ["${REGISTRY}thavlik/dorch-base:latest"]
   push       = false
+}
+
+target "browser" {
+  context    = "browser/"
+  tags       = ["${REGISTRY}thavlik/dorch-browser:latest"]
+  push       = true
 }
 
 target "wadinfo" {

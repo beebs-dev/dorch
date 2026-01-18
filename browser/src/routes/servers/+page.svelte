@@ -15,6 +15,39 @@
 		}
 	}
 
+	function randomIdent(): string {
+		const adjectives = [
+			'quick',
+			'bright',
+			'silent',
+			'fierce',
+			'brave',
+			'clever',
+			'lucky',
+			'wild',
+			'calm',
+			'proud'
+		];
+		const nouns = [
+			'tiger',
+			'eagle',
+			'lion',
+			'wolf',
+			'panther',
+			'hawk',
+			'fox',
+			'bear',
+			'dragon',
+			'falcon'
+		];
+
+		const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+		const noun = nouns[Math.floor(Math.random() * nouns.length)];
+		const number = Math.floor(Math.random() * 1000);
+
+		return `${adj}-${noun}-${number}`;
+	}
+
 	function difficultyColor(skill: number | undefined): string {
 		switch (skill) {
 			case 1:
@@ -183,7 +216,7 @@
 								<td class="px-4 py-3">
 									<div class="flex items-center gap-2">
 										<a
-											href={`https://dorch.beebs.dev/play/?g=${encodeURIComponent(row.game.game_id)}&identity=beebs`}
+											href={`https://dorch.beebs.dev/play/?g=${encodeURIComponent(row.game.game_id)}&identity=${randomIdent()}`}
 											type="button"
 											class="rounded-md bg-red-950/30 px-3 py-2 text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 										>
