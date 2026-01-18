@@ -320,6 +320,14 @@ fn game_pod(
                             value: Some(format!("localhost:{}", game_port)),
                             ..Default::default()
                         });
+                        env.push(EnvVar {
+                            name: "RTMP_ENDPOINT".to_string(),
+                            value: Some(format!(
+                                "rtmp://strim-strim.strim.svc.cluster.local/live/{}",
+                                instance.spec.game_id
+                            )),
+                            ..Default::default()
+                        });
                         env
                     }),
                     ..Default::default()
