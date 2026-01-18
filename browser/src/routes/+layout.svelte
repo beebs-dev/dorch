@@ -7,15 +7,33 @@
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
 	import { replaceState } from '$app/navigation';
+	import { onMount } from 'svelte';
 
 	let { children } = $props();
 
 	let loginOpen = $state(false);
 
+	function syncLoginFromUrl() {
+		if (!browser) return;
+		loginOpen = window.location.hash === '#login';
+	}
+
+	onMount(() => {
+		if (!browser) return;
+		syncLoginFromUrl();
+
+		window.addEventListener('hashchange', syncLoginFromUrl);
+		window.addEventListener('popstate', syncLoginFromUrl);
+		return () => {
+			window.removeEventListener('hashchange', syncLoginFromUrl);
+			window.removeEventListener('popstate', syncLoginFromUrl);
+		};
+	});
+
 	function openLogin() {
 		loginOpen = true;
 		if (!browser) return;
-		if ($page.url.hash !== '#login') {
+		if (window.location.hash !== '#login') {
 			replaceState(`${$page.url.pathname}${$page.url.search}#login`, {});
 		}
 	}
@@ -23,14 +41,10 @@
 	function closeLogin() {
 		loginOpen = false;
 		if (!browser) return;
-		if ($page.url.hash === '#login') {
+		if (window.location.hash === '#login') {
 			replaceState(`${$page.url.pathname}${$page.url.search}`, {});
 		}
 	}
-
-	$effect(() => {
-		if ($page.url.hash === '#login') loginOpen = true;
-	});
 
 	function isActive(href: string, pathname: string) {
 		if (href === '/') return pathname === '/' || pathname.startsWith('/servers/');
@@ -79,7 +93,7 @@
 				<button
 					type="button"
 					class={`cursor-pointer -mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
-						loginOpen || $page.url.hash === '#login'
+						loginOpen
 							? 'border-red-400 text-zinc-100'
 							: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
 					}`}
