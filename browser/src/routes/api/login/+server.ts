@@ -6,6 +6,10 @@ const REFRESH_TOKEN_COOKIE = 'dorch_refresh_token';
 const REFRESH_TOKEN_EXP_COOKIE = 'dorch_refresh_token_expires_at';
 const LOGGED_IN_COOKIE = 'dorch_logged_in';
 const USERNAME_COOKIE = 'dorch_username';
+const ACCESS_TOKEN_COOKIE = 'dorch_access_token';
+const ACCESS_TOKEN_EXP_COOKIE = 'dorch_access_token_expires_at';
+
+const ACCESS_TOKEN_TTL_SECONDS = 60 * 5;
 
 export const POST: RequestHandler = async ({ request, fetch, cookies }) => {
 	let payload: unknown;
@@ -30,6 +34,25 @@ export const POST: RequestHandler = async ({ request, fetch, cookies }) => {
 	try {
 		const iam = createIamClient(fetch);
 		const creds = await iam.login(trimmedUsername, password);
+
+		const accessToken = creds?.jwt?.access_token ?? null;
+		if (typeof accessToken === 'string' && accessToken.length > 0) {
+			const expiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000).toISOString();
+			cookies.set(ACCESS_TOKEN_COOKIE, accessToken, {
+				path: '/',
+				httpOnly: true,
+				sameSite: 'lax',
+				secure: !dev,
+				maxAge: ACCESS_TOKEN_TTL_SECONDS
+			});
+			cookies.set(ACCESS_TOKEN_EXP_COOKIE, expiresAt, {
+				path: '/',
+				httpOnly: true,
+				sameSite: 'lax',
+				secure: !dev,
+				maxAge: ACCESS_TOKEN_TTL_SECONDS
+			});
+		}
 
 		const refreshToken = creds?.jwt?.refresh_token ?? null;
 		const refreshExpiresIn = creds?.jwt?.refresh_expires_in ?? null;
