@@ -4,6 +4,7 @@ import { json, type RequestHandler } from '@sveltejs/kit';
 
 const REFRESH_TOKEN_COOKIE = 'dorch_refresh_token';
 const REFRESH_TOKEN_EXP_COOKIE = 'dorch_refresh_token_expires_at';
+const LOGGED_IN_COOKIE = 'dorch_logged_in';
 
 export const POST: RequestHandler = async ({ request, fetch, cookies }) => {
 	let payload: unknown;
@@ -31,6 +32,15 @@ export const POST: RequestHandler = async ({ request, fetch, cookies }) => {
 
 		const refreshToken = creds?.jwt?.refresh_token ?? null;
 		const refreshExpiresIn = creds?.jwt?.refresh_expires_in ?? null;
+
+		// Mark session as authenticated for server-rendered navigation.
+		// This is intentionally independent of refresh-token parsing so the UI can update reliably.
+		cookies.set(LOGGED_IN_COOKIE, '1', {
+			path: '/',
+			httpOnly: true,
+			sameSite: 'lax',
+			secure: !dev
+		});
 
 		if (refreshToken) {
 			const persist = typeof rememberMe === 'boolean' ? rememberMe : true;

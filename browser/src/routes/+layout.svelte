@@ -49,6 +49,7 @@
 	function isActive(href: string, pathname: string) {
 		if (href === '/') return pathname === '/' || pathname.startsWith('/servers/');
 		if (href === '/wad') return pathname === '/wad' || pathname.startsWith('/wad/');
+		if (href === '/account') return pathname === '/account' || pathname.startsWith('/account/');
 		return pathname === href || pathname.startsWith(`${href}/`);
 	}
 </script>
@@ -90,17 +91,31 @@
 				>
 					WAD BROWSER
 				</a>
-				<button
-					type="button"
-					class={`cursor-pointer -mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
-						loginOpen
-							? 'border-red-400 text-zinc-100'
-							: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
-					}`}
-					onclick={openLogin}
-				>
-					LOGIN
-				</button>
+				{#if $page.data.loggedIn}
+					<a
+						href={resolve('/account')}
+						aria-current={isActive('/account', $page.url.pathname) ? 'page' : undefined}
+						class={`-mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+							isActive('/account', $page.url.pathname)
+								? 'border-red-400 text-zinc-100'
+								: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
+						}`}
+					>
+						ACCOUNT
+					</a>
+				{:else}
+					<button
+						type="button"
+						class={`cursor-pointer -mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+							loginOpen
+								? 'border-red-400 text-zinc-100'
+								: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
+						}`}
+						onclick={openLogin}
+					>
+						LOGIN
+					</button>
+				{/if}
 			</nav>
 		</div>
 	</header>

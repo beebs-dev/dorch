@@ -118,11 +118,10 @@
 				return;
 			}
 
-			// The server sets refresh-token cookies; we just consume the returned credentials.
+			// The server sets auth cookies; do a full navigation so layout re-renders server-side.
 			await res.json();
-			showToast('Signed in.');
 			password = '';
-			close();
+			window.location.assign('/account');
 		} catch {
 			showToast('Login failed.');
 		} finally {
