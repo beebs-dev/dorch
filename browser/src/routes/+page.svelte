@@ -97,7 +97,7 @@
 </script>
 
 <svelte:head>
-	<title>SERVERS - GIB.GG</title>
+	<title>ONLINE SLAUGHTER - GIB.GG</title>
 </svelte:head>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
@@ -214,13 +214,13 @@
 
 								<td class="px-4 py-3">
 									<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
-										{row.game.info?.player_count ?? 0}/{row.game.info?.max_players ?? 0}
+										{row.game.info?.player_count ?? 0} / {row.game.info?.max_players ?? 0}
 									</div>
 								</td>
 								<td class="px-4 py-3">
 									<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
 										{#if row.game.info}
-											{row.game.info.monster_kill_count}/{row.game.info.monster_count}
+											{row.game.info.monster_kill_count} / {row.game.info.monster_count}
 										{:else}
 											&nbsp;
 										{/if}
