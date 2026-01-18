@@ -119,9 +119,11 @@
 			}
 
 			// The server sets auth cookies; do a full navigation so layout re-renders server-side.
+			// Reload the current page (without #login) so the user stays where they are.
 			await res.json();
 			password = '';
-			window.location.assign('/account');
+			close();
+			window.location.assign(`${window.location.pathname}${window.location.search}`);
 		} catch {
 			showToast('Login failed.');
 		} finally {
