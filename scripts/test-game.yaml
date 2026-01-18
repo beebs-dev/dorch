@@ -9,7 +9,8 @@ spec:
   max_players: 64
   s3_secret_name: game-spaces-cred
   iwad: 17bdc0a8-8a81-4b00-90d1-972bf406fa10
-  use_doom1_assets: true
+  use_doom1_assets: false
   files:
+    - 22a0ca23-f044-4319-a7a6-f3b60276d0ce
     - 1011e3b6-de21-4f1d-b4fa-0df4bb56cf54
   #debug_udp: true

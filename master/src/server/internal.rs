@@ -455,6 +455,7 @@ pub async fn list_games(State(state): State<App>) -> impl IntoResponse {
 }
 
 fn game_to_summary(g: dorch_types::Game, info: Option<GameInfo>) -> Result<GameSummary> {
+    eprintln!("files: {:?}", g.spec.files);
     Ok(GameSummary {
         game_id: Uuid::parse_str(&g.spec.game_id).context("Invalid game ID")?,
         iwad: Uuid::parse_str(&g.spec.iwad).context("Invalid IWAD ID")?,
