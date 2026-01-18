@@ -373,7 +373,7 @@
 
 			<div class="pointer-events-none absolute top-0 left-0 z-20 p-4">
 				<div
-					class="inline-flex min-w-0 items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-white/10 backdrop-blur"
+					class="inline-flex min-w-0 items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-m font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-white/10 backdrop-blur"
 				>
 					<span
 						class="h-2 w-2 shrink-0 rounded-full bg-red-500 shadow-[0_0_18px_rgba(239,68,68,0.65)]"
@@ -396,7 +396,7 @@
 								<div
 									class="inline-flex items-center rounded-full bg-sky-950/30 px-3 py-1 text-xs font-[var(--dorch-mono)] tracking-wide text-sky-100 ring-1 ring-sky-400/20 backdrop-blur"
 								>
-									{current.player_count ?? 0}/{current.max_players} players
+									{current.player_count ?? 0} / {current.max_players} players
 								</div>
 							{/if}
 
