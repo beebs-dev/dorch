@@ -1,0 +1,18 @@
+---
+apiVersion: dorch.beebs.dev/v1
+kind: Game
+metadata:
+  name: 75a2a516-697c-4788-9062-62635491c6eb
+  namespace: dorch
+spec:
+  game_id: 75a2a516-697c-4788-9062-62635491c6eb
+  name: "Sunder, all day"
+  max_players: 64
+  s3_secret_name: game-spaces-cred
+  iwad: 17bdc0a8-8a81-4b00-90d1-972bf406fa10
+  use_doom1_assets: false
+  skill: 4
+  files:
+    - 22a0ca23-f044-4319-a7a6-f3b60276d0ce
+    - 0182f694-6b41-43e1-8f09-64aa567b8174
+  #debug_udp: true
