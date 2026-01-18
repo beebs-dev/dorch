@@ -963,7 +963,7 @@ async fn creds_response(
         "{}{}{}{}",
         "🔓 User logged in successfully • username=".cyan(),
         user.username.cyan().dimmed(),
-        "• id=".cyan(),
+        " • id=".cyan(),
         user.id.cyan().dimmed()
     );
     (
