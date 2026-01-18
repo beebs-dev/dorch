@@ -118,11 +118,11 @@
 			<div class="flex items-center justify-between border-b border-zinc-800/80 px-5 py-4">
 				<div>
 					<h2 class="text-base font-semibold tracking-wide text-zinc-100">Sign in</h2>
-					<p class="mt-1 text-xs text-zinc-400">Use your GIB.GG account.</p>
+					<p class="mt-1 text-xs text-zinc-400">Use your GIB.GG account to create custom servers for free.</p>
 				</div>
 				<button
 					type="button"
-					class="rounded-md p-2 text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+					class="cursor-pointer rounded-md p-2 text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 					onclick={close}
 					aria-label="Close"
 				>
@@ -156,7 +156,7 @@
 				</label>
 
 				<div class="mt-4 flex items-center justify-between gap-4">
-					<label class="inline-flex items-center gap-2 text-xs text-zinc-300">
+					<label class="cursor-pointer inline-flex items-center gap-2 text-xs text-zinc-300">
 						<input
 							type="checkbox"
 							bind:checked={rememberMe}
@@ -167,7 +167,7 @@
 
 					<button
 						type="button"
-						class="rounded text-xs font-semibold text-red-300 hover:text-red-200 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+						class="cursor-pointer rounded text-xs font-semibold text-red-300 hover:text-red-200 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 						onclick={() => comingSoon('Password reset is coming soon.')}
 					>
 						Forgot your password?
@@ -176,16 +176,16 @@
 
 				<button
 					type="submit"
-					class="mt-5 w-full rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-600 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+					class="cursor-pointer mt-5 w-full rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-600 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 				>
-					Sign in
+					SIGN IN
 				</button>
 
 				<div class="mt-4 text-center text-xs text-zinc-400">
 					Don’t have an account?
 					<button
 						type="button"
-						class="ml-1 rounded font-semibold text-red-300 hover:text-red-200 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+						class="cursor-pointer ml-1 rounded font-semibold text-red-300 hover:text-red-200 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 						onclick={() => comingSoon('Sign up is coming soon.')}
 					>
 						Sign up

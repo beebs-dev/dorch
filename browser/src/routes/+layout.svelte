@@ -85,7 +85,7 @@
 				</a>
 				<button
 					type="button"
-					class={`-mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+					class={`cursor-pointer -mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
 						loginOpen || $page.url.hash === '#login'
 							? 'border-red-400 text-zinc-100'
 							: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
