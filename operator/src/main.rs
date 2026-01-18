@@ -49,6 +49,13 @@ enum Command {
         )]
         server_image: String,
 
+        #[arg(
+            long,
+            env = "DORCH_SPECTATOR_IMAGE",
+            default_value = "thavlik/zandronum-spectator:latest"
+        )]
+        spectator_image: String,
+
         #[arg(long, env = "LIVEKIT_URL", required = true)]
         livekit_url: String,
 
@@ -73,6 +80,7 @@ async fn run(client: Client) {
         Command::ManageGames {
             proxy_image,
             server_image,
+            spectator_image,
             livekit_url,
             livekit_secret,
             downloader_image,
@@ -83,6 +91,7 @@ async fn run(client: Client) {
                 proxy_image,
                 downloader_image,
                 server_image,
+                spectator_image,
                 livekit_url,
                 livekit_secret,
                 wadinfo_base_url,

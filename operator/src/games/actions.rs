@@ -58,6 +58,7 @@ fn game_pod(
     proxy_image: &str,
     downloader_image: &str,
     server_image: &str,
+    spectator_image: &str,
     livekit_url: &str,
     livekit_secret: &str,
     wadinfo_base_url: &str,
@@ -290,7 +291,29 @@ fn game_pod(
                         protocol: Some("UDP".to_string()),
                         ..Default::default()
                     }]),
-                    env: Some(server_env),
+                    env: Some(server_env.clone()),
+                    ..Default::default()
+                },
+                Container {
+                    name: "spectator".to_string(),
+                    image: Some(spectator_image.to_string()),
+                    image_pull_policy: Some("Always".to_string()),
+                    command: Some(vec!["/spectator.sh".to_string()]),
+                    volume_mounts: Some(vec![VolumeMount {
+                        name: "data".to_string(),
+                        mount_path: DATA_ROOT.to_string(),
+                        ..Default::default()
+                    }]),
+                    env: Some({
+                        let mut env = Vec::with_capacity(server_env.len() + 1);
+                        env.extend(server_env.into_iter());
+                        env.push(EnvVar {
+                            name: "SERVER_ADDR".to_string(),
+                            value: Some(format!("localhost:{}", game_port)),
+                            ..Default::default()
+                        });
+                        env
+                    }),
                     ..Default::default()
                 },
                 Container {
@@ -314,6 +337,7 @@ pub async fn create_pod(
     proxy_image: &str,
     downloader_image: &str,
     server_image: &str,
+    spectator_image: &str,
     livekit_url: &str,
     livekit_secret: &str,
     wadinfo_base_url: &str,
@@ -323,6 +347,7 @@ pub async fn create_pod(
         proxy_image,
         downloader_image,
         server_image,
+        spectator_image,
         livekit_url,
         livekit_secret,
         wadinfo_base_url,

@@ -17,6 +17,7 @@ group "default" {
     "auth",
     "browser",
     "archiver",
+    "spectator",
     "downloader"
   ]
 }
@@ -131,6 +132,13 @@ target "server" {
   context    = "zandronum/"
   dockerfile = "Dockerfile.server"
   tags       = ["${REGISTRY}thavlik/zandronum-server:latest"]
+  push       = true
+}
+
+target "spectator" {
+  context    = "zandronum/"
+  dockerfile = "Dockerfile.spectator"
+  tags       = ["${REGISTRY}thavlik/zandronum-spectator:latest"]
   push       = true
 }
 
