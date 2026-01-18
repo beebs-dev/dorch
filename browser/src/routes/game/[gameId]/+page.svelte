@@ -2,6 +2,7 @@
 	import type { PageData } from './$types';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
+	import DorchPlayButton from '$lib/components/DorchPlayButton.svelte';
 	import { wadLabel } from '$lib/utils/format';
 
 	let { data }: { data: PageData } = $props();
@@ -186,13 +187,12 @@
 						</div>
 					</div>
 					<div class="shrink-0">
-						<a
+						<DorchPlayButton
 							href={joinUrl()}
-							class="dorch-play-button inline-flex items-center justify-center rounded-xl bg-red-950/30 px-8 py-4 text-xl font-semibold text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
-							aria-label="Play"
-						>
-							PLAY
-						</a>
+							label="JOIN"
+							ariaLabel="Join"
+							className="inline-flex rounded-xl px-8 py-4 text-xl"
+						/>
 						<div class="mt-2 text-center text-xs text-zinc-500 font-[var(--dorch-mono)] tracking-wide">
 							identity: {identity}
 						</div>
