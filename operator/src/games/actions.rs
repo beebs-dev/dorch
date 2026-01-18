@@ -314,7 +314,7 @@ fn game_pod(
                         ..Default::default()
                     }]),
                     env: Some({
-                        let mut env = Vec::with_capacity(server_env.len() + 1);
+                        let mut env = Vec::with_capacity(server_env.len() + 2);
                         env.extend(server_env.into_iter());
                         env.push(EnvVar {
                             name: "SERVER_ADDR".to_string(),
@@ -325,8 +325,8 @@ fn game_pod(
                             env.push(EnvVar {
                                 name: "RTMP_ENDPOINT".to_string(),
                                 value: Some(format!(
-                                    "{}/live/{}",
-                                    strim_base_url, instance.spec.game_id
+                                    "{}/live/{}:{}",
+                                    strim_base_url, instance.spec.game_id, instance.spec.game_id
                                 )),
                                 ..Default::default()
                             });
@@ -344,9 +344,15 @@ fn game_pod(
                 },
             ],
             resources: Some(ResourceRequirements {
+                requests: Some({
+                    let mut m = std::collections::BTreeMap::new();
+                    m.insert("cpu".to_string(), Quantity("1000m".to_string()));
+                    m.insert("memory".to_string(), Quantity("256Mi".to_string()));
+                    m
+                }),
                 limits: Some({
                     let mut m = std::collections::BTreeMap::new();
-                    m.insert("cpu".to_string(), Quantity("500m".to_string()));
+                    //m.insert("cpu".to_string(), Quantity("2000m".to_string()));
                     m.insert("memory".to_string(), Quantity("512Mi".to_string()));
                     m
                 }),
