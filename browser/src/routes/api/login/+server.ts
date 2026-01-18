@@ -5,6 +5,7 @@ import { json, type RequestHandler } from '@sveltejs/kit';
 const REFRESH_TOKEN_COOKIE = 'dorch_refresh_token';
 const REFRESH_TOKEN_EXP_COOKIE = 'dorch_refresh_token_expires_at';
 const LOGGED_IN_COOKIE = 'dorch_logged_in';
+const USERNAME_COOKIE = 'dorch_username';
 
 export const POST: RequestHandler = async ({ request, fetch, cookies }) => {
 	let payload: unknown;
@@ -41,6 +42,15 @@ export const POST: RequestHandler = async ({ request, fetch, cookies }) => {
 			sameSite: 'lax',
 			secure: !dev
 		});
+
+		if (typeof creds?.username === 'string' && creds.username.length > 0) {
+			cookies.set(USERNAME_COOKIE, creds.username, {
+				path: '/',
+				httpOnly: true,
+				sameSite: 'lax',
+				secure: !dev
+			});
+		}
 
 		if (refreshToken) {
 			const persist = typeof rememberMe === 'boolean' ? rememberMe : true;

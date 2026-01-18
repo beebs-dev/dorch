@@ -137,6 +137,10 @@
 							class="absolute right-0 top-full z-50 hidden min-w-48 pt-2 group-hover:block group-focus-within:block"
 						>
 							<div class="overflow-hidden rounded-lg bg-zinc-950 ring-1 ring-zinc-800">
+								<div class="px-3 py-2 text-xs text-zinc-400 border-b border-zinc-800">
+									Signed in as
+									<span class="ml-1 font-semibold text-red-300">{$page.data.username ?? 'unknown'}</span>
+								</div>
 								<a
 									href={resolve('/account')}
 									class="block px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
@@ -145,7 +149,7 @@
 								</a>
 								<button
 									type="button"
-									class="w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
+									class="cursor-pointer w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
 									onclick={signOut}
 								>
 									Sign out
