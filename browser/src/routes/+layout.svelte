@@ -9,13 +9,14 @@
 	let { children } = $props();
 
 	const navItems = [
-		{ label: 'SERVERS', href: '/servers' },
-		{ label: 'WAD BROWSER', href: '/' },
+		{ label: 'SERVERS', href: '/' },
+		{ label: 'WAD BROWSER', href: '/wad' },
 		{ label: 'SETTINGS', href: '/settings' }
 	] as const;
 
 	function isActive(href: string, pathname: string) {
-		if (href === '/') return pathname === '/' || pathname.startsWith('/wad/');
+		if (href === '/') return pathname === '/' || pathname.startsWith('/servers/');
+		if (href === '/wad') return pathname === '/wad' || pathname.startsWith('/wad/');
 		return pathname === href || pathname.startsWith(`${href}/`);
 	}
 </script>

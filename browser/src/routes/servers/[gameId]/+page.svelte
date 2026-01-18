@@ -165,7 +165,7 @@
 		</div>
 		<div class="flex items-center gap-2">
 			<a
-				href={resolve('/servers')}
+				href={resolve('/')}
 				class="rounded-md bg-zinc-900 px-3 py-2 text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 			>
 				Back to servers

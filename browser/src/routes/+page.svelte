@@ -1,205 +1,258 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { page } from '$app/stores';
-	import { base, resolve } from '$app/paths';
-	import { humanBytes, wadLabel, withParams } from '$lib/utils/format';
+	import Jumbotron from '$lib/components/Jumbotron.svelte';
+	import { resolve } from '$app/paths';
+	import { goto, invalidateAll } from '$app/navigation';
 
 	let { data }: { data: PageData } = $props();
 
-	const sortOptions = [
-		{ key: 'featured', label: 'Featured' },
-		{ key: 'release_date', label: 'Release Date' },
-		{ key: 'most_played', label: 'Most Played' },
-		{ key: 'alphabetical', label: 'Alphabetical' }
-	] as const;
+	let refreshing = $state(false);
 
-	function titleFor(wad: PageData['results']['items'][number]): string {
-		return wadLabel(wad);
+	async function refresh() {
+		refreshing = true;
+		try {
+			await invalidateAll();
+		} finally {
+			refreshing = false;
+		}
 	}
 
-	function mapCountFor(wad: PageData['results']['items'][number]): string {
-		const count = wad.content?.counts?.maps;
-		if (typeof count === 'number') return String(count);
-		const maps = wad.content?.maps;
-		if (Array.isArray(maps)) return String(maps.length);
-		return '—';
+	function randomIdent(): string {
+		const adjectives = [
+			'quick',
+			'bright',
+			'silent',
+			'fierce',
+			'brave',
+			'clever',
+			'lucky',
+			'wild',
+			'calm',
+			'proud'
+		];
+		const nouns = [
+			'tiger',
+			'eagle',
+			'lion',
+			'wolf',
+			'panther',
+			'hawk',
+			'fox',
+			'bear',
+			'dragon',
+			'falcon'
+		];
+
+		const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+		const noun = nouns[Math.floor(Math.random() * nouns.length)];
+		const number = Math.floor(Math.random() * 1000);
+
+		return `${adj}-${noun}-${number}`;
 	}
+
+	function difficultyColor(skill: number | undefined): string {
+		switch (skill) {
+			case 1:
+				return 'text-green-400';
+			case 2:
+				return 'text-yellow-400';
+			case 3:
+				return 'text-orange-400';
+			case 4:
+				return 'text-red-400';
+			default:
+				return 'text-zinc-400';
+		}
+	}
+
+	function difficultyLabel(skill: number | undefined): string {
+		switch (skill) {
+			case 1:
+				return `I'm Too Young to Die`;
+			case 2:
+				return `Hurt Me Plenty`;
+			case 3:
+				return `Ultra-Violence`;
+			case 4:
+				return `Nightmare!`;
+			default:
+				return 'Unknown';
+		}
+	}
+
+	async function openGame(gameId: string) {
+		await goto(resolve(`/servers/${encodeURIComponent(gameId)}`));
+	}
+
+	async function onRowKeyDown(e: KeyboardEvent, gameId: string) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			await openGame(gameId);
+		}
+	}
+
+	const rows = $derived(() => data.rows ?? []);
+	const fetchedAt = $derived(() => (data.fetchedAt ? new Date(data.fetchedAt) : null));
+	const jumbotronItems = $derived(() => data.jumbotronItems ?? []);
 </script>
 
 <svelte:head>
-	<title>ONLINE SLAUGHTER - GIB.GG</title>
+	<title>SERVERS - GIB.GG</title>
 </svelte:head>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
-	<section class="pt-4 pb-12">
-		<div class="mx-auto max-w-3xl text-center">
-			<h1 class="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-				{#if data.q}
-					{data.results.full_count.toLocaleString()} WADs matched your query.
-				{:else}
-					Search among {data.results.full_count.toLocaleString()} WADs.
-				{/if}
-			</h1>
-
-			<form action="/" method="get" class="mt-6">
-				<label class="sr-only" for="home-search">Search WADs</label>
-				<div class="flex flex-col gap-3 sm:flex-row sm:items-stretch">
-					<input
-						id="home-search"
-						name="q"
-						value={$page.url.searchParams.get('q') ?? ''}
-						placeholder="Search by title, author, description, sha1…"
-						enterkeyhint="search"
-						autocomplete="off"
-						spellcheck="false"
-						class="w-full rounded-2xl bg-zinc-900/40 px-5 py-4 text-lg text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-500 focus:outline-none sm:text-xl"
-					/>
-					<button
-						type="submit"
-						class="rounded-2xl bg-zinc-900 px-6 py-4 text-base font-semibold text-zinc-100 ring-1 ring-zinc-800 ring-inset hover:bg-zinc-800"
-					>
-						Search
-					</button>
-				</div>
-			</form>
-		</div>
-	</section>
-
-	<div class="flex flex-wrap items-center justify-between gap-3">
-		<div class="flex flex-wrap gap-2" role="tablist" aria-label="Sorting">
-			{#each sortOptions as opt (opt.key)}
-				<a
-					class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
-						data.sort === opt.key ? 'bg-zinc-900 text-zinc-100' : 'text-zinc-300'
-					}`}
-					href={base + withParams($page.url, { sort: opt.key, offset: 0 })}
-					role="tab"
-					aria-selected={data.sort === opt.key}
-				>
-					{opt.label}
-				</a>
-			{/each}
-		</div>
-		{#if data.q}
-			<div class="text-xs text-zinc-500">
-				Showing {data.results.items.length.toLocaleString()} of {data.results.full_count.toLocaleString()}
-				results for “<span class="text-zinc-200">{data.q}</span>”
-			</div>
-		{:else}
-			<div class="text-right text-sm text-zinc-400">
-				<div>Pick your favorite and play with friends.</div>
-			</div>
-		{/if}
+	<div class="mb-6">
+		<Jumbotron items={jumbotronItems()} intervalMs={5000} />
 	</div>
 
-	{#if !data.q}
-		<section class="mt-6">
-			<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-				{#each data.featured as item (item.wad.id)}
-					<a
-						href={resolve(`/wad/${encodeURIComponent(item.wad.id)}`)}
-						class="group overflow-hidden rounded-xl ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900"
-					>
-						<div class="aspect-[16/9] w-full overflow-hidden bg-zinc-900">
-							{#if item.images?.[0]?.url}
-								<img
-									src={item.images[0].url}
-									alt=""
-									class="h-full w-full object-cover"
-									loading="lazy"
-								/>
-							{:else}
-								<div class="h-full w-full bg-gradient-to-br from-zinc-900 to-zinc-800"></div>
-							{/if}
-						</div>
-						<div class="min-w-0 p-4">
-							<div class="truncate text-sm font-semibold text-zinc-100 group-hover:underline">
-								{titleFor(item.wad)}
-							</div>
-							<div class="mt-1 text-xs text-zinc-400">
-								{item.wad.file?.type ?? '—'} • {humanBytes(item.wad.file?.size ?? null)} •
-								{mapCountFor(item.wad)} maps
-							</div>
-						</div>
-					</a>
-				{/each}
+	<div class="flex flex-wrap items-end justify-between gap-4">
+		<div>
+			<h1 class="text-2xl font-semibold tracking-tight">Servers</h1>
+			<div class="mt-1 text-sm text-zinc-400">
+				{#if fetchedAt()}
+					Last refresh: {fetchedAt()!.toLocaleString()}
+				{:else}
+					&nbsp;
+				{/if}
 			</div>
-		</section>
+		</div>
+		<div class="flex items-center gap-2">
+			<button
+				type="button"
+				class="rounded-md bg-zinc-900 px-3 py-2 text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none disabled:opacity-50"
+				onclick={refresh}
+				disabled={refreshing}
+				aria-busy={refreshing}
+			>
+				{refreshing ? 'Refreshing…' : 'Refresh'}
+			</button>
+		</div>
+	</div>
+
+	{#if data.errorMessage}
+		<div
+			class="mt-4 rounded-lg bg-zinc-950 p-4 text-sm text-zinc-200 ring-1 ring-red-950/60 ring-inset"
+		>
+			<div class="font-[var(--dorch-mono)] tracking-wide text-red-200">
+				Failed to load server list
+			</div>
+			<div class="mt-1 text-zinc-300">{data.errorMessage}</div>
+		</div>
 	{/if}
 
-	<section class="mt-8">
-		{#if data.q}
-			<h2 class="text-sm font-semibold text-zinc-200">Search Results</h2>
-		{:else}
-			<h2 class="text-sm font-semibold text-zinc-200">All WADs</h2>
-		{/if}
-		<div class="mt-3 overflow-hidden rounded-xl ring-1 ring-zinc-800 ring-inset">
-			<ul class="divide-y divide-zinc-800">
-				{#each data.results.items as wad (wad.id)}
-					<li class="bg-zinc-950/40 hover:bg-zinc-900/40">
-						<a href={resolve(`/wad/${encodeURIComponent(wad.id)}`)} class="block px-4 py-3">
-							<div class="flex flex-wrap items-center justify-between gap-2">
-								<div class="min-w-0">
-									<div class="truncate text-sm font-semibold text-zinc-100">
-										{titleFor(wad)}
+	<div class="mt-5 overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-red-950/60 ring-inset">
+		<div class="overflow-x-auto">
+			<table class="min-w-full border-collapse text-left">
+				<thead class="bg-red-950/25">
+					<tr class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-200">
+						<th class="px-4 py-3">MAP</th>
+						<th class="px-4 py-3">SERVER</th>
+						<th class="px-4 py-3">PLAYERS</th>
+						<th class="px-4 py-3">KILLS</th>
+						<th class="px-4 py-3">Base Game <span class="text-xs text-zinc-400">(IWAD)</span></th>
+						<th class="px-4 py-3">ACTIONS</th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-red-950/40">
+					{#if rows().length === 0}
+						<tr>
+							<td class="px-4 py-5 text-sm text-zinc-400" colspan="5">No servers found.</td>
+						</tr>
+					{:else}
+						{#each rows() as row (row.game.game_id)}
+							<tr
+								class="cursor-pointer hover:bg-zinc-900/35"
+								role="link"
+								tabindex="0"
+								aria-label={`Open game ${row.game.info?.name ?? row.game.game_id}`}
+								onclick={() => openGame(row.game.game_id)}
+								onkeydown={(e) => onRowKeyDown(e, row.game.game_id)}
+							>
+								<td class="px-4 py-3">
+									<div class="flex items-center gap-3">
+										{#if row.thumbnailUrl}
+											<img
+												src={row.thumbnailUrl}
+												alt={row.game.info?.current_map ?? 'Map'}
+												class="h-10 w-16 shrink-0 rounded-md object-cover ring-1 ring-red-950/60 ring-inset"
+												loading="lazy"
+											/>
+										{:else}
+											<div
+												class="h-10 w-16 shrink-0 rounded-md bg-zinc-900 ring-1 ring-red-950/60 ring-inset"
+											></div>
+										{/if}
+										<div class="min-w-0">
+											<div class="truncate text-sm font-semibold text-zinc-100">
+												{row.game.info?.current_map ?? 'UNKNOWN'}
+											</div>
+											<div class="truncate text-xs text-zinc-400">
+												{#if row.game.files?.length}
+													{row.pwadName}
+												{:else}
+													&nbsp;
+												{/if}
+											</div>
+										</div>
 									</div>
-									<div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-400">
-										<span>{wad.file?.type ?? '—'}</span>
-										<span>{humanBytes(wad.file?.size ?? null)}</span>
-										<span>{mapCountFor(wad)} maps</span>
-										{#if wad.file?.corrupt}
-											<span class="rounded bg-zinc-800 px-2 py-0.5 text-zinc-200">corrupt</span>
+								</td>
+
+								<td class="px-4 py-3">
+									<div class="flex items-center gap-2">
+										<div class="min-w-0">
+											<div
+												class="truncate text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100"
+											>
+												{row.game.info?.name ?? '(loading...)'}
+											</div>
+											<div class="mt-0.5 text-xs {difficultyColor(row.game.info?.skill)}">
+												{difficultyLabel(row.game.info?.skill)}
+											</div>
+										</div>
+									</div>
+								</td>
+
+								<td class="px-4 py-3">
+									<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
+										{row.game.info?.player_count ?? 0}/{row.game.info?.max_players ?? 0}
+									</div>
+								</td>
+								<td class="px-4 py-3">
+									<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
+										{#if row.game.info}
+											{row.game.info.monster_kill_count}/{row.game.info.monster_count}
+										{:else}
+											&nbsp;
 										{/if}
 									</div>
-								</div>
-								<div class="flex flex-wrap justify-end gap-2">
-									{#each wad.content?.engines_guess ?? [] as e (e)}
-										<span
-											class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
-										>
-											{e}
-										</span>
-									{/each}
-									{#each wad.content?.iwads_guess ?? [] as iwad (iwad)}
-										<span
-											class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
-										>
-											{iwad}
-										</span>
-									{/each}
-								</div>
-							</div>
-						</a>
-					</li>
-				{/each}
-			</ul>
-		</div>
+								</td>
 
-		<div class="mt-4 flex items-center justify-between">
-			<a
-				class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
-					data.offset <= 0 ? 'pointer-events-none opacity-50' : ''
-				}`}
-				href={base + withParams($page.url, { offset: Math.max(0, data.offset - data.limit) })}
-				rel="prev"
-			>
-				Prev
-			</a>
-			<div class="text-xs text-zinc-500">
-				Page {Math.floor(data.offset / data.limit) + 1} of {Math.max(
-					1,
-					Math.ceil(data.results.full_count / data.limit)
-				)}
-			</div>
-			<a
-				class={`rounded-md px-3 py-1.5 text-sm ring-1 ring-zinc-800 ring-inset hover:bg-zinc-900 ${
-					data.results.items.length < data.limit ? 'pointer-events-none opacity-50' : ''
-				}`}
-				href={base + withParams($page.url, { offset: data.offset + data.limit })}
-				rel="next"
-			>
-				Next
-			</a>
+								<td class="px-4 py-3">
+									<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
+										{row.iwadName}
+									</div>
+								</td>
+
+								<td class="px-4 py-3">
+									<div class="flex items-center gap-2">
+										<button
+											type="button"
+											class="rounded-md bg-red-950/30 px-3 py-2 text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+											onclick={(e) => {
+												e.stopPropagation();
+												window.location.href = `/play/?g=${encodeURIComponent(row.game.game_id)}&identity=${randomIdent()}`;
+											}}
+											onkeydown={(e) => e.stopPropagation()}
+										>
+											Join
+										</button>
+									</div>
+								</td>
+							</tr>
+						{/each}
+					{/if}
+				</tbody>
+			</table>
 		</div>
-	</section>
+	</div>
 </section>

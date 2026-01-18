@@ -232,7 +232,7 @@
 						</svg>
 					</button>
 					<DorchPlayButton
-						href={resolve('/servers') + `?wad=${encodeURIComponent(data.wad.meta.id)}`}
+						href={resolve('/') + `?wad=${encodeURIComponent(data.wad.meta.id)}`}
 						label="P L A Y"
 						ariaLabel={`Play ${wadTitle()}`}
 					/>
