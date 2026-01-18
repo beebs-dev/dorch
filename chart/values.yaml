@@ -7,6 +7,10 @@ cors:
 prometheus:
   enabled: false
 
+strim: # https://github.com/beebs-dev/strim
+  enabled: false
+  baseUrl: ""
+
 nats:
   url: "nats://nats.nats.svc.cluster.local:4222"
   user: {}

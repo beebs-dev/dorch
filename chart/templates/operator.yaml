@@ -147,6 +147,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+{{- if .Values.strim.enabled }}
+        - name: STRIM_BASE_URL
+          value: {{ required "strim.baseUrl is required when strim.enabled is true" .Values.strim.baseUrl | quote }}
+{{- end }}
 {{ include "dorch.metrics-env" . | indent 8 }}
 ---
 {{- if .Values.prometheus.enabled }}

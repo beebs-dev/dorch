@@ -64,6 +64,9 @@ enum Command {
 
         #[arg(long, env = "WADINFO_BASE_URL", required = true)]
         wadinfo_base_url: String,
+
+        #[arg(long, env = "STRIM_BASE_URL")]
+        strim_base_url: Option<String>,
     },
 }
 
@@ -85,6 +88,7 @@ async fn run(client: Client) {
             livekit_secret,
             downloader_image,
             wadinfo_base_url,
+            strim_base_url,
         } => {
             games::run(
                 client,
@@ -95,6 +99,7 @@ async fn run(client: Client) {
                 livekit_url,
                 livekit_secret,
                 wadinfo_base_url,
+                strim_base_url,
             )
             .await
         }

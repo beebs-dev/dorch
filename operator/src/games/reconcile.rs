@@ -30,6 +30,7 @@ pub async fn run(
     livekit_url: String,
     livekit_secret: String,
     wadinfo_base_url: String,
+    strim_base_url: Option<String>,
 ) -> Result<(), Error> {
     let context: Arc<ContextData> = Arc::new(ContextData::new(
         client.clone(),
@@ -40,6 +41,7 @@ pub async fn run(
         livekit_url,
         livekit_secret,
         wadinfo_base_url,
+        strim_base_url,
     ));
     // Namespace where the Lease object lives.
     // Commonly: the controller's namespace. If you deploy in one namespace, hardcode it.
@@ -140,6 +142,7 @@ struct ContextData {
     livekit_url: String,
     livekit_secret: String,
     wadinfo_base_url: String,
+    strim_base_url: Option<String>,
 }
 
 impl ContextData {
@@ -157,6 +160,7 @@ impl ContextData {
         livekit_url: String,
         livekit_secret: String,
         wadinfo_base_url: String,
+        strim_base_url: Option<String>,
     ) -> Self {
         #[cfg(feature = "metrics")]
         {
@@ -170,6 +174,7 @@ impl ContextData {
                 livekit_url,
                 livekit_secret,
                 wadinfo_base_url,
+                strim_base_url,
             }
         }
         #[cfg(not(feature = "metrics"))]
@@ -182,6 +187,7 @@ impl ContextData {
                 livekit_secret,
                 downloader_image,
                 wadinfo_base_url,
+                strim_base_url,
             }
         }
     }
@@ -348,6 +354,7 @@ async fn reconcile(instance: Arc<Game>, context: Arc<ContextData>) -> Result<Act
                 &context.livekit_url,
                 &context.livekit_secret,
                 &context.wadinfo_base_url,
+                context.strim_base_url.as_deref(),
             )
             .await?;
 

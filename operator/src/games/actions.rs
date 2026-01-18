@@ -65,6 +65,7 @@ fn game_pod(
     livekit_url: &str,
     livekit_secret: &str,
     wadinfo_base_url: &str,
+    strim_base_url: Option<&str>,
 ) -> Pod {
     let game_port = 10666;
 
@@ -320,14 +321,16 @@ fn game_pod(
                             value: Some(format!("localhost:{}", game_port)),
                             ..Default::default()
                         });
-                        env.push(EnvVar {
-                            name: "RTMP_ENDPOINT".to_string(),
-                            value: Some(format!(
-                                "rtmp://strim-strim.strim.svc.cluster.local:7080/live/{}",
-                                instance.spec.game_id
-                            )),
-                            ..Default::default()
-                        });
+                        if let Some(strim_base_url) = strim_base_url {
+                            env.push(EnvVar {
+                                name: "RTMP_ENDPOINT".to_string(),
+                                value: Some(format!(
+                                    "{}/live/{}",
+                                    strim_base_url, instance.spec.game_id
+                                )),
+                                ..Default::default()
+                            });
+                        }
                         env
                     }),
                     ..Default::default()
@@ -366,6 +369,7 @@ pub async fn create_pod(
     livekit_url: &str,
     livekit_secret: &str,
     wadinfo_base_url: &str,
+    strim_base_url: Option<&str>,
 ) -> Result<(), Error> {
     let pod = game_pod(
         instance,
@@ -376,6 +380,7 @@ pub async fn create_pod(
         livekit_url,
         livekit_secret,
         wadinfo_base_url,
+        strim_base_url,
     );
     patch_status(client.clone(), instance, |status| {
         status.phase = GamePhase::Starting;
