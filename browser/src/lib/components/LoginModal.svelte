@@ -8,6 +8,7 @@
 	let emailOrUsername = $state('');
 	let password = $state('');
 	let rememberMe = $state(true);
+	let submitting = $state(false);
 
 	let modalEl: HTMLDivElement | null = $state(null);
 	let emailEl: HTMLInputElement | null = $state(null);
@@ -87,10 +88,46 @@
 		queueMicrotask(() => lastActiveEl?.focus());
 	});
 
-	function onSubmit(e: SubmitEvent) {
+	async function onSubmit(e: SubmitEvent) {
 		e.preventDefault();
-		showToast('Login is not wired up yet (UI only).');
-		close();
+		if (submitting) return;
+
+		const username = emailOrUsername.trim();
+		if (!username || !password) {
+			showToast('Please enter a username and password.');
+			return;
+		}
+
+		submitting = true;
+		try {
+			const res = await fetch('/api/login', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ username, password, rememberMe })
+			});
+
+			if (!res.ok) {
+				let message = 'Login failed.';
+				try {
+					const body = (await res.json()) as any;
+					if (typeof body?.error === 'string') message = body.error;
+				} catch {
+					// ignore
+				}
+				showToast(message);
+				return;
+			}
+
+			// The server sets refresh-token cookies; we just consume the returned credentials.
+			await res.json();
+			showToast('Signed in.');
+			password = '';
+			close();
+		} catch {
+			showToast('Login failed.');
+		} finally {
+			submitting = false;
+		}
 	}
 
 	function comingSoon(message: string) {
@@ -176,9 +213,11 @@
 
 				<button
 					type="submit"
-					class="cursor-pointer mt-5 w-full rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-600 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+					disabled={submitting}
+					aria-busy={submitting}
+					class="cursor-pointer mt-5 w-full rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 				>
-					SIGN IN
+					{submitting ? 'SIGNING IN…' : 'SIGN IN'}
 				</button>
 
 				<div class="mt-4 text-center text-xs text-zinc-400">

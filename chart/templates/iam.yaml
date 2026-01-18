@@ -33,12 +33,12 @@ spec:
           - --public-port
           - "3000"
         ports:
-        - containerPort: 3000
-          protocol: TCP
-          name: public
         - containerPort: 80
           protocol: TCP
           name: internal
+        - containerPort: 3000
+          protocol: TCP
+          name: public
 {{- if .Values.prometheus.enabled }}
         - containerPort: 2112
           protocol: TCP

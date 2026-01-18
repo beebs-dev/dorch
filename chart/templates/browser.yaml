@@ -29,6 +29,8 @@ spec:
           value: http://{{ .Release.Name }}-wadinfo
         - name: MASTER_BASE_URL
           value: http://{{ .Release.Name }}-master
+        - name: IAM_BASE_URL
+          value: http://{{ .Release.Name }}-iam
 ---
 apiVersion: v1
 kind: Service

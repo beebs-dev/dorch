@@ -6,6 +6,7 @@
 	import { base, resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
+	import { replaceState } from '$app/navigation';
 
 	let { children } = $props();
 
@@ -14,24 +15,16 @@
 	function openLogin() {
 		loginOpen = true;
 		if (!browser) return;
-		if (window.location.hash !== '#login') {
-			history.replaceState(
-				history.state,
-				'',
-				`${window.location.pathname}${window.location.search}#login`
-			);
+		if ($page.url.hash !== '#login') {
+			replaceState(`${$page.url.pathname}${$page.url.search}#login`, {});
 		}
 	}
 
 	function closeLogin() {
 		loginOpen = false;
 		if (!browser) return;
-		if (window.location.hash === '#login') {
-			history.replaceState(
-				history.state,
-				'',
-				`${window.location.pathname}${window.location.search}`
-			);
+		if ($page.url.hash === '#login') {
+			replaceState(`${$page.url.pathname}${$page.url.search}`, {});
 		}
 	}
 
