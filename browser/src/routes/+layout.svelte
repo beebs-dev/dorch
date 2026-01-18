@@ -9,8 +9,8 @@
 	let { children } = $props();
 
 	const navItems = [
-		{ label: 'WAD BROWSER', href: '/' },
 		{ label: 'SERVERS', href: '/servers' },
+		{ label: 'WAD BROWSER', href: '/' },
 		{ label: 'SETTINGS', href: '/settings' }
 	] as const;
 
