@@ -368,17 +368,30 @@ pub async fn list_jumbotron_mc3u8_urls(State(state): State<App>) -> impl IntoRes
         games.shuffle(&mut rng);
         games.into_iter().take(5).collect()
     };
-    let items: Vec<_> = games
+    let items = match games
         .into_iter()
-        .map(|g| g.game_id)
-        .map(|game_id| JumbotronItem {
-            game_id,
-            url: format!(
-                "https://gibstrim.nyc3.digitaloceanspaces.com/{}/index.m3u8",
-                game_id
-            ),
+        .map(|g| {
+            let info = g
+                .info
+                .ok_or_else(|| anyhow!("unreachable branch: GameSummary has None info"))?;
+            Ok(JumbotronItem {
+                game_id: g.game_id,
+                name: info.name,
+                player_count: info.player_count,
+                max_players: info.max_players,
+                url: format!(
+                    "https://gibstrim.nyc3.digitaloceanspaces.com/{}/index.m3u8",
+                    g.game_id
+                ),
+            })
         })
-        .collect::<Vec<JumbotronItem>>();
+        .collect::<Result<Vec<JumbotronItem>>>()
+    {
+        Ok(v) => v,
+        Err(e) => {
+            return response::error(e.context("Failed to construct jumbotron items"));
+        }
+    };
     let resp = ListJumbotronStreams { items };
     (StatusCode::OK, Json(resp)).into_response()
 }

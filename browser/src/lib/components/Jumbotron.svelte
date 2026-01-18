@@ -370,8 +370,11 @@
 			<div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 p-4">
 				<div class="flex items-end justify-between gap-4">
 					<div class="min-w-0">
+						{#if statusText}
+							<div class="text-xs text-zinc-300">{statusText}</div>
+						{/if}
 						<div
-							class="inline-flex items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-white/10 backdrop-blur"
+							class="mt-2 inline-flex items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-white/10 backdrop-blur"
 						>
 							<span class="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_18px_rgba(239,68,68,0.65)]"
 							></span>
@@ -380,9 +383,6 @@
 								<span class="ml-2 truncate text-zinc-200">{current.game_id}</span>
 							{/if}
 						</div>
-						{#if statusText}
-							<div class="mt-2 text-xs text-zinc-300">{statusText}</div>
-						{/if}
 					</div>
 					<div class="shrink-0">
 						<div
