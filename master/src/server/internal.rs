@@ -16,7 +16,7 @@ use dorch_common::{
     access_log, response,
     types::{GameInfo, GameInfoUpdate, Settable},
 };
-use dorch_types::Game;
+use dorch_types::{Game, GamePhase};
 use kube::{Api, api::ObjectMeta};
 use owo_colors::OwoColorize;
 use std::net::SocketAddr;
@@ -450,6 +450,15 @@ pub async fn list_games_inner(state: App) -> Result<ListGamesResponse> {
         .context("Failed to list games")?;
     let mut games = Vec::with_capacity(list.items.len());
     for game in list.items {
+        if game
+            .status
+            .as_ref()
+            .map(|p| p.phase != GamePhase::Active)
+            .unwrap_or(true)
+        {
+            // Only list active games.
+            continue;
+        }
         let Some(info) = try_get_info(&state, &game).await else {
             eprintln!(
                 "{}{}{}",

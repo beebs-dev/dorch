@@ -1,8 +1,11 @@
 use crate::util::{Error, messages, patch::*};
 use dorch_types::*;
-use k8s_openapi::api::core::v1::{
-    Container, ContainerPort, EnvVar, EnvVarSource, Pod, PodSpec, SecretKeySelector, Volume,
-    VolumeMount,
+use k8s_openapi::{
+    api::core::v1::{
+        Container, ContainerPort, EnvVar, EnvVarSource, Pod, PodSpec, ResourceRequirements,
+        SecretKeySelector, Volume, VolumeMount,
+    },
+    apimachinery::pkg::api::resource::Quantity,
 };
 use kube::{
     Api, Client,
@@ -329,6 +332,15 @@ fn game_pod(
                     ..Default::default()
                 },
             ],
+            resources: Some(ResourceRequirements {
+                limits: Some({
+                    let mut m = std::collections::BTreeMap::new();
+                    m.insert("cpu".to_string(), Quantity("500m".to_string()));
+                    m.insert("memory".to_string(), Quantity("512Mi".to_string()));
+                    m
+                }),
+                ..Default::default()
+            }),
             restart_policy: Some("Never".to_string()),
             ..Default::default()
         }),
