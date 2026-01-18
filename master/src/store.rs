@@ -113,10 +113,6 @@ impl GameInfoStore {
             }
         }
 
-        let name = hash
-            .get("name")
-            .cloned()
-            .context("Missing 'name' in game info hash")?;
         let current_map = hash
             .get("current_map")
             .cloned()
@@ -176,7 +172,7 @@ impl GameInfoStore {
         let sv_allowfreelook = parse_bool(&hash, "sv_allowfreelook", true)?;
         Ok(Some(GameInfo {
             private,
-            name,
+            name: Default::default(), // filled in by k8s
             max_players,
             player_count,
             skill,
