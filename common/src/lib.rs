@@ -308,6 +308,13 @@ pub mod response {
         err_resp(e, StatusCode::UNAUTHORIZED)
     }
 
+    pub fn invalid_credentials() -> Response {
+        err_resp(
+            anyhow::anyhow!("Invalid username or password"),
+            StatusCode::UNAUTHORIZED,
+        )
+    }
+
     pub fn service_unavailable<T>(e: T) -> Response
     where
         T: Into<Error> + Display + Debug,

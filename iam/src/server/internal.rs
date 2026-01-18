@@ -6,12 +6,12 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use dorch_common::{access_log, response};
 use http::StatusCode;
 use owo_colors::OwoColorize;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use dorch_common::{access_log, response};
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -346,6 +346,10 @@ pub async fn get_user_by_access_token(state: &App, access_token: &str) -> Result
         .context("Failed to parse /userinfo response")?;
 
     resolve_user(state, &claims.sub, &claims.preferred_username).await
+}
+
+pub async fn get_user_by_email(state: &App, email: &str) -> Result<Option<User>> {
+    todo!()
 }
 
 pub async fn get_user_by_username(state: &App, username: &str) -> Result<Option<User>> {
@@ -801,6 +805,27 @@ pub async fn register(
 }
 
 pub async fn login(State(state): State<App>, Json(req): Json<LoginRequest>) -> impl IntoResponse {
+    // Is the username actually an email?
+    let username = if req.username.contains('@') {
+        // Resolve the username based on the email
+        match get_user_by_email(&state, &req.username).await {
+            Ok(Some(user)) => {
+                println!(
+                    "{}{}{}{}",
+                    "🔓 User logging in by email • email=".cyan(),
+                    req.username.cyan().dimmed(),
+                    " • resolved username=".cyan(),
+                    user.username.cyan().dimmed()
+                );
+                user.username
+            }
+            Ok(None) => return response::invalid_credentials(),
+            Err(e) => return response::error(e.context("Failed to get user by email")),
+        }
+    } else {
+        req.username
+    };
+
     // Build the token endpoint. Support KC_ENDPOINT with or without trailing "/realms/{realm}"
     let base = state.kc.endpoint.trim_end_matches('/');
     let url = if base.contains("/realms/") {
@@ -818,7 +843,7 @@ pub async fn login(State(state): State<App>, Json(req): Json<LoginRequest>) -> i
             ("grant_type", "password"),
             ("client_id", state.kc.client_id.as_str()),
             ("client_secret", state.kc.client_secret.as_str()),
-            ("username", req.username.as_str()),
+            ("username", username.as_str()),
             ("password", req.password.as_str()),
             ("scope", "openid offline_access"),
         ])
@@ -831,10 +856,7 @@ pub async fn login(State(state): State<App>, Json(req): Json<LoginRequest>) -> i
         }
     };
     if res.status() == axum::http::StatusCode::UNAUTHORIZED {
-        return response::unauthorized(anyhow::anyhow!(
-            "Invalid username or password for user '{}'",
-            req.username
-        ));
+        return response::invalid_credentials();
     }
     if !res.status().is_success() {
         let code = res.status();
