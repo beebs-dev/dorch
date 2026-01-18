@@ -6,7 +6,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use axum::{
     Json, Router,
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderMap, Response, StatusCode},
     middleware,
     response::IntoResponse,
     routing::{get, post},
@@ -35,7 +35,7 @@ pub async fn run_server(cancel: CancellationToken, port: u16, app_state: App) ->
         .route("/game/{game_id}/info", post(update_game_info))
         .route(
             "/game/{game_id}/liveshot",
-            get(get_live_shot).put(put_live_shot),
+            get(get_live_shot).post(post_live_shot),
         )
         .with_state(app_state)
         .layer(middleware::from_fn(access_log::internal));
@@ -73,20 +73,36 @@ async fn health() -> impl IntoResponse {
 pub async fn get_live_shot(
     State(state): State<App>,
     Path(game_id): Path<Uuid>,
-) -> impl IntoResponse {
+) -> Response<axum::body::Body> {
     match state.store.get_live_shot(game_id).await {
-        Ok(Some(liveshot)) => (StatusCode::OK, Json(liveshot)).into_response(),
-        Ok(None) => response::not_found(anyhow!("Game live shot not found")),
-        Err(e) => response::error(e.context("Failed to get game live shot")),
+        Ok(Some((data, content_type))) => Response::builder()
+            .status(StatusCode::OK)
+            .header("Content-Type", content_type)
+            .body(Bytes::from(data).into())
+            .unwrap(),
+        Ok(None) => response::not_found(anyhow!("Game live shot not found")).into_response(),
+        Err(e) => response::error(e.context("Failed to get game live shot")).into_response(),
     }
 }
 
-pub async fn put_live_shot(
+pub async fn post_live_shot(
     State(state): State<App>,
     Path(game_id): Path<Uuid>,
+    headers: HeaderMap,
     body: Bytes,
 ) -> impl IntoResponse {
-    match state.store.set_live_shot(game_id, &body).await {
+    let content_type = match headers.get("Content-Type") {
+        Some(ct) => match ct.to_str() {
+            Ok(s) => s,
+            Err(_) => return response::bad_request(anyhow!("Invalid Content-Type header")),
+        },
+        None => return response::bad_request(anyhow!("Missing Content-Type header")),
+    };
+    match state
+        .store
+        .set_live_shot(game_id, &body, content_type)
+        .await
+    {
         Ok(()) => StatusCode::OK.into_response(),
         Err(e) => response::error(e.context("Failed to set game live shot")),
     }

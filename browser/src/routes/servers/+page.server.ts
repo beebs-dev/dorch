@@ -2,7 +2,7 @@ import type { PageServerLoad } from './$types';
 import { createDorchMasterClient } from '$lib/server/dorchmaster';
 import { createWadinfoClient } from '$lib/server/wadinfo';
 import type { GameSummary } from '$lib/types/games';
-import type { MapReference, WadMeta } from '$lib/types/wadinfo';
+import type { WadMeta } from '$lib/types/wadinfo';
 
 type ServerRow = {
 	game: GameSummary;
@@ -59,53 +59,21 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 			.map((fileId) => wadNameById.get(fileId) ?? fileId)
 			.filter((s) => s != "Doom Shareware v1.9"); // Omit common PWAD name
 		const pwadName = pwadNames.length ? pwadNames.join(' | ') : null;
+
+		const currentMap = game.info?.current_map;
+		const wadId = game.files?.[game.files.length - 1] ?? game.iwad;
+		const thumbnailUrl =
+			currentMap && wadId
+				? `/game/${encodeURIComponent(game.game_id)}/thumb?wad_id=${encodeURIComponent(wadId)}&map=${encodeURIComponent(currentMap)}`
+				: undefined;
+
 		return {
 			game,
+			thumbnailUrl,
 			iwadName: wadNameById.get(game.iwad) ?? game.iwad,
 			pwadName
 		};
 	});
-
-	// Resolve all map thumbnails in one trip.
-	try {
-		const wanted: MapReference[] = [];
-		for (const row of rows) {
-			const currentMap = row.game.info?.current_map;
-			if (!currentMap) continue;
-
-			// Prefer the first PWAD if present, otherwise fall back to IWAD.
-			const wadId = row.game.files?.[row.game.files.length - 1] ?? row.game.iwad;
-			if (!wadId) continue;
-
-			wanted.push({ wad_id: wadId, map: currentMap });
-		}
-
-		// De-dupe to keep payload small.
-		const seen = new Set<string>();
-		const deduped = wanted.filter((r) => {
-			const key = `${r.wad_id}:${r.map}`;
-			if (seen.has(key)) return false;
-			seen.add(key);
-			return true;
-		});
-		console.log('De-duped map thumbnails for servers page:', {deduped});
-
-		if (deduped.length) {
-			const resolved = await wadinfo.resolveMapThumbnails(deduped);
-			console.log('Resolved map thumbnails for servers page:', {resolved, wanted});
-			const byKey = new Map(resolved.map((t) => [`${t.wad_id}:${t.map}`, t.url] as const));
-			for (const row of rows) {
-				const currentMap = row.game.info?.current_map;
-				if (!currentMap) continue;
-				const wadId = row.game.files?.[row.game.files.length - 1] ?? row.game.iwad;
-				if (!wadId) continue;
-				const url = byKey.get(`${wadId}:${currentMap}`);
-				if (url) row.thumbnailUrl = url;
-			}
-		}
-	} catch {
-		// Best-effort only; servers page should still render without thumbnails.
-	}
 
 	// Short TTL; servers list changes frequently.
 	setHeaders({ 'cache-control': 'private, max-age=0, s-maxage=5' });

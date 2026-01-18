@@ -19,36 +19,49 @@ impl GameInfoStore {
         Self { pool }
     }
 
-    pub async fn get_live_shot(&self, game_id: Uuid) -> Result<Option<Vec<u8>>> {
-        let key = key_live_shot(game_id.to_string().as_str());
+    pub async fn get_live_shot(&self, game_id: Uuid) -> Result<Option<(Vec<u8>, String)>> {
+        let gid = game_id.to_string();
+        let key = key_live_shot(gid.as_str());
+        let ct_key = key_live_shot_content_type(gid.as_str());
         let mut conn = self
             .pool
             .get()
             .await
             .context("Failed to get Redis connection")?;
-        let value: Option<Vec<u8>> = redis::cmd("GET")
-            .arg(&key)
+        let (value, content_type): (Option<Vec<u8>>, Option<String>) = redis::pipe()
+            .get(&key)
+            .get(&ct_key)
             .query_async(&mut conn)
             .await
             .context("Failed to fetch live shot from Redis")?;
-        Ok(value)
+        Ok(match (value, content_type) {
+            (Some(data), Some(ct)) => Some((data, ct)),
+            _ => None,
+        })
     }
 
-    pub async fn set_live_shot(&self, game_id: Uuid, data: &[u8]) -> Result<()> {
-        let key = key_live_shot(game_id.to_string().as_str());
+    pub async fn set_live_shot(
+        &self,
+        game_id: Uuid,
+        data: &[u8],
+        content_type: &str,
+    ) -> Result<()> {
+        let gid = game_id.to_string();
+        let key = key_live_shot(gid.as_str());
+        let ct_key = key_live_shot_content_type(gid.as_str());
         let mut conn = self
             .pool
             .get()
             .await
             .context("Failed to get Redis connection")?;
-        let _: () = redis::cmd("SET")
-            .arg(&key)
-            .arg(data)
-            .arg("EX")
-            .arg(TTL_SECONDS)
+        let _: () = redis::pipe()
+            .set(&key, data)
+            .expire(&key, TTL_SECONDS)
+            .set(&ct_key, content_type)
+            .expire(&ct_key, TTL_SECONDS)
             .query_async(&mut conn)
             .await
-            .context("Failed to set live shot in Redis")?;
+            .context("Failed to set live shot and content type in Redis")?;
         Ok(())
     }
 
@@ -283,5 +296,9 @@ fn key_game_info(game_id: &str) -> String {
 }
 
 fn key_live_shot(game_id: &str) -> String {
-    format!("gls:{}", game_id)
+    format!("gls:{{{}}}", game_id)
+}
+
+fn key_live_shot_content_type(game_id: &str) -> String {
+    format!("gls:{{{}}}:ct", game_id)
 }
