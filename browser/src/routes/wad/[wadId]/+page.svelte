@@ -760,10 +760,7 @@
 		isolation: isolate;
 		overflow: hidden;
 		transform: translateZ(0);
-		filter:
-			drop-shadow(
-				0 0 6px color-mix(in oklab, var(--dorch-play-glow-color) 45%, transparent)
-			);
+		filter: drop-shadow(0 0 6px color-mix(in oklab, var(--dorch-play-glow-color) 45%, transparent));
 		animation: dorch-play-idle 12s ease-in-out infinite;
 		transition:
 			transform 120ms ease,
@@ -787,7 +784,6 @@
 		animation: dorch-play-pan-idle 12s linear infinite;
 	}
 
-
 	.dorch-play-button > :global(*) {
 		position: relative;
 		z-index: 1;
@@ -796,11 +792,8 @@
 	.dorch-play-button:hover,
 	.dorch-play-button:focus-visible {
 		animation: dorch-play-rage 900ms ease-in-out infinite;
-		filter:
-			brightness(1.12) saturate(1.16) contrast(1.06)
-			drop-shadow(
-				0 0 22px color-mix(in oklab, var(--dorch-play-glow-color) 72%, transparent)
-			);
+		filter: brightness(1.12) saturate(1.16) contrast(1.06)
+			drop-shadow(0 0 22px color-mix(in oklab, var(--dorch-play-glow-color) 72%, transparent));
 	}
 
 	.dorch-play-button:hover::before,
@@ -813,11 +806,8 @@
 	.dorch-play-button:active {
 		animation: dorch-play-hit 160ms ease-out 1;
 		transform: scale(0.98);
-		filter:
-			brightness(1.12) saturate(1.12)
-			drop-shadow(
-				0 0 26px color-mix(in oklab, var(--dorch-play-glow-color) 76%, transparent)
-			);
+		filter: brightness(1.12) saturate(1.12)
+			drop-shadow(0 0 26px color-mix(in oklab, var(--dorch-play-glow-color) 76%, transparent));
 	}
 
 	.dorch-play-button:active::before {
@@ -830,41 +820,30 @@
 		0%,
 		78% {
 			transform: none;
-			filter:
-				drop-shadow(
-					0 0 6px color-mix(in oklab, var(--dorch-play-glow-color) 45%, transparent)
-				);
+			filter: drop-shadow(
+				0 0 6px color-mix(in oklab, var(--dorch-play-glow-color) 45%, transparent)
+			);
 		}
 		82% {
 			transform: translateY(-1px) scale(1.01);
-			filter:
-				brightness(1.05) saturate(1.06)
-				drop-shadow(
-					0 0 12px color-mix(in oklab, var(--dorch-play-glow-color) 56%, transparent)
-				);
+			filter: brightness(1.05) saturate(1.06)
+				drop-shadow(0 0 12px color-mix(in oklab, var(--dorch-play-glow-color) 56%, transparent));
 		}
 		86% {
 			transform: translateY(0px) scale(1.015);
-			filter:
-				brightness(1.07) saturate(1.08)
-				drop-shadow(
-					0 0 18px color-mix(in oklab, var(--dorch-play-glow-color) 66%, transparent)
-				);
+			filter: brightness(1.07) saturate(1.08)
+				drop-shadow(0 0 18px color-mix(in oklab, var(--dorch-play-glow-color) 66%, transparent));
 		}
 		92% {
 			transform: translateY(-1px) scale(1.01);
-			filter:
-				brightness(1.05) saturate(1.06)
-				drop-shadow(
-					0 0 14px color-mix(in oklab, var(--dorch-play-glow-color) 58%, transparent)
-				);
+			filter: brightness(1.05) saturate(1.06)
+				drop-shadow(0 0 14px color-mix(in oklab, var(--dorch-play-glow-color) 58%, transparent));
 		}
 		100% {
 			transform: none;
-			filter:
-				drop-shadow(
-					0 0 6px color-mix(in oklab, var(--dorch-play-glow-color) 45%, transparent)
-				);
+			filter: drop-shadow(
+				0 0 6px color-mix(in oklab, var(--dorch-play-glow-color) 45%, transparent)
+			);
 		}
 	}
 
@@ -962,19 +941,13 @@
 	@keyframes dorch-play-hit {
 		0% {
 			transform: scale(1.02);
-			filter:
-				brightness(1.18) saturate(1.2)
-				drop-shadow(
-					0 0 28px color-mix(in oklab, var(--dorch-play-glow-color) 82%, transparent)
-				);
+			filter: brightness(1.18) saturate(1.2)
+				drop-shadow(0 0 28px color-mix(in oklab, var(--dorch-play-glow-color) 82%, transparent));
 		}
 		100% {
 			transform: scale(0.98);
-			filter:
-				brightness(1.08) saturate(1.08)
-				drop-shadow(
-					0 0 10px color-mix(in oklab, var(--dorch-play-glow-color) 48%, transparent)
-				);
+			filter: brightness(1.08) saturate(1.08)
+				drop-shadow(0 0 10px color-mix(in oklab, var(--dorch-play-glow-color) 48%, transparent));
 		}
 	}
 

@@ -57,7 +57,7 @@
 
 <a
 	bind:this={buttonEl}
-	href={href}
+	{href}
 	class={`dorch-play-button flex items-center justify-center rounded-lg px-6 py-2.5 text-lg text-zinc-100 ring-1 ring-red-950/60 ring-inset focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none ${className}`}
 	aria-label={ariaLabel ?? label}
 	onpointerenter={() => (hovered = true)}

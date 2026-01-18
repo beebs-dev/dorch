@@ -14,7 +14,8 @@
 
 	const pageTitle = $derived(() => `${info()?.name ?? data.gameId} - GIB.GG`);
 	const videoSrc = $derived(
-		() => `https://gibstrim.nyc3.digitaloceanspaces.com/${encodeURIComponent(data.gameId)}/index.m3u8`
+		() =>
+			`https://gibstrim.nyc3.digitaloceanspaces.com/${encodeURIComponent(data.gameId)}/index.m3u8`
 	);
 
 	let identity = $state(randomIdent());
@@ -158,7 +159,7 @@
 			<h1 class="truncate text-2xl font-semibold tracking-tight">
 				{info()?.name ?? 'Game'}
 			</h1>
-			<div class="mt-1 text-sm text-zinc-400 font-[var(--dorch-mono)] tracking-wide">
+			<div class="mt-1 text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-400">
 				Game ID: {data.gameId}
 			</div>
 		</div>
@@ -175,7 +176,7 @@
 	<div class="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
 		<!-- Left: basic server info + JOIN -->
 		<div class="space-y-4">
-			<div class="rounded-xl bg-zinc-950 ring-1 ring-red-950/60 ring-inset p-4">
+			<div class="rounded-xl bg-zinc-950 p-4 ring-1 ring-red-950/60 ring-inset">
 				<div class="flex items-start justify-between gap-4">
 					<div class="min-w-0">
 						<div class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">SERVER</div>
@@ -193,7 +194,9 @@
 							ariaLabel="Join"
 							className="inline-flex rounded-xl px-8 py-4 text-xl"
 						/>
-						<div class="mt-2 text-center text-xs text-zinc-500 font-[var(--dorch-mono)] tracking-wide">
+						<div
+							class="mt-2 text-center text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-500"
+						>
 							identity: {identity}
 						</div>
 					</div>
@@ -219,7 +222,9 @@
 				</div>
 
 				<div class="mt-4 rounded-lg bg-zinc-900/40 p-3 ring-1 ring-red-950/40 ring-inset">
-					<div class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">CURRENT MAP</div>
+					<div class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">
+						CURRENT MAP
+					</div>
 					<div class="mt-1 flex flex-wrap items-center gap-2">
 						{#if currentMap()}
 							{#if currentMapWadId()}
@@ -247,7 +252,7 @@
 				</div>
 			</div>
 
-			<div class="rounded-xl bg-zinc-950 ring-1 ring-red-950/60 ring-inset p-4">
+			<div class="rounded-xl bg-zinc-950 p-4 ring-1 ring-red-950/60 ring-inset">
 				<div class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">WADS</div>
 				<div class="mt-3 space-y-3">
 					{#each data.wads as wad (wad.id)}
@@ -270,7 +275,9 @@
 							</div>
 							{#if wad.mapNames.length}
 								<details class="mt-2">
-									<summary class="cursor-pointer select-none text-xs text-zinc-400 hover:text-zinc-200">
+									<summary
+										class="cursor-pointer text-xs text-zinc-400 select-none hover:text-zinc-200"
+									>
 										Maps ({wad.mapNames.length})
 									</summary>
 									<div class="mt-2 flex flex-wrap gap-2">
@@ -289,7 +296,9 @@
 									</div>
 								</details>
 							{:else}
-								<div class="mt-2 text-xs text-zinc-500">No maps available (or wadinfo unavailable).</div>
+								<div class="mt-2 text-xs text-zinc-500">
+									No maps available (or wadinfo unavailable).
+								</div>
 							{/if}
 						</div>
 					{/each}
@@ -299,9 +308,11 @@
 
 		<!-- Right: hero video -->
 		<div class="space-y-4">
-			<div class="rounded-xl bg-zinc-950 ring-1 ring-red-950/60 ring-inset overflow-hidden">
-				<div class="flex items-center justify-between px-4 py-3 bg-red-950/25">
-					<div class="flex items-center gap-2 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-200">
+			<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-red-950/60 ring-inset">
+				<div class="flex items-center justify-between bg-red-950/25 px-4 py-3">
+					<div
+						class="flex items-center gap-2 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-200"
+					>
 						<span
 							class="inline-block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-red-200/20"
 							aria-label="Recording"
@@ -309,7 +320,7 @@
 						></span>
 						<span>LIVE VIEW</span>
 					</div>
-					<div class="text-xs text-zinc-400 font-[var(--dorch-mono)] tracking-wide">
+					<div class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">
 						{#if data.fetchedAt}
 							updated: {new Date(data.fetchedAt).toLocaleTimeString()}
 						{/if}
@@ -325,27 +336,37 @@
 						controls
 					></video>
 					{#if hlsError}
-						<div class="absolute left-3 bottom-3 rounded-md bg-zinc-950/80 px-3 py-2 text-xs text-zinc-200 ring-1 ring-red-950/60 ring-inset">
+						<div
+							class="absolute bottom-3 left-3 rounded-md bg-zinc-950/80 px-3 py-2 text-xs text-zinc-200 ring-1 ring-red-950/60 ring-inset"
+						>
 							HLS error: {hlsError}
 						</div>
 					{/if}
 				</div>
 			</div>
 
-			<div class="rounded-xl bg-zinc-950 ring-1 ring-red-950/60 ring-inset p-4">
-				<div class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">SERVER DETAILS</div>
+			<div class="rounded-xl bg-zinc-950 p-4 ring-1 ring-red-950/60 ring-inset">
+				<div class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">
+					SERVER DETAILS
+				</div>
 				<div class="mt-3 grid grid-cols-1 gap-2 text-sm text-zinc-200">
 					<div class="flex items-center justify-between gap-3">
 						<span class="text-zinc-400">Cheats</span>
-						<span class="font-[var(--dorch-mono)] tracking-wide">{info()?.sv_cheats ? 'on' : 'off'}</span>
+						<span class="font-[var(--dorch-mono)] tracking-wide"
+							>{info()?.sv_cheats ? 'on' : 'off'}</span
+						>
 					</div>
 					<div class="flex items-center justify-between gap-3">
 						<span class="text-zinc-400">Monsters</span>
-						<span class="font-[var(--dorch-mono)] tracking-wide">{info()?.sv_monsters ? 'on' : 'off'}</span>
+						<span class="font-[var(--dorch-mono)] tracking-wide"
+							>{info()?.sv_monsters ? 'on' : 'off'}</span
+						>
 					</div>
 					<div class="flex items-center justify-between gap-3">
 						<span class="text-zinc-400">Fast Monsters</span>
-						<span class="font-[var(--dorch-mono)] tracking-wide">{info()?.sv_fastmonsters ? 'on' : 'off'}</span>
+						<span class="font-[var(--dorch-mono)] tracking-wide"
+							>{info()?.sv_fastmonsters ? 'on' : 'off'}</span
+						>
 					</div>
 				</div>
 			</div>

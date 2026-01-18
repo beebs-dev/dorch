@@ -1,6 +1,15 @@
 import { env } from '$env/dynamic/private';
 import type { ListGamesResponse } from '$lib/types/games';
 
+export type JumbotronItem = {
+	game_id: string;
+	url: string;
+};
+
+export type JumbotronResponse = {
+	items: JumbotronItem[];
+};
+
 class DorchMasterHttpError extends Error {
 	readonly status: number;
 	readonly body?: string;
@@ -55,6 +64,10 @@ export function createDorchMasterClient(fetchFn: typeof fetch) {
 	return {
 		async listGames(): Promise<ListGamesResponse> {
 			return requestJson<ListGamesResponse>(fetchFn, '/game');
+		},
+		async getJumbotron(): Promise<JumbotronResponse> {
+			// dorch-master returns: { items: [{ game_id, url }, ...] }
+			return requestJson<JumbotronResponse>(fetchFn, '/jumbotron');
 		},
 		DorchMasterHttpError
 	};

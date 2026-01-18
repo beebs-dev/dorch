@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import Jumbotron from '$lib/components/Jumbotron.svelte';
+	import { resolve } from '$app/paths';
 	import { goto, invalidateAll } from '$app/navigation';
 
 	let { data }: { data: PageData } = $props();
@@ -78,12 +80,8 @@
 		}
 	}
 
-	function gameHref(gameId: string): string {
-		return `/servers/${encodeURIComponent(gameId)}`;
-	}
-
 	async function openGame(gameId: string) {
-		await goto(gameHref(gameId));
+		await goto(resolve(`/servers/${encodeURIComponent(gameId)}`));
 	}
 
 	async function onRowKeyDown(e: KeyboardEvent, gameId: string) {
@@ -95,6 +93,7 @@
 
 	const rows = $derived(() => data.rows ?? []);
 	const fetchedAt = $derived(() => (data.fetchedAt ? new Date(data.fetchedAt) : null));
+	const jumbotronItems = $derived(() => data.jumbotronItems ?? []);
 </script>
 
 <svelte:head>
@@ -102,6 +101,10 @@
 </svelte:head>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
+	<div class="mb-6">
+		<Jumbotron items={jumbotronItems()} intervalMs={5000} />
+	</div>
+
 	<div class="flex flex-wrap items-end justify-between gap-4">
 		<div>
 			<h1 class="text-2xl font-semibold tracking-tight">Servers</h1>
@@ -226,7 +229,7 @@
 
 								<td class="px-4 py-3">
 									<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
-											{row.iwadName}
+										{row.iwadName}
 									</div>
 								</td>
 

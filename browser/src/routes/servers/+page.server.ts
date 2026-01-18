@@ -19,6 +19,15 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 	const dorch = createDorchMasterClient(fetch);
 	const wadinfo = createWadinfoClient(fetch);
 
+	let jumbotronItems: { game_id: string; url: string }[] = [];
+	try {
+		const resp = await dorch.getJumbotron();
+		jumbotronItems = resp.items ?? [];
+	} catch {
+		// Best-effort only; jumbotron is optional.
+		jumbotronItems = [];
+	}
+
 	let games: GameSummary[];
 	let errorMessage: string | null = null;
 
@@ -57,7 +66,7 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 		const pwadNames = (game.files ?? [])
 			.filter(Boolean)
 			.map((fileId) => wadNameById.get(fileId) ?? fileId)
-			.filter((s) => s != "Doom Shareware v1.9"); // Omit common PWAD name
+			.filter((s) => s != 'Doom Shareware v1.9'); // Omit common PWAD name
 		const pwadName = pwadNames.length ? pwadNames.join(' | ') : null;
 
 		const currentMap = game.info?.current_map;
@@ -80,6 +89,7 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 
 	return {
 		rows,
+		jumbotronItems,
 		errorMessage,
 		fetchedAt: Date.now()
 	};
