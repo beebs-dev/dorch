@@ -10,7 +10,7 @@
 	const navItems = [
 		{ label: 'SERVERS', href: '/' },
 		{ label: 'WAD BROWSER', href: '/wad' },
-		{ label: 'ACCOUNT', href: '/account' }
+		{ label: 'LOGIN', href: '/login' }
 	] as const;
 
 	function isActive(href: string, pathname: string) {
