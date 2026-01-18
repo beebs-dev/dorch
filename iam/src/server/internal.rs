@@ -349,7 +349,68 @@ pub async fn get_user_by_access_token(state: &App, access_token: &str) -> Result
 }
 
 pub async fn get_user_by_email(state: &App, email: &str) -> Result<Option<User>> {
-    todo!()
+    let client = reqwest::Client::new();
+
+    // 1) Get service token (client credentials)
+    let token = kc_service_token(
+        &client,
+        &state.kc.endpoint,
+        &state.kc.realm,
+        &state.kc.client_id,
+        &state.kc.client_secret,
+    )
+    .await?;
+
+    // 2) Build Admin API URL
+    let admin_base = kc_admin_base(&state.kc.endpoint, &state.kc.realm)?;
+    let url = Url::parse_with_params(
+        &format!("{}/users", admin_base),
+        &[("email", email), ("exact", "true")],
+    )
+    .context("Failed to build Keycloak users search URL")?;
+
+    // 3) Query Keycloak
+    let res = client
+        .get(url)
+        .bearer_auth(&token)
+        .send()
+        .await
+        .context("Keycloak users search request failed")?;
+
+    if !res.status().is_success() {
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        bail!("Keycloak users search failed: {} {}", status, body);
+    }
+
+    // 4) Expect an array; pick the first exact match (Keycloak may still return multiple)
+    let users_json: Value = res
+        .json()
+        .await
+        .context("Failed to parse Keycloak users search response")?;
+    let arr = users_json
+        .as_array()
+        .ok_or_else(|| anyhow!("Keycloak users search did not return an array"))?;
+
+    if arr.is_empty() {
+        return Ok(None);
+    }
+
+    let email_lower = email.to_ascii_lowercase();
+    let matched = arr.iter().find(|u| {
+        u.get("email")
+            .and_then(|e| e.as_str())
+            .map(|e| e.to_ascii_lowercase() == email_lower)
+            .unwrap_or(false)
+    });
+
+    let Some(user_val) = matched else {
+        return Ok(None);
+    };
+
+    let user: User = serde_json::from_value(user_val.clone())
+        .context("Failed to deserialize user into your User type; check field mappings/renames")?;
+    Ok(Some(user))
 }
 
 pub async fn get_user_by_username(state: &App, username: &str) -> Result<Option<User>> {
