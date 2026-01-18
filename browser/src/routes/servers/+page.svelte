@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 
 	let { data }: { data: PageData } = $props();
 
@@ -83,6 +83,21 @@
 		alert(`Join not implemented yet (game_id: ${gameId})`);
 	}
 
+	function gameHref(gameId: string): string {
+		return `/game/${encodeURIComponent(gameId)}`;
+	}
+
+	async function openGame(gameId: string) {
+		await goto(gameHref(gameId));
+	}
+
+	async function onRowKeyDown(e: KeyboardEvent, gameId: string) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			await openGame(gameId);
+		}
+	}
+
 	const rows = $derived(() => data.rows ?? []);
 	const fetchedAt = $derived(() => (data.fetchedAt ? new Date(data.fetchedAt) : null));
 </script>
@@ -147,7 +162,14 @@
 						</tr>
 					{:else}
 						{#each rows() as row (row.game.game_id)}
-							<tr class="hover:bg-zinc-900/35">
+							<tr
+								class="cursor-pointer hover:bg-zinc-900/35"
+								role="link"
+								tabindex="0"
+								aria-label={`Open game ${row.game.info?.name ?? row.game.game_id}`}
+								onclick={() => openGame(row.game.game_id)}
+								onkeydown={(e) => onRowKeyDown(e, row.game.game_id)}
+							>
 								<td class="px-4 py-3">
 									<div class="flex items-center gap-3">
 										{#if row.thumbnailUrl}
@@ -219,6 +241,8 @@
 											href={`https://dorch.beebs.dev/play/?g=${encodeURIComponent(row.game.game_id)}&identity=${randomIdent()}`}
 											type="button"
 											class="rounded-md bg-red-950/30 px-3 py-2 text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-950/45 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+											onclick={(e) => e.stopPropagation()}
+											onkeydown={(e) => e.stopPropagation()}
 										>
 											Join
 										</a>
