@@ -8,6 +8,8 @@
 		name?: string;
 		player_count?: number;
 		max_players?: number;
+		monster_kill_count?: number;
+		monster_total?: number;
 	};
 
 	export let items: JumbotronItem[] = [];
@@ -395,6 +397,14 @@
 									class="inline-flex items-center rounded-full bg-black/35 px-3 py-1 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-200 ring-1 ring-white/10 backdrop-blur"
 								>
 									{current.player_count ?? 0}/{current.max_players} players
+								</div>
+							{/if}
+
+							{#if current && current.monster_total != null}
+								<div
+									class="inline-flex items-center rounded-full bg-black/35 px-3 py-1 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-200 ring-1 ring-white/10 backdrop-blur"
+								>
+									{current.monster_kill_count ?? 0}/{current.monster_total} kills
 								</div>
 							{/if}
 						</div>

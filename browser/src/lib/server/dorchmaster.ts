@@ -7,6 +7,8 @@ export type JumbotronItem = {
 	name?: string;
 	player_count?: number;
 	max_players?: number;
+	monster_kill_count?: number;
+	monster_total?: number;
 };
 
 export type JumbotronResponse = {
