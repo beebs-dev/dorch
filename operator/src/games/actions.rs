@@ -323,7 +323,7 @@ fn game_pod(
                         env.push(EnvVar {
                             name: "RTMP_ENDPOINT".to_string(),
                             value: Some(format!(
-                                "rtmp://strim-strim.strim.svc.cluster.local/live/{}",
+                                "rtmp://strim-strim.strim.svc.cluster.local:7080/live/{}",
                                 instance.spec.game_id
                             )),
                             ..Default::default()
