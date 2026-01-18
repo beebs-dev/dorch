@@ -78,11 +78,6 @@
 		}
 	}
 
-	function join(gameId: string) {
-		// Stub for now.
-		alert(`Join not implemented yet (game_id: ${gameId})`);
-	}
-
 	function gameHref(gameId: string): string {
 		return `/game/${encodeURIComponent(gameId)}`;
 	}

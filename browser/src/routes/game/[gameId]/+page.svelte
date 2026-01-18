@@ -159,7 +159,7 @@
 				{info()?.name ?? 'Game'}
 			</h1>
 			<div class="mt-1 text-sm text-zinc-400 font-[var(--dorch-mono)] tracking-wide">
-				game_id: {data.gameId}
+				Game ID: {data.gameId}
 			</div>
 		</div>
 		<div class="flex items-center gap-2">
