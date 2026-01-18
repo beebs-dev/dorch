@@ -135,7 +135,7 @@
 											</div>
 											<div class="truncate text-xs text-zinc-400">
 												{#if row.game.files?.length}
-													PWAD: {row.pwadName}
+													{row.pwadName}
 												{:else}
 													&nbsp;
 												{/if}

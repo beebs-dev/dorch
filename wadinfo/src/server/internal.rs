@@ -153,8 +153,22 @@ pub async fn resolve_map_thumbnails(
     State(state): State<App>,
     Json(req): Json<ResolveMapThumbnailsRequest>,
 ) -> impl IntoResponse {
+    println!(
+        "{}{}",
+        "🔍 Resolving map thumbnails • items=".green(),
+        format!("{:?}", req.items).green().dimmed()
+    );
     match state.db.resolve_map_thumbnails(&req.items).await {
-        Ok(items) => (StatusCode::OK, Json(ResolveMapThumbnailsResponse { items })).into_response(),
+        Ok(items) => {
+            println!(
+                "{}{}{}{}",
+                "✅ Resolved map thumbnails • wanted=".green(),
+                req.items.len().to_string().green().dimmed(),
+                " • items=".green(),
+                format!("{:?}", items).green().dimmed()
+            );
+            (StatusCode::OK, Json(ResolveMapThumbnailsResponse { items })).into_response()
+        }
         Err(e) => response::error(e.context("Failed to resolve map thumbnails")),
     }
 }

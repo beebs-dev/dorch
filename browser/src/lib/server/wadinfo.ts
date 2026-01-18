@@ -203,6 +203,7 @@ export function createWadinfoClient(fetchFn: typeof fetch) {
 		},
 
 		async resolveMapThumbnails(items: MapReference[]): Promise<MapThumbnail[]> {
+			console.log('Requesting map thumbnails from wadinfo:', {items});
 			const res = await requestJson<ResolveMapThumbnailsResponse>(
 				fetchFn,
 				'/thumbnails',
@@ -215,6 +216,7 @@ export function createWadinfoClient(fetchFn: typeof fetch) {
 				},
 				{ internal: true }
 			);
+			console.log('Received map thumbnails from wadinfo:', res);
 			return (res.items ?? []).map(normalizeMapThumbnail);
 		},
 

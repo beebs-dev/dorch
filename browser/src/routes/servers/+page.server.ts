@@ -34,8 +34,9 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 	const wantedWadIds = new Set<string>();
 	for (const game of games) {
 		if (game.iwad) wantedWadIds.add(game.iwad);
-		const firstFile = game.files?.[0];
-		if (firstFile) wantedWadIds.add(firstFile);
+		for (const file of game.files ?? []) {
+			if (file) wantedWadIds.add(file);
+		}
 	}
 
 	const wadNameById = new Map<string, string>();
@@ -53,11 +54,15 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 	}
 
 	const rows: ServerRow[] = games.map((game) => {
-		const firstFile = game.files?.[0] ?? null;
+		const pwadNames = (game.files ?? [])
+			.filter(Boolean)
+			.map((fileId) => wadNameById.get(fileId) ?? fileId)
+			.filter((s) => s != "Doom Shareware v1.9"); // Omit common PWAD name
+		const pwadName = pwadNames.length ? pwadNames.join(' | ') : null;
 		return {
 			game,
 			iwadName: wadNameById.get(game.iwad) ?? game.iwad,
-			pwadName: firstFile ? (wadNameById.get(firstFile) ?? firstFile) : null
+			pwadName
 		};
 	});
 
@@ -69,7 +74,7 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 			if (!currentMap) continue;
 
 			// Prefer the first PWAD if present, otherwise fall back to IWAD.
-			const wadId = row.game.files?.[0] ?? row.game.iwad;
+			const wadId = row.game.files?.[row.game.files.length - 1] ?? row.game.iwad;
 			if (!wadId) continue;
 
 			wanted.push({ wad_id: wadId, map: currentMap });
@@ -83,14 +88,16 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 			seen.add(key);
 			return true;
 		});
+		console.log('De-duped map thumbnails for servers page:', {deduped});
 
 		if (deduped.length) {
 			const resolved = await wadinfo.resolveMapThumbnails(deduped);
+			console.log('Resolved map thumbnails for servers page:', {resolved, wanted});
 			const byKey = new Map(resolved.map((t) => [`${t.wad_id}:${t.map}`, t.url] as const));
 			for (const row of rows) {
 				const currentMap = row.game.info?.current_map;
 				if (!currentMap) continue;
-				const wadId = row.game.files?.[0] ?? row.game.iwad;
+				const wadId = row.game.files?.[row.game.files.length - 1] ?? row.game.iwad;
 				if (!wadId) continue;
 				const url = byKey.get(`${wadId}:${currentMap}`);
 				if (url) row.thumbnailUrl = url;
