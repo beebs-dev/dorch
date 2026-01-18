@@ -78,6 +78,17 @@ pub struct GameSummary {
 }
 
 #[derive(Serialize, Default, Clone)]
+pub struct JumbotronItem {
+    pub game_id: Uuid,
+    pub url: String,
+}
+
+#[derive(Serialize, Default, Clone)]
+pub struct ListJumbotronStreams {
+    pub items: Vec<JumbotronItem>,
+}
+
+#[derive(Serialize, Default, Clone)]
 pub struct ListGamesResponse {
     pub games: Vec<GameSummary>,
 }

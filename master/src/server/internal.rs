@@ -1,6 +1,9 @@
 use crate::{
     app::App,
-    client::{GameSummary, ListGamesResponse, NewGameRequest, NewGameResponse},
+    client::{
+        GameSummary, JumbotronItem, ListGamesResponse, ListJumbotronStreams, NewGameRequest,
+        NewGameResponse,
+    },
     server::internal,
 };
 use anyhow::{Context, Result, anyhow, bail};
@@ -31,7 +34,7 @@ pub async fn run_server(cancel: CancellationToken, port: u16, app_state: App) ->
         .route("/healthz", get(health))
         .route("/readyz", get(health));
     let router = Router::new()
-        .route("/jumbotron", get(list_jumbotron_rtmp_urls))
+        .route("/jumbotron", get(list_jumbotron_mc3u8_urls))
         .route("/game", get(list_games).post(new_game))
         .route("/game/{game_id}", get(get_game).delete(delete_game))
         .route("/game/{game_id}/info", post(update_game_info))
@@ -350,7 +353,7 @@ pub async fn update_game_info(
     StatusCode::OK.into_response()
 }
 
-pub async fn list_jumbotron_rtmp_urls(State(state): State<App>) -> impl IntoResponse {
+pub async fn list_jumbotron_mc3u8_urls(State(state): State<App>) -> impl IntoResponse {
     let mut games = match list_games_inner(state).await {
         Ok(resp) => resp.games,
         Err(e) => {
@@ -365,19 +368,19 @@ pub async fn list_jumbotron_rtmp_urls(State(state): State<App>) -> impl IntoResp
         games.shuffle(&mut rng);
         games.into_iter().take(5).collect()
     };
-    let resp: Bytes = games
+    let items: Vec<_> = games
         .into_iter()
         .map(|g| g.game_id)
-        .map(|id| {
-            format!(
-                "rtmp://strim-strim.strim.svc.cluster.local:7080/live/{}",
-                id
-            )
+        .map(|game_id| JumbotronItem {
+            game_id,
+            url: format!(
+                "https://gibstrim.nyc3.digitaloceanspaces.com/{}/index.m3u8",
+                game_id
+            ),
         })
-        .collect::<Vec<String>>()
-        .join("\n")
-        .into();
-    (StatusCode::OK, resp).into_response()
+        .collect::<Vec<JumbotronItem>>();
+    let resp = ListJumbotronStreams { items };
+    (StatusCode::OK, Json(resp)).into_response()
 }
 
 pub async fn new_game(

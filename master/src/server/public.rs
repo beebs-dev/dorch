@@ -54,6 +54,7 @@ pub async fn run_server(
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::dev());
     let router = Router::new()
+        .route("/jumbotron", get(internal::list_jumbotron_mc3u8_urls))
         .route("/game", get(list_games))
         .route("/game/{game_id}", get(get_game))
         .with_state(app_state)
