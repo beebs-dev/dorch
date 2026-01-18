@@ -9,8 +9,8 @@
 	let password = $state('');
 	let rememberMe = $state(true);
 
-	let modalEl = $state<HTMLDivElement | null>(null);
-	let emailEl = $state<HTMLInputElement | null>(null);
+	let modalEl: HTMLDivElement | null = $state(null);
+	let emailEl: HTMLInputElement | null = $state(null);
 
 	let lastActiveEl: HTMLElement | null = null;
 
@@ -67,7 +67,7 @@
 		if (!browser) return;
 		if (!open) return;
 
-		lastActiveEl = document.activeElement;
+		lastActiveEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 		focusFirst();
 
 		const onDocKeydown = (e: KeyboardEvent) => onKeydown(e);
@@ -167,7 +167,7 @@
 
 					<button
 						type="button"
-						class="text-xs font-semibold text-red-300 hover:text-red-200 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none rounded"
+						class="rounded text-xs font-semibold text-red-300 hover:text-red-200 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 						onclick={() => comingSoon('Password reset is coming soon.')}
 					>
 						Forgot your password?
@@ -185,7 +185,7 @@
 					Don’t have an account?
 					<button
 						type="button"
-						class="ml-1 font-semibold text-red-300 hover:text-red-200 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none rounded"
+						class="ml-1 rounded font-semibold text-red-300 hover:text-red-200 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 						onclick={() => comingSoon('Sign up is coming soon.')}
 					>
 						Sign up
