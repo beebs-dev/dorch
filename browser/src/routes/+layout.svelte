@@ -1,9 +1,8 @@
 <script lang="ts">
 	import './layout.css';
-	import favicon from '$lib/assets/favicon.svg';
 	import DorchLogo from '$lib/components/DorchLogo.svelte';
 	import { toastMessage } from '$lib/stores/toast';
-	import { resolve } from '$app/paths';
+	import { base, resolve } from '$app/paths';
 	import { page } from '$app/stores';
 
 	let { children } = $props();
@@ -11,7 +10,7 @@
 	const navItems = [
 		{ label: 'SERVERS', href: '/' },
 		{ label: 'WAD BROWSER', href: '/wad' },
-		{ label: 'SETTINGS', href: '/settings' }
+		{ label: 'ACCOUNT', href: '/account' }
 	] as const;
 
 	function isActive(href: string, pathname: string) {
@@ -23,7 +22,7 @@
 
 <svelte:head>
 	<title>GIB.GG</title>
-	<link rel="icon" href={favicon} />
+	<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
 </svelte:head>
 
 <div class="dorch-texture min-h-dvh bg-zinc-950 text-zinc-100">
