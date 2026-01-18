@@ -26,8 +26,8 @@
 		let rafId = 0;
 		let lastTime = performance.now();
 		let offset = 0;
-		let currentSpeed = 128 / 30; // px/s (matches old 30s per tile)
-		const baseSpeed = 128 / 30;
+		let currentSpeed = 256 / 30; // px/s (matches old 30s per tile)
+		const baseSpeed = 256 / 30;
 		const hoverSpeed = baseSpeed * 3.5;
 		const smoothingTauSeconds = 0.18;
 
@@ -41,7 +41,7 @@
 
 			offset += currentSpeed * dt;
 			// Keep numbers bounded; repeat every tile.
-			const tile = 128;
+			const tile = 256;
 			offset = offset % tile;
 			const px = `${offset.toFixed(3)}px`;
 			buttonEl?.style.setProperty('--dorch-bg-x', px);
