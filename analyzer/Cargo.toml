@@ -40,3 +40,4 @@ rand = { workspace = true }
 redis-lock = "0.5.1"
 async-redis-lock = "0.2.3"
 openai = "1.1.1"
+tiktoken-rs = "0.9.1"

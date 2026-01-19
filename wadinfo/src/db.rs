@@ -101,6 +101,7 @@ mod sql {
     pub const INSERT_MAP_ANALYSIS: &str = include_str!("sql/insert_map_analysis.sql");
     pub const INSERT_MAP_ANALYSIS_TAG: &str = include_str!("sql/insert_map_analysis_tag.sql");
     pub const LIST_MAP_ANALYSES: &str = include_str!("sql/list_map_analyses.sql");
+    pub const LIST_MAP_ANALYSIS_TAGS: &str = include_str!("sql/list_map_analysis_tags.sql");
     pub const DELETE_WAD_ANALYSIS_TAGS: &str = include_str!("sql/delete_wad_analysis_tags.sql");
     pub const DELETE_MAP_ANALYSIS_TAGS: &str = include_str!("sql/delete_map_analysis_tags.sql");
 }
@@ -272,29 +273,52 @@ impl Database {
             .prepare(sql::DELETE_MAP_ANALYSIS_TAGS)
             .await
             .context("failed to prepare DELETE_MAP_ANALYSIS_TAGS")?;
+        _ = conn
+            .prepare(sql::LIST_MAP_ANALYSIS_TAGS)
+            .await
+            .context("failed to prepare LIST_MAP_ANALYSIS_TAGS")?;
         Ok(Self { pool })
     }
 
     pub async fn list_map_analyses(&self, wad_id: Uuid) -> Result<Vec<MapAnalysis>> {
-        let conn = self.pool.get().await.context("failed to get connection")?;
-        let stmt = conn
+        let mut conn = self.pool.get().await.context("failed to get connection")?;
+        let tx = conn
+            .transaction()
+            .await
+            .context("failed to begin transaction")?;
+        let stmt = tx
             .prepare_cached(sql::LIST_MAP_ANALYSES)
             .await
             .context("failed to prepare LIST_MAP_ANALYSES")?;
-        conn.query(&stmt, &[&wad_id])
+        let list_tags_stmt = tx
+            .prepare_cached(sql::LIST_MAP_ANALYSIS_TAGS)
             .await
-            .context("failed to execute LIST_MAP_ANALYSES")?
-            .into_iter()
-            .map(|row| {
-                Ok(MapAnalysis {
-                    description: row.try_get("description")?,
-                    tags: row.try_get("tags")?,
-                    map_name: row.try_get("map_name")?,
-                    map_title: row.try_get("map_title")?,
-                    wad_id,
-                })
-            })
-            .collect::<Result<Vec<_>>>()
+            .context("failed to prepare LIST_MAP_ANALYSIS_TAGS")?;
+        let rows = tx
+            .query(&stmt, &[&wad_id])
+            .await
+            .context("failed to execute LIST_MAP_ANALYSES")?;
+        let mut items = Vec::with_capacity(rows.len());
+        for row in rows {
+            let description = row.try_get("description")?;
+            let map_name: String = row.try_get("map_name")?;
+            let map_title = row.try_get("map_title")?;
+            let tags: Vec<String> = tx
+                .query(&list_tags_stmt, &[&wad_id, &map_name])
+                .await
+                .context("failed to execute LIST_MAP_ANALYSIS_TAGS")?
+                .into_iter()
+                .map(|row| row.try_get("tag").context("get tag"))
+                .collect::<Result<Vec<_>>>()?;
+            items.push(MapAnalysis {
+                map_name,
+                map_title,
+                description,
+                wad_id,
+                tags,
+            });
+        }
+        Ok(items)
     }
 
     pub async fn insert_map_analysis(&self, analysis: &MapAnalysis) -> Result<()> {

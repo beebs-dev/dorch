@@ -111,9 +111,18 @@ impl Worker<ReadWad, RawMapAnalysis> for DeriveMap {
             .ok_or_else(|| anyhow!("No map found in ReadWad"))?;
         let lock_key = format!("l:w:{}:m:{}", input.meta.meta.id, map_name,);
         println!(
-            "{}{}{}{}",
+            "{}{}{}{}{}{}",
             "ℹ️ Analyzing MAP • wad_id=".blue(),
             input.meta.meta.id.to_string().blue().dimmed(),
+            " • wad_name=".blue(),
+            input
+                .meta
+                .meta
+                .title
+                .as_deref()
+                .unwrap_or("<untitled>")
+                .blue()
+                .dimmed(),
             " • map_name=".blue(),
             map_name.blue().dimmed(),
         );
@@ -133,6 +142,25 @@ impl Worker<ReadWad, RawMapAnalysis> for DeriveMap {
             description: analysis.description,
             tags: analysis.tags,
         };
+        println!(
+            "{}{}{}{}{}{}{}{}{}{}{}",
+            "✅ Completed map analysis • wad_id=".green(),
+            input.meta.meta.id.to_string().green().dimmed(),
+            " • map_name=".green(),
+            analysis.map_name.green().dimmed(),
+            " • map_title=".green(),
+            analysis
+                .map_title
+                .as_ref()
+                .unwrap_or(&"<untitled>".to_string())
+                .green()
+                .dimmed(),
+            " • description=".green(),
+            analysis.description.green().dimmed(),
+            " • tags=[".green(),
+            analysis.tags.join(", ").green().dimmed(),
+            "]".green()
+        );
         self.wadinfo
             .post_map_analysis(analysis)
             .await

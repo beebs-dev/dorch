@@ -116,13 +116,16 @@ impl Worker<ReadWad, RawWadAnalysis> for DeriveWad {
             .context("Failed to get wad")?
             .ok_or_else(|| anyhow!("Wad not found: {}", wad_id))?;
         let lock_key = format!("l:w:{}", wad_id);
+        let wad_title = input.meta.meta.title.as_deref().unwrap_or("<untitled>");
         if input.maps.is_empty() {
             println!(
-                "{}{}{}{}",
-                "ℹ️ Analyzing WAD • wad_id=".blue(),
+                "{}{}{}{}{}{}",
+                "ℹ️  Analyzing WAD • wad_id=".blue(),
                 wad_id.blue().dimmed(),
                 " • map_count=".blue(),
                 0.blue().dimmed(),
+                " • title=".blue(),
+                wad_title.blue().dimmed(),
             );
             Ok(DeriveResult::Ready(Work { input, lock_key }))
         } else {
@@ -134,11 +137,13 @@ impl Worker<ReadWad, RawWadAnalysis> for DeriveWad {
                 .context("Failed to list map analyses")?;
             if map_analysis.len() == input.maps.len() {
                 println!(
-                    "{}{}{}{}",
+                    "{}{}{}{}{}{}",
                     "ℹ️ Analyzing WAD • wad_id=".blue(),
                     wad_id.blue().dimmed(),
                     " • map_count=".blue(),
                     input.maps.len().blue().dimmed(),
+                    " • title=".blue(),
+                    wad_title.blue().dimmed(),
                 );
                 Ok(DeriveResult::Ready(Work { input, lock_key }))
             } else {
@@ -200,6 +205,23 @@ impl Worker<ReadWad, RawWadAnalysis> for DeriveWad {
             description: analysis.description,
             tags: analysis.tags,
         };
+        println!(
+            "{}{}{}{}{}{}{}{}{}",
+            "✅ Completed WAD analysis • wad_id=".green(),
+            input.meta.meta.id.to_string().green().dimmed(),
+            " • title=".green(),
+            analysis
+                .title
+                .as_ref()
+                .unwrap_or(&"<untitled>".to_string())
+                .green()
+                .dimmed(),
+            " • description=".green(),
+            analysis.description.green().dimmed(),
+            " • tags=[".green(),
+            analysis.tags.join(", ").green().dimmed(),
+            "]".green()
+        );
         self.wadinfo
             .post_wad_analysis(analysis)
             .await

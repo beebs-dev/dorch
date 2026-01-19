@@ -7,18 +7,70 @@ use openai::{
     },
 };
 use std::{ops::Deref, sync::Arc};
+use tiktoken_rs::{CoreBPE, p50k_base};
 
 const ANALYSIS_MAX_TOKENS: u64 = 1500;
+const INPUT_TOKEN_LIMIT: u64 = 270000; // 2000 less than max for gpt5.2
 
 pub struct AnalyzerInner {
     model: String,
     credentials: Credentials,
     system_prompt: String,
+    tokenizer: CoreBPE,
 }
 
 #[derive(Clone)]
 pub struct Analyzer {
     inner: Arc<AnalyzerInner>,
+}
+
+/// Returns the longest prefix of `text` whose token count
+/// is <= INPUT_TOKEN_LIMIT.
+///
+/// Guarantees:
+/// - Output is always a prefix of `text`
+/// - No Unicode / emoji / grapheme corruption
+/// - Deterministic
+pub fn respect_token_limit(text: &str, tokenizer: &CoreBPE) -> String {
+    // Fast path
+    if tokenizer.encode_with_special_tokens(text).len() as u64 <= INPUT_TOKEN_LIMIT {
+        return text.to_owned();
+    }
+
+    let mut low = 0;
+    let mut high = text.len(); // byte index
+
+    // Binary search over byte indices that are valid UTF-8 boundaries
+    while low < high {
+        let mid = (low + high + 1) / 2;
+
+        // Ensure mid is on a UTF-8 char boundary
+        let mid = match text.is_char_boundary(mid) {
+            true => mid,
+            false => {
+                // walk backward to nearest valid boundary
+                (0..mid).rev().find(|&i| text.is_char_boundary(i)).unwrap()
+            }
+        };
+
+        let prefix = &text[..mid];
+        let token_len = tokenizer.encode_with_special_tokens(prefix).len() as u64;
+
+        if token_len <= INPUT_TOKEN_LIMIT {
+            low = mid;
+        } else {
+            high = mid - 1;
+        }
+    }
+
+    // Final slice must also be on a char boundary
+    let final_idx = if text.is_char_boundary(low) {
+        low
+    } else {
+        (0..low).rev().find(|&i| text.is_char_boundary(i)).unwrap()
+    };
+
+    text[..final_idx].to_owned()
 }
 
 impl Deref for Analyzer {
@@ -42,6 +94,7 @@ impl Analyzer {
             system_prompt,
             model,
             credentials,
+            tokenizer: p50k_base().expect("Failed to load p50k_base tokenizer"),
         });
         Self { inner }
     }
@@ -50,6 +103,7 @@ impl Analyzer {
     where
         T: serde::de::DeserializeOwned,
     {
+        let input_json = respect_token_limit(&input_json, &self.tokenizer);
         let input = vec![
             ChatCompletionMessage {
                 role: ChatCompletionMessageRole::System,

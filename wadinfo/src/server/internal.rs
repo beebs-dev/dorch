@@ -45,6 +45,7 @@ pub async fn run_server(
         .route("/featured", get(featured_wads))
         .route("/wad/{id}", get(get_wad))
         .route("/wad/{id}/analysis", post(post_wad_analysis))
+        .route("/wad/{id}/map_analyses", get(list_wad_analyses))
         .route("/wad/{id}/map/{map}/analysis", post(post_map_analysis))
         .route("/wad/{id}/map/{map}", get(get_wad_map))
         .route(
@@ -100,6 +101,16 @@ pub async fn post_map_analysis(
         return response::error(e.context("Failed to insert map analysis"));
     }
     StatusCode::NO_CONTENT.into_response()
+}
+
+pub async fn list_wad_analyses(
+    State(state): State<App>,
+    Path(wad_id): Path<Uuid>,
+) -> impl IntoResponse {
+    match state.db.list_map_analyses(wad_id).await {
+        Ok(analyses) => (StatusCode::OK, Json(analyses)).into_response(),
+        Err(e) => response::error(e.context("Failed to list map analyses")),
+    }
 }
 
 pub async fn post_wad_analysis(

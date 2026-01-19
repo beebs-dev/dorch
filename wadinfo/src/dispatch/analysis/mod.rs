@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use async_nats::ConnectOptions;
 use dorch_common::streams::subjects;
+use owo_colors::OwoColorize;
 use rand::Rng;
 use tokio::time::{Duration, sleep};
 use tokio_util::sync::CancellationToken;
@@ -31,7 +32,9 @@ pub async fn run(args: DispatchAnalysisRunArgs) -> Result<()> {
         }
     });
     dorch_common::signal_ready();
+    println!("{}", "🚀 Starting analysis dispatcher".green());
     let mut empty_pulls: u32 = 0;
+    let mut publish_count = 0;
     while !cancel.is_cancelled() {
         let mut conn = db.get_conn().await?;
         let tx = conn.transaction().await.context("begin tx")?;
@@ -56,8 +59,21 @@ pub async fn run(args: DispatchAnalysisRunArgs) -> Result<()> {
             .await
             .context("Failed to mark analysis dispatched")?;
         tx.commit().await.context("commit dispatch-analysis tx")?;
+        publish_count += 1;
+        if publish_count % 10 == 0 {
+            println!(
+                "{}{}{}{}",
+                "📝 Dispatched a total of ".green(),
+                publish_count.green().dimmed(),
+                " analysis requests to ".green(),
+                subjects::analysis::wad("*").green(),
+            );
+        }
+        tokio::select! { // prevent tight loop
+            _ = sleep(Duration::from_millis(1431)) => continue,
+            _ = cancel.cancelled() => break,
+        }
     }
-
     Ok(())
 }
 
