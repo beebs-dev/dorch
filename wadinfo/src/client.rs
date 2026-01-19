@@ -69,12 +69,17 @@ pub struct ReadMapStat {
 
     #[serde(default)]
     pub images: Vec<WadImage>,
+
+    pub analysis: Option<AbridgedMapAnalysis>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ReadWadMetaWithTextFiles {
     #[serde(flatten)]
     pub meta: ReadWadMeta,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub analysis: Option<AbridgedWadAnalysis>,
 
     #[serde(default)]
     pub text_files: Option<Vec<TextFile>>,
@@ -166,7 +171,7 @@ pub struct ListWadsResponse {
     pub truncated: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WadAnalysis {
     pub wad_id: Uuid,
     pub title: Option<String>,
@@ -174,7 +179,21 @@ pub struct WadAnalysis {
     pub tags: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AbridgedWadAnalysis {
+    pub title: Option<String>,
+    pub description: String,
+    pub tags: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AbridgedMapAnalysis {
+    pub title: Option<String>,
+    pub description: String,
+    pub tags: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MapAnalysis {
     pub wad_id: Uuid,
     pub map_name: String,

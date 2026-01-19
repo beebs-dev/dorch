@@ -1,0 +1,1 @@
+SELECT * FROM wad_analysis WHERE wad_id = $1;
