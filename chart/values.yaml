@@ -242,6 +242,21 @@ archiver:
       endpoint: ""
       bucket: ""
 
+analyzer:
+  enabled: true
+  wad:
+    image: thavlik/dorch-analyzer:latest
+    imagePullPolicy: Always
+    replicas: 1
+    logLevel: debug
+    resources: {}
+  map:
+    image: thavlik/dorch-analyzer:latest
+    imagePullPolicy: Always
+    replicas: 1
+    logLevel: debug
+    resources: {}
+
 webrtcAuth:
   image: thavlik/dorch-webrtc-auth:latest
   imagePullPolicy: Always

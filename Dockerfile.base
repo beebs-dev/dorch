@@ -39,6 +39,7 @@ COPY wadinfo/Cargo.toml wadinfo/Cargo.toml
 COPY master/Cargo.toml master/Cargo.toml
 COPY auth/Cargo.toml auth/Cargo.toml
 COPY iam/Cargo.toml iam/Cargo.toml
+COPY analyzer/Cargo.toml analyzer/Cargo.toml
 COPY webrtc-auth/Cargo.toml webrtc-auth/Cargo.toml
 COPY sock/Cargo.toml sock/Cargo.toml
 COPY proxy/Cargo.toml proxy/Cargo.toml

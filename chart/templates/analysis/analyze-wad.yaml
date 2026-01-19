@@ -1,0 +1,87 @@
+{{- $image := printf "%s%s" .Values.registry .Values.analyzer.wad.image -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-analyzer-wad
+spec:
+  replicas: {{ .Values.analyzer.wad.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-analyzer-wad
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-analyzer-wad
+    spec:
+      tolerations:
+      - key: dorch
+        operator: Exists
+        effect: NoSchedule
+      nodeSelector:
+        dorch: "true"
+{{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 10 }}
+{{- end }}
+      containers:
+      - name: init
+        image: {{ .Values.analyzer.wad.init.image }}
+        imagePullPolicy: {{ .Values.analyzer.wad.init.imagePullPolicy }}
+        command:
+        - dorch-analyzer
+        - map
+        env:
+{{ include "dorch.redis-env" . | indent 8 }}
+{{- if .Values.analyzer.wad.init.resources }}
+        resources:
+{{ toYaml .Values.analyzer.wad.init.resources | indent 10 }}
+{{- end }}
+{{- if .Values.prometheus.enabled }}
+        ports:
+        - containerPort: 2112
+          protocol: TCP
+          name: metrics
+{{- end }}
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /etc/ready
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        env:
+        - name: WADINFO_BASE_URL
+          value: "http://{{ .Release.Name }}-wadinfo"
+        - name: DORCH_READY_FILE
+          value: /etc/ready
+        - name: SERVICE_NAME
+          value: analyzer-wad
+        - name: RUST_LOG
+          value: info,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info
+        - name: LOG_LEVEL
+          value: {{ .Values.analyzer.wad.logLevel }}
+{{- if .Values.nats.user }}
+        - name: NATS_USER
+{{ tpl (toYaml .Values.nats.user) . | indent 10 }}
+{{- end }}
+{{- if .Values.nats.password }}
+        - name: NATS_PASSWORD
+{{ tpl (toYaml .Values.nats.password) . | indent 10 }}
+{{- end }}
+{{ include "dorch.metrics-env" . | indent 8 }}
+{{ include "dorch.nats-env" . | indent 8 }}
+---
+{{- if .Values.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ .Release.Name }}-analyzer-wad
+  labels:
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-analyzer-wad
+  podMetricsEndpoints:
+  - port: metrics
+{{- end }}

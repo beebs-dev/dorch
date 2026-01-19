@@ -17,6 +17,7 @@ group "default" {
     "auth",
     "browser",
     "archiver",
+    "analyzer",
     "spectator",
     "downloader"
   ]
@@ -48,6 +49,17 @@ target "wadinfo" {
   push       = true
   cache-from = ["type=local,src=.buildx-cache/wadinfo"]
   cache-to   = ["type=local,dest=.buildx-cache/wadinfo,mode=min"]
+}
+
+target "analyzer" {
+  contexts   = { base_context = "target:base" }
+  context    = "./"
+  dockerfile = "analyzer/Dockerfile"
+  args       = { BASE_IMAGE = "base_context" }
+  tags       = ["${REGISTRY}thavlik/dorch-analyzer:latest"]
+  push       = true
+  cache-from = ["type=local,src=.buildx-cache/analyzer"]
+  cache-to   = ["type=local,dest=.buildx-cache/analyzer,mode=min"]
 }
 
 target "archiver-worker" {
