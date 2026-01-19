@@ -156,7 +156,7 @@
 			<div class="flex items-center justify-between border-b border-zinc-800/80 px-5 py-4">
 				<div>
 					<h2 class="text-base font-semibold tracking-wide text-zinc-100">Sign in</h2>
-					<p class="mt-1 text-xs text-zinc-400">Use your GIB.GG account to create custom servers for free.</p>
+					<p class="mt-1 text-xs text-zinc-400">Use your <span style="font-weight: bold; color: #b50d0d;">GIB.GG</span> account to create custom servers for free.</p>
 				</div>
 				<button
 					type="button"
@@ -216,7 +216,7 @@
 					type="submit"
 					disabled={submitting}
 					aria-busy={submitting}
-					class="cursor-pointer mt-5 w-full rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+					class="cursor-pointer mt-5 w-full rounded-lg bg-red-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 				>
 					{submitting ? 'SIGNING IN…' : 'SIGN IN'}
 				</button>
