@@ -590,6 +590,10 @@ impl Database {
             .prepare_cached(sql::GET_WAD_MAP)
             .await
             .context("failed to prepare GET_WAD_MAP")?;
+        let get_analysis_stmt = conn
+            .prepare_cached(sql::GET_WAD_MAP_ANALYSIS)
+            .await
+            .context("failed to prepare GET_WAD_MAP_ANALYSIS")?;
         let row = conn
             .query_opt(&stmt, &[&wad_id, &map_name])
             .await
@@ -599,18 +603,45 @@ impl Database {
             return Ok(None);
         };
 
-        let row_wad_id: Uuid = row.try_get("wad_id")?;
+        let wad_id: Uuid = row.try_get("wad_id")?;
         let meta_json: serde_json::Value = row.try_get("meta_json")?;
         let mut wad_meta: ReadWadMeta =
             serde_json::from_value(meta_json).context("deserialize ReadWadMeta")?;
         if wad_meta.id.is_nil() {
-            wad_meta.id = row_wad_id;
+            wad_meta.id = wad_id;
         }
 
         let map_json: serde_json::Value = row.try_get("map_json")?;
-        let map: ReadMapStat =
+        let mut map: ReadMapStat =
             serde_json::from_value(map_json).context("deserialize ReadMapStat")?;
-
+        if let Some(row) = conn
+            .query_opt(&get_analysis_stmt, &[&wad_id, &map_name])
+            .await
+            .context("failed to execute GET_WAD_MAP_ANALYSIS")?
+        {
+            let title = row
+                .try_get("map_title")
+                .context("get map_title from map_analysis row")?;
+            let description: String = row
+                .try_get("description")
+                .context("get description from map_analysis row")?;
+            let list_analysis_tags = conn
+                .prepare_cached(sql::LIST_WAD_MAP_ANALYSIS_TAGS)
+                .await
+                .context("failed to prepare LIST_WAD_MAP_ANALYSIS_TAGS")?;
+            let tags: Vec<String> = conn
+                .query(&list_analysis_tags, &[&wad_id, &map_name])
+                .await
+                .context("failed to execute LIST_WAD_MAP_ANALYSIS_TAGS")?
+                .into_iter()
+                .map(|row| row.try_get("tag").context("get tag"))
+                .collect::<Result<Vec<_>>>()?;
+            map.analysis = Some(AbridgedMapAnalysis {
+                title,
+                description,
+                tags,
+            });
+        }
         Ok(Some(GetWadMapResponse { map, wad_meta }))
     }
 
