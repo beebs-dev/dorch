@@ -55,7 +55,12 @@ export interface MapStats {
 	segs?: number;
 	ssectors?: number;
 	nodes?: number;
-	textures?: string[];
+	/**
+	 * Per-map texture usage.
+	 * New shape: { "TEXNAME": useCount }.
+	 * Legacy shape (older producers): string[] of texture names.
+	 */
+	textures?: Record<string, number> | string[];
 }
 
 export interface MapMonsters {
@@ -101,6 +106,7 @@ export interface MapStat {
 	difficulty?: MapDifficulty;
 	compatibility?: string;
 	metadata?: MapMetadata;
+	analysis?: WadAnalysisMeta | null;
 
 	/** Per-map screenshot/panorama metadata (embedded by read endpoints). */
 	images?: WadImage[];

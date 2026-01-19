@@ -570,6 +570,33 @@
 		</div>
 	</section>
 
+	<section class="mt-4 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
+		<h2 class="text-sm font-semibold text-zinc-200">AI Analysis</h2>
+		{#if data.map.analysis?.description}
+			<p class="mt-2 text-sm leading-relaxed text-zinc-300">
+				{data.map.analysis.description}
+			</p>
+		{:else}
+			<div class="mt-2 text-sm text-zinc-400">—</div>
+		{/if}
+
+		<div class="mt-4">
+			<div class="text-xs text-zinc-500">Tags</div>
+			<div class="mt-2 flex flex-wrap gap-2">
+				{#each data.map.analysis?.tags ?? [] as tag (tag)}
+					<span
+						class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
+					>
+						{tag}
+					</span>
+				{/each}
+				{#if (data.map.analysis?.tags?.length ?? 0) === 0}
+					<span class="text-sm text-zinc-400">—</span>
+				{/if}
+			</div>
+		</div>
+	</section>
+
 	<section class="mt-6 overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
 		<div class="border-b border-zinc-800 px-4 py-3">
 			<h2 class="text-center text-sm font-semibold text-zinc-200">
