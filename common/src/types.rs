@@ -132,7 +132,7 @@ pub struct Party {
 
 pub mod wad {
     use serde::{Deserialize, Serialize};
-    use std::collections::BTreeMap;
+    use std::collections::{BTreeMap, HashMap};
     use uuid::Uuid;
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -551,8 +551,10 @@ pub mod wad {
         pub ssectors: i64,
         pub nodes: i64,
 
+        /// Texture usage histogram: texture name -> count.
+        /// Always emitted as an object ({} when empty).
         #[serde(default)]
-        pub textures: Vec<String>,
+        pub textures: HashMap<String, i32>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -562,6 +564,11 @@ pub mod wad {
         /// Monster id -> count (sorted in the producer, but JSON object order isn’t guaranteed)
         #[serde(default)]
         pub by_type: BTreeMap<String, i64>,
+
+        /// Optional derived breakdown for vanilla Doom II types.
+        /// Keys: melee | hitscanner | projectile | boss
+        #[serde(default)]
+        pub by_category: Option<BTreeMap<String, i64>>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -569,6 +576,15 @@ pub mod wad {
         pub total: i64,
         #[serde(default)]
         pub by_type: BTreeMap<String, i64>,
+
+        /// Optional derived ammo totals by category.
+        /// Keys: bullets | shells | rockets | cells
+        #[serde(default)]
+        pub ammo_by_category: Option<BTreeMap<String, i64>>,
+
+        /// Optional derived set of weapon ids present on the map.
+        #[serde(default)]
+        pub weapons_present: Option<Vec<String>>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]

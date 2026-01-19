@@ -52,7 +52,7 @@ fn escape_nul_in_json(value: &mut Value) -> usize {
 }
 
 mod sql {
-    pub const TABLES: &str = include_str!("sql/tables.sql");
+    pub const TABLES: &str = concat!(include_str!("sql/tables.sql"));
     pub const INSERT_WAD: &str = include_str!("sql/insert_wad.sql");
     // NOTE: the legacy trigram/similarity search SQL is deprecated.
     pub const SEARCH_WADS_ILIKE: &str = include_str!("sql/search_wads_ilike.sql");
@@ -106,6 +106,7 @@ impl Database {
     pub async fn new(pool: deadpool_postgres::Pool) -> Result<Self> {
         let mut conn = pool.get().await.context("failed to get connection")?;
         create_tables(&mut conn).await;
+        println!("{}", "Database tables ensured.".green());
         _ = conn
             .prepare(sql::INSERT_WAD)
             .await
@@ -1042,8 +1043,6 @@ impl Database {
 
         // 6) Per-map stats + breakdown tables
         {
-            use std::collections::HashSet;
-
             let insert_map = tx
                 .prepare_cached(sql::INSERT_WAD_MAP)
                 .await
@@ -1194,16 +1193,18 @@ impl Database {
                 .await
                 .with_context(|| format!("insert wad_map {map_name_param}"))?;
 
-                let mut textures_seen: HashSet<&str> = HashSet::new();
-                for tex in &m.stats.textures {
-                    if !textures_seen.insert(tex.as_str()) {
-                        continue;
-                    }
+                for (tex, cnt) in &m.stats.textures {
                     let tex_escaped = escape_nul_in_str(tex);
                     let tex_param = tex_escaped.as_deref().unwrap_or(tex);
-                    tx.execute(&insert_tex, &[&wad_id, &map_name_param, &tex_param])
-                        .await
-                        .with_context(|| format!("insert texture {map_name_param} {tex_param}"))?;
+                    let cnt_param = *cnt;
+                    tx.execute(
+                        &insert_tex,
+                        &[&wad_id, &map_name_param, &tex_param, &cnt_param],
+                    )
+                    .await
+                    .with_context(|| {
+                        format!("insert texture {map_name_param} {tex_param} {cnt_param}")
+                    })?;
                 }
 
                 for (monster, cnt) in &m.monsters.by_type {

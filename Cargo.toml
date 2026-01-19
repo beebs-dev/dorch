@@ -9,6 +9,7 @@ members = [
     "sock",
     "party",
     "auth",
+    "analyzer",
     "wadinfo",
     "webrtc-auth",
 ]

@@ -1,0 +1,256 @@
+use crate::worker::analyzer::Analyzer;
+use anyhow::{Context, Result, anyhow, bail};
+use async_nats::jetstream::{
+    AckKind,
+    consumer::{Consumer, pull},
+};
+use async_redis_lock::Locker;
+use bytes::Bytes;
+use serde::{Serialize, de::DeserializeOwned};
+use std::{ops::Deref, pin::Pin, sync::Arc, time::Duration};
+use tokio::time::{self, Instant, Sleep};
+use tokio_stream::StreamExt;
+use tokio_util::sync::CancellationToken;
+
+pub struct AppInner {
+    locker: Locker,
+    analyzer: Analyzer,
+    cancel: CancellationToken,
+}
+
+#[derive(Clone)]
+pub struct App<D, T, U>
+where
+    D: Worker<T, U>,
+    T: Serialize,
+    U: DeserializeOwned,
+{
+    inner: Arc<AppInner>,
+    derive_input: D,
+    _t: std::marker::PhantomData<T>,
+    _u: std::marker::PhantomData<U>,
+}
+
+impl<D, T, U> Deref for App<D, T, U>
+where
+    D: Worker<T, U>,
+    T: Serialize,
+    U: DeserializeOwned,
+{
+    type Target = AppInner;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+pub enum DeriveResult<T>
+where
+    T: Serialize,
+{
+    Ready(Work<T>),
+    Pending { retry_after: Option<Duration> },
+}
+
+pub struct Work<T>
+where
+    T: Serialize,
+{
+    pub input: T,
+    pub lock_key: String,
+}
+
+pub trait Worker<T, U>
+where
+    T: Serialize,
+    U: DeserializeOwned,
+{
+    async fn derive_input(&self, subject: &str, payload: &Bytes) -> Result<DeriveResult<T>>;
+    async fn post(&self, input: T, analysis: U) -> Result<()>;
+}
+
+impl<D, T, U> App<D, T, U>
+where
+    D: Worker<T, U>,
+    T: Serialize,
+    U: DeserializeOwned,
+{
+    pub fn new(
+        locker: Locker,
+        analyzer: Analyzer,
+        cancel: CancellationToken,
+        derive_input: D,
+    ) -> Self {
+        Self {
+            derive_input,
+            _t: std::marker::PhantomData,
+            _u: std::marker::PhantomData,
+            inner: Arc::new(AppInner {
+                locker,
+                analyzer,
+                cancel,
+            }),
+        }
+    }
+
+    pub async fn run(&self, consumer: Consumer<pull::Config>) -> Result<()> {
+        let mut msgs = consumer
+            .messages()
+            .await
+            .context("Failed to get messages")?;
+        loop {
+            tokio::select! {
+                _ = self.cancel.cancelled() => bail!("Context cancelled"),
+                msg = msgs.next() => {
+                    println!("Received summary request message");
+                    match msg
+                        .transpose()
+                        .context("Failed to get message from stream")? {
+                        Some(msg) => if let Err(e) = self.handle_inner(msg.clone()).await {
+                            eprintln!("Error handling message: {:?}", e);
+                        } else if let Err(e) = msg.ack().await {
+                            eprintln!("Error acknowledging message: {:?}", e);
+                        }
+                        None => bail!("No more messages; shutting down summarizer worker"),
+                    }
+                }
+            }
+        }
+    }
+
+    async fn handle_inner(&self, msg: async_nats::jetstream::Message) -> Result<()> {
+        let Work { input, lock_key } = match self
+            .derive_input
+            .derive_input(&msg.subject, &msg.payload)
+            .await
+            .context("Failed to derive input")?
+        {
+            DeriveResult::Ready(work) => work,
+            DeriveResult::Pending { retry_after } => {
+                // requeue the message to be retried after the duration
+                msg.ack_with(AckKind::Nak(retry_after))
+                    .await
+                    .map_err(|e| anyhow!("Failed to nack message: {e:?}"))?;
+                return Ok(());
+            }
+        };
+        let _lock = self
+            .locker
+            .clone()
+            .acquire(&lock_key)
+            .await
+            .context("Failed to acquire lock")?;
+        let (tx, rx) = tokio::sync::mpsc::channel::<()>(10);
+        let cancel = self.cancel.child_token();
+        let progress_join = tokio::spawn(report_progress(msg, rx, cancel.clone()));
+        let result = self.analyze(input, tx, cancel.clone()).await;
+        let msg = progress_join
+            .await
+            .context("Failed to join progress reporting task")?
+            .context("Progress reporting task failed")?;
+        result.context("Failed to handle inner")?;
+        msg.ack()
+            .await
+            .map_err(|e| anyhow!("Failed to acknowledge message: {e:?}"))
+            .context("Failed to acknowledge message")?;
+        Ok(())
+    }
+
+    async fn analyze_inner(&self, input: T) -> Result<()> {
+        let input_json = serde_json::to_string(&input).context("Failed to serialize input")?;
+        let analysis: U = self
+            .analyzer
+            .analyze(input_json)
+            .await
+            .context("Failed to analyze")?;
+        self.derive_input
+            .post(input, analysis)
+            .await
+            .context("Failed to post analysis")
+    }
+
+    async fn analyze(
+        &self,
+        input: T,
+        keepalive: tokio::sync::mpsc::Sender<()>,
+        cancel: CancellationToken,
+    ) -> Result<()> {
+        let cancel = cancel.child_token();
+        let _keepalive_task = tokio::spawn({
+            let cancel = cancel.clone();
+            async move {
+                let mut tick = time::interval(Duration::from_secs(10));
+                loop {
+                    tokio::select! {
+                        _ = cancel.cancelled() => break,
+                        _ = tick.tick() => {
+                            _ = keepalive.send(()).await.ok();
+                        }
+                    }
+                }
+            }
+        });
+        let result = self.analyze_inner(input).await;
+        cancel.cancel();
+        _keepalive_task
+            .await
+            .context("Failed to join keepalive task")?;
+        result
+    }
+}
+
+async fn report_progress(
+    msg: async_nats::jetstream::Message,
+    mut rx: tokio::sync::mpsc::Receiver<()>,
+    cancel: CancellationToken,
+) -> Result<async_nats::jetstream::Message> {
+    let period = Duration::from_secs(10);
+    // Earliest time we're allowed to send the next ack.
+    let mut next_allowed = Instant::now();
+    // Whether we've seen at least one tick during the current cooldown.
+    let mut pending = false;
+    // Sleep until next_allowed, armed only when we need it.
+    let mut cooldown: Option<Pin<Box<Sleep>>> = None;
+    loop {
+        tokio::select! {
+            _ = cancel.cancelled() => {
+                bail!("Progress reporting cancelled");
+            }
+            tick = rx.recv() => {
+                if tick.is_none() {
+                    return Ok(msg);
+                }
+                let now = Instant::now();
+                if now >= next_allowed && cooldown.is_none() && !pending {
+                    // We're outside the window: ack immediately and open a new 10s window.
+                    msg.ack_with(AckKind::Progress)
+                        .await
+                        .map_err(|e| anyhow!("Failed to extend deadline: {e:?}"))?;
+                    next_allowed = now + period;
+                    // No need to arm cooldown yet; if more ticks arrive during the window,
+                    // we'll arm it then.
+                } else {
+                    // We're inside the current window - coalesce.
+                    pending = true;
+                    if cooldown.is_none() {
+                        // Sleep until the window boundary to deliver one coalesced ack.
+                        cooldown = Some(Box::pin(tokio::time::sleep_until(next_allowed)));
+                    }
+                }
+            }
+
+            // Window boundary reached; if anything was pending, send one ack and start a new window.
+            _ = async { if let Some(s) = &mut cooldown { s.as_mut().await } }, if cooldown.is_some() => {
+                cooldown = None;
+                if pending {
+                    msg.ack_with(AckKind::Progress)
+                        .await
+                        .map_err(|e| anyhow!("Failed to extend deadline: {e:?}"))?;
+                    pending = false;
+                    next_allowed = Instant::now() + period;
+                    // Do not re-arm cooldown here; the next ack (if any) will be triggered by future ticks.
+                }
+            }
+        }
+    }
+}

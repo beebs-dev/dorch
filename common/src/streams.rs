@@ -2,7 +2,8 @@ use crate::types::Party;
 use bytes::Bytes;
 use uuid::Uuid;
 
-pub const ANALYSIS: &str = "DORCH_ANALYSIS";
+pub const WAD_ANALYSIS: &str = "DORCH_WAD_ANALYSIS";
+pub const MAP_ANALYSIS: &str = "DORCH_MAP_ANALYSIS";
 pub const IMAGES: &str = "DORCH_IMAGES";
 
 pub enum LeaveReason {
@@ -172,10 +173,22 @@ pub mod subjects {
         format!("dorch.wad.{}.img", wad_id)
     }
 
-    pub fn analysis<T>(wad_id: T) -> String
-    where
-        T: Display,
-    {
-        format!("dorch.wad.{}.analysis", wad_id)
+    pub mod analysis {
+        use super::*;
+
+        pub fn wad<T>(wad_id: T) -> String
+        where
+            T: Display,
+        {
+            format!("dorch.analysis.wad.{}", wad_id)
+        }
+
+        pub fn map<T, U>(wad_id: T, map: U) -> String
+        where
+            T: Display,
+            U: Display,
+        {
+            format!("dorch.analysis.wad.{}.{}", wad_id, map)
+        }
     }
 }

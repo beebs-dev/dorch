@@ -170,6 +170,49 @@ def _dedupe_text_files_by_stripped_contents(
 	return out or None
 
 
+def _normalize_textures_histograms(per_map_stats: List[Dict[str, Any]]) -> None:
+	"""Ensure maps[].stats.textures is always a histogram object.
+
+	Target shape:
+	- textures: {"<TEXTURE_NAME>": <count_int>, ...}
+	- If missing/unknown: {}
+
+	Also converts legacy shapes:
+	- textures: ["NAME", ...] -> {"NAME": 1, ...}
+	"""
+	for m in per_map_stats:
+		if not isinstance(m, dict):
+			continue
+		stats = m.get("stats")
+		if not isinstance(stats, dict):
+			continue
+		tex = stats.get("textures")
+		if tex is None:
+			stats["textures"] = {}
+			continue
+		if isinstance(tex, dict):
+			# Ensure all values are ints.
+			out: Dict[str, int] = {}
+			for k, v in tex.items():
+				if not isinstance(k, str) or not k:
+					continue
+				try:
+					out[k] = int(v)
+				except Exception:
+					continue
+			stats["textures"] = dict(sorted(out.items(), key=lambda kv: kv[0]))
+			continue
+		if isinstance(tex, list):
+			counts: Dict[str, int] = {}
+			for v in tex:
+				if isinstance(v, str) and v:
+					counts[v] = counts.get(v, 0) + 1
+			stats["textures"] = dict(sorted(counts.items(), key=lambda kv: kv[0]))
+			continue
+		# Anything else: normalize to empty.
+		stats["textures"] = {}
+
+
 def _get_redis_client() -> Optional[Any]:
 	"""Best-effort Redis client from env.
 
@@ -348,6 +391,7 @@ def analyze_one_wad(
 			# meta.merge_per_map_stats() already dedupes for PK3, we defensively
 			# enforce last-occurrence-wins across all formats.)
 			per_map_stats = _dedupe_per_map_stats_keep_last(per_map_stats)
+			_normalize_textures_histograms(per_map_stats)
 
 			if render_screens:
 				try:

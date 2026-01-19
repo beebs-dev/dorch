@@ -1,3 +1,4 @@
+use anyhow::{Context, Result, bail};
 use dorch_common::{
     Pagination,
     types::wad::{MapStat, ReadWadMeta, TextFile},
@@ -163,4 +164,113 @@ pub struct ListWadsResponse {
     pub offset: i64,
     pub limit: i64,
     pub truncated: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct WadAnalysis {
+    pub wad_id: Uuid,
+    pub title: Option<String>,
+    pub description: String,
+    pub tags: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MapAnalysis {
+    pub wad_id: Uuid,
+    pub map_name: String,
+    pub map_title: Option<String>,
+    pub description: String,
+    pub tags: Vec<String>,
+}
+
+#[derive(Clone)]
+pub struct Client {
+    inner: reqwest::Client,
+    base_url: String,
+}
+
+impl Client {
+    pub fn new(base_url: String) -> Self {
+        let inner = reqwest::Client::new();
+        Self { inner, base_url }
+    }
+
+    pub async fn list_map_analyses(&self, wad_id: Uuid) -> Result<Vec<MapAnalysis>> {
+        self.inner
+            .get(format!("{}/wad/{}/map_analyses", self.base_url, wad_id))
+            .send()
+            .await
+            .context("Failed to send list_map_analyses request")?
+            .error_for_status()
+            .context("list_map_analyses request returned error status")?
+            .json::<Vec<MapAnalysis>>()
+            .await
+            .context("Failed to parse list_map_analyses response")
+    }
+
+    pub async fn post_wad_analysis(&self, analysis: WadAnalysis) -> Result<()> {
+        let url = format!("{}/wad/{}/analysis", self.base_url, analysis.wad_id);
+        let resp = self
+            .inner
+            .post(&url)
+            .json(&analysis)
+            .send()
+            .await
+            .context("Failed to send post_wad_analysis request")?;
+        if !resp.status().is_success() {
+            bail!(
+                "post_wad_analysis request failed with status {}: {}",
+                resp.status(),
+                resp.text().await.unwrap_or_default()
+            );
+        }
+        Ok(())
+    }
+
+    pub async fn post_map_analysis(&self, analysis: MapAnalysis) -> Result<()> {
+        let url = format!(
+            "{}/wad/{}/map/{}/analysis",
+            self.base_url, analysis.wad_id, analysis.map_name
+        );
+        let resp = self
+            .inner
+            .post(&url)
+            .json(&analysis)
+            .send()
+            .await
+            .context("Failed to send post_map_analysis request")?;
+        if !resp.status().is_success() {
+            bail!(
+                "post_map_analysis request failed with status {}: {}",
+                resp.status(),
+                resp.text().await.unwrap_or_default()
+            );
+        }
+        Ok(())
+    }
+
+    pub async fn get_wad(&self, wad_id: Uuid) -> Result<Option<ReadWad>> {
+        let url = format!("{}/wad/{}", self.base_url, wad_id);
+        let resp = self
+            .inner
+            .get(&url)
+            .send()
+            .await
+            .context("Failed to send get_wad request")?;
+        match resp.status() {
+            reqwest::StatusCode::NOT_FOUND => Ok(None),
+            status if !status.is_success() => {
+                bail!(
+                    "get_wad request failed with status {}: {}",
+                    status,
+                    resp.text().await.unwrap_or_default()
+                );
+            }
+            _ => Ok(Some(
+                resp.json::<ReadWad>()
+                    .await
+                    .context("Failed to parse get_wad response")?,
+            )),
+        }
+    }
 }

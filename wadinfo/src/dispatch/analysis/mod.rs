@@ -124,7 +124,7 @@ fn backoff_delay(empty_pulls: u32) -> Duration {
     // Sequence (approx): 250ms, 500ms, 1s, 2s, 4s, 8s, 15s...
     let base_ms: u64 = 250;
     let exp = empty_pulls.min(16); // avoid overflow
-    let shift = exp.min(63) as u32;
+    let shift = exp.min(63);
     let factor = 1_u64.checked_shl(shift).unwrap_or(u64::MAX);
     let backoff_ms = base_ms.saturating_mul(factor);
     let capped = Duration::from_millis(backoff_ms).min(Duration::from_secs(15));

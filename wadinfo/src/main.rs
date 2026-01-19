@@ -66,10 +66,16 @@ async fn main() -> Result<()> {
 }
 
 async fn run_servers(args: args::ServerArgs) -> Result<()> {
+    println!("{}", "Connecting to postgres...".green());
     let pool = dorch_common::postgres::create_pool(args.postgres.clone()).await;
+    println!(
+        "{}",
+        "Connected to postgres. Initializing database...".green()
+    );
     let db = Database::new(pool)
         .await
         .context("Failed to create database")?;
+    println!("{}", "Database initialized.".green());
     let cancel = CancellationToken::new();
     let cancel_clone = cancel.clone();
     tokio::spawn(async move {

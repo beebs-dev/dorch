@@ -64,10 +64,10 @@ pub async fn list_wad_ids_in_bucket(args: &S3PruneArgs) -> Result<HashSet<Uuid>>
         let resp = req.send().await.context("S3 list_objects_v2 failed")?;
 
         for p in resp.common_prefixes() {
-            if let Some(prefix) = p.prefix() {
-                if let Some(wad_id) = parse_wad_id_from_prefix(prefix) {
-                    wad_ids.insert(wad_id);
-                }
+            if let Some(prefix) = p.prefix()
+                && let Some(wad_id) = parse_wad_id_from_prefix(prefix)
+            {
+                wad_ids.insert(wad_id);
             }
         }
 
@@ -92,10 +92,10 @@ pub async fn list_wad_ids_in_bucket(args: &S3PruneArgs) -> Result<HashSet<Uuid>>
                 .await
                 .context("S3 list_objects_v2 fallback failed")?;
             for obj in resp.contents() {
-                if let Some(key) = obj.key() {
-                    if let Some(wad_id) = parse_wad_id_from_key(key) {
-                        wad_ids.insert(wad_id);
-                    }
+                if let Some(key) = obj.key()
+                    && let Some(wad_id) = parse_wad_id_from_key(key)
+                {
+                    wad_ids.insert(wad_id);
                 }
             }
             if resp.is_truncated().unwrap_or(false) {

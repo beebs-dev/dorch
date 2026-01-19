@@ -4,7 +4,6 @@ use crate::{
         GameSummary, JumbotronItem, ListGamesResponse, ListJumbotronStreams, NewGameRequest,
         NewGameResponse,
     },
-    server::internal,
 };
 use anyhow::{Context, Result, anyhow, bail};
 use axum::{
@@ -511,20 +510,18 @@ pub async fn list_games_inner(state: App) -> Result<ListGamesResponse> {
         }
         let Some(info) = try_get_info(&state, &game).await else {
             eprintln!(
-                "{}{}{}",
+                "{}{}",
                 "⚠️  Skipping game with invalid or missing info • game_id=".yellow(),
                 game.spec.game_id.yellow().dimmed(),
-                ""
             );
             continue;
         };
         if info.private {
             // Omit private servers from the public listing.
             eprintln!(
-                "{}{}{}",
+                "{}{}",
                 "⚠️  Skipping private game • game_id=".yellow(),
                 game.spec.game_id.yellow().dimmed(),
-                ""
             );
             continue;
         }

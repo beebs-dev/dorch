@@ -50,12 +50,12 @@ create table if not exists wads (
 );
 
 -- Backfill-friendly: add new columns for existing deployments.
-alter table wads add column if not exists preferred_filename text;
-alter table wads add column if not exists added_at timestamptz;
-alter table wads add column if not exists locked boolean not null default false;
-alter table wads add column if not exists can_download boolean not null default true;
-alter table wads add column if not exists adult boolean not null default false;
-alter table wads add column if not exists hidden boolean not null default false;
+--alter table wads add column if not exists preferred_filename text;
+--alter table wads add column if not exists added_at timestamptz;
+--alter table wads add column if not exists locked boolean not null default false;
+--alter table wads add column if not exists can_download boolean not null default true;
+--alter table wads add column if not exists adult boolean not null default false;
+--alter table wads add column if not exists hidden boolean not null default false;
 
 create index if not exists idx_wads_title_trgm
   on wads using gin (title gin_trgm_ops);
@@ -290,9 +290,11 @@ create table if not exists wad_map_textures (
   wad_id    uuid not null references wads(wad_id) on delete cascade,
   map_name  text not null,
   texture   text not null,
+  count     int  not null default 1,
   primary key (wad_id, map_name, texture),
   foreign key (wad_id, map_name) references wad_maps(wad_id, map_name) on delete cascade
 );
+
 
 create index if not exists idx_wad_map_textures_texture
   on wad_map_textures (texture);

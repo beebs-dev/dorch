@@ -492,6 +492,13 @@ def parse_doom_sectors_texture_names(sectors_bytes: bytes) -> List[str]:
     return out
 
 
+def _texture_histogram_add(out: Dict[str, int], names: List[str]) -> None:
+    for name in names:
+        if not name:
+            continue
+        out[name] = out.get(name, 0) + 1
+
+
 def map_summary_from_wad_bytes(buf: bytes, block: Dict[str, Any]) -> Dict[str, Any]:
     fmt = detect_map_format(block)
 
@@ -510,18 +517,19 @@ def map_summary_from_wad_bytes(buf: bytes, block: Dict[str, Any]) -> Dict[str, A
         "nodes": lump_count("NODES", DOOM_NODES_REC),
     }
 
-    textures: set[str] = set()
+    textures: Dict[str, int] = {}
     sidedefs_lump = find_lump(block, "SIDEDEFS")
     if sidedefs_lump:
         sidedefs_bytes = read_lump_bytes_from_buf(buf, sidedefs_lump)
-        textures.update(parse_doom_sidedefs_texture_names(sidedefs_bytes))
+        _texture_histogram_add(textures, parse_doom_sidedefs_texture_names(sidedefs_bytes))
 
     sectors_lump = find_lump(block, "SECTORS")
     if sectors_lump:
         sectors_bytes = read_lump_bytes_from_buf(buf, sectors_lump)
-        textures.update(parse_doom_sectors_texture_names(sectors_bytes))
+        _texture_histogram_add(textures, parse_doom_sectors_texture_names(sectors_bytes))
 
-    stats["textures"] = sorted(textures)
+    # Deterministic output: sort keys.
+    stats["textures"] = dict(sorted(textures.items(), key=lambda kv: kv[0]))
 
     mechanics: Dict[str, Any] = {
         "teleports": False,
@@ -634,6 +642,77 @@ def map_summary_from_wad_bytes(buf: bytes, block: Dict[str, Any]) -> Dict[str, A
         difficulty["uv_items"] = uv_items
         difficulty["hmp_items"] = hmp_items
         difficulty["htr_items"] = htr_items
+
+        # Optional derived fields (only when THINGS are parsed deterministically).
+        melee = {"demon", "spectre"}
+        hitscanner = {"zombieman", "shotgun_guy", "chaingun_guy"}
+        boss = {"cyberdemon", "spider_mastermind"}
+        projectile = {
+            "imp",
+            "cacodemon",
+            "baron",
+            "hell_knight",
+            "revenant",
+            "mancubus",
+            "arachnotron",
+            "pain_elemental",
+            "lost_soul",
+            "archvile",
+        }
+
+        by_category: Dict[str, int] = {
+            "melee": 0,
+            "hitscanner": 0,
+            "projectile": 0,
+            "boss": 0,
+        }
+        for mname, cnt in by_type.items():
+            if mname in melee:
+                by_category["melee"] += int(cnt)
+            elif mname in hitscanner:
+                by_category["hitscanner"] += int(cnt)
+            elif mname in boss:
+                by_category["boss"] += int(cnt)
+            elif mname in projectile:
+                by_category["projectile"] += int(cnt)
+            else:
+                # Unknown/custom types: ignore for by_category.
+                pass
+        monsters["by_category"] = by_category
+
+        ammo_by_category: Dict[str, int] = {
+            "bullets": 0,
+            "shells": 0,
+            "rockets": 0,
+            "cells": 0,
+        }
+        ammo_map = {
+            "ammo_clip": "bullets",
+            "ammo_box": "bullets",
+            "shells": "shells",
+            "shell_box": "shells",
+            "rocket": "rockets",
+            "rocket_box": "rockets",
+            "cell": "cells",
+            "cell_pack": "cells",
+        }
+        for iname, cnt in items_by_type.items():
+            cat = ammo_map.get(iname)
+            if cat is not None:
+                ammo_by_category[cat] += int(cnt)
+        items["ammo_by_category"] = ammo_by_category
+
+        weapon_ids = {
+            "shotgun",
+            "super_shotgun",
+            "chaingun",
+            "rocket_launcher",
+            "plasma_rifle",
+            "chainsaw",
+            "bfg9000",
+        }
+        weapons_present = sorted([k for k in items_by_type.keys() if k in weapon_ids])
+        items["weapons_present"] = weapons_present
 
     return {
         "map": block["map"],

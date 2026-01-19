@@ -13,7 +13,7 @@ use axum_keycloak_auth::{
     instance::{KeycloakAuthInstance, KeycloakConfig},
     layer::KeycloakAuthLayer,
 };
-use dorch_common::{access_log, cors, rbac::UserId};
+use dorch_common::{access_log, cors};
 use owo_colors::OwoColorize;
 use reqwest::Url;
 use std::net::SocketAddr;
