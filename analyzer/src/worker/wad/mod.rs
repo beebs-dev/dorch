@@ -30,6 +30,13 @@ mod prompts {
 pub async fn run(args: args::WadArgs) -> Result<()> {
     dorch_common::metrics::maybe_spawn_metrics_server();
     let cancel = CancellationToken::new();
+    tokio::spawn({
+        let cancel = cancel.clone();
+        async move {
+            dorch_common::shutdown::shutdown_signal().await;
+            cancel.cancel();
+        }
+    });
     let analyzer = Analyzer::new(
         prompts::ANALYZE_WAD.to_string(),
         args.model,
@@ -60,23 +67,19 @@ pub async fn run(args: args::WadArgs) -> Result<()> {
                 filter_subjects: vec![subjects::analysis::wad("*")],
                 ack_policy: AckPolicy::Explicit,
                 ack_wait: std::time::Duration::from_secs(60),
-                //max_deliver: args.nats.max_deliver,
-                //num_replicas: args.nats.consumer_replicas,
+                max_deliver: 9999999999,
+                num_replicas: 1,
                 ..Default::default()
             },
         )
         .await
         .context("Failed to create JetStream consumer")?;
-    println!(
-        "{}{}",
-        "🚀 Starting wad analyzer • endpoint=".green(),
-        args.wadinfo_endpoint.to_string().green().dimmed(),
-    );
     let wadinfo = dorch_wadinfo::client::Client::new(args.wadinfo_endpoint);
     let locker = async_redis_lock::Locker::from_redis_url(args.redis.url().as_str())
         .await
         .context("Failed to create Redis locker")?;
     dorch_common::signal_ready();
+    println!("{}", "🚀 Starting wad analyzer".green());
     App::new(locker, analyzer, cancel, DeriveWad::new(wadinfo, js))
         .run(consumer)
         .await
@@ -114,6 +117,13 @@ impl Worker<ReadWad, RawWadAnalysis> for DeriveWad {
             .ok_or_else(|| anyhow!("Wad not found: {}", wad_id))?;
         let lock_key = format!("l:w:{}", wad_id);
         if input.maps.is_empty() {
+            println!(
+                "{}{}{}{}",
+                "ℹ️ Analyzing WAD • wad_id=".blue(),
+                wad_id.blue().dimmed(),
+                " • map_count=".blue(),
+                0.blue().dimmed(),
+            );
             Ok(DeriveResult::Ready(Work { input, lock_key }))
         } else {
             // Ensure the map analyses are done.
@@ -123,6 +133,13 @@ impl Worker<ReadWad, RawWadAnalysis> for DeriveWad {
                 .await
                 .context("Failed to list map analyses")?;
             if map_analysis.len() == input.maps.len() {
+                println!(
+                    "{}{}{}{}",
+                    "ℹ️ Analyzing WAD • wad_id=".blue(),
+                    wad_id.blue().dimmed(),
+                    " • map_count=".blue(),
+                    input.maps.len().blue().dimmed(),
+                );
                 Ok(DeriveResult::Ready(Work { input, lock_key }))
             } else {
                 // Request the missing maps.

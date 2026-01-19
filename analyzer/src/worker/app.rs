@@ -102,7 +102,7 @@ where
             tokio::select! {
                 _ = self.cancel.cancelled() => bail!("Context cancelled"),
                 msg = msgs.next() => {
-                    println!("Received summary request message");
+                    println!("Received message");
                     match msg
                         .transpose()
                         .context("Failed to get message from stream")? {
@@ -111,7 +111,7 @@ where
                         } else if let Err(e) = msg.ack().await {
                             eprintln!("Error acknowledging message: {:?}", e);
                         }
-                        None => bail!("No more messages; shutting down summarizer worker"),
+                        None => bail!("No more messages; shutting down worker"),
                     }
                 }
             }

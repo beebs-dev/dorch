@@ -27,6 +27,13 @@ mod prompts {
 pub async fn run(args: args::MapArgs) -> Result<()> {
     dorch_common::metrics::maybe_spawn_metrics_server();
     let cancel = CancellationToken::new();
+    tokio::spawn({
+        let cancel = cancel.clone();
+        async move {
+            dorch_common::shutdown::shutdown_signal().await;
+            cancel.cancel();
+        }
+    });
     let analyzer = Analyzer::new(
         prompts::ANALYZE_MAP.to_string(),
         args.model,
@@ -57,23 +64,19 @@ pub async fn run(args: args::MapArgs) -> Result<()> {
                 filter_subjects: vec![subjects::analysis::map("*", "*")],
                 ack_policy: AckPolicy::Explicit,
                 ack_wait: std::time::Duration::from_secs(60),
-                //max_deliver: args.nats.max_deliver,
-                //num_replicas: args.nats.consumer_replicas,
+                max_deliver: 9999999999,
+                num_replicas: 1,
                 ..Default::default()
             },
         )
         .await
         .context("Failed to create JetStream consumer")?;
-    println!(
-        "{}{}",
-        "🚀 Starting map analyzer • endpoint=".green(),
-        args.wadinfo_endpoint.to_string().green().dimmed(),
-    );
     let wadinfo = dorch_wadinfo::client::Client::new(args.wadinfo_endpoint);
     let locker = async_redis_lock::Locker::from_redis_url(args.redis.url().as_str())
         .await
         .context("Failed to create Redis locker")?;
     dorch_common::signal_ready();
+    println!("{}", "🚀 Starting map analyzer".green());
     App::new(locker, analyzer, cancel, DeriveMap::new(wadinfo))
         .run(consumer)
         .await
@@ -100,15 +103,19 @@ impl Worker<ReadWad, RawMapAnalysis> for DeriveMap {
     async fn derive_input(&self, _subject: &str, payload: &Bytes) -> Result<DeriveResult<ReadWad>> {
         let input: ReadWad = serde_json::from_slice(payload.as_ref())
             .context("Failed to deserialize map analysis input")?;
-        let lock_key = format!(
-            "l:w:{}:m:{}",
-            input.meta.meta.id,
-            input
-                .maps
-                .first()
-                .as_ref()
-                .map(|m| m.map.map.clone())
-                .ok_or_else(|| anyhow!("No map found in ReadWad"))?,
+        let map_name = input
+            .maps
+            .first()
+            .as_ref()
+            .map(|m| m.map.map.clone())
+            .ok_or_else(|| anyhow!("No map found in ReadWad"))?;
+        let lock_key = format!("l:w:{}:m:{}", input.meta.meta.id, map_name,);
+        println!(
+            "{}{}{}{}",
+            "ℹ️ Analyzing MAP • wad_id=".blue(),
+            input.meta.meta.id.to_string().blue().dimmed(),
+            " • map_name=".blue(),
+            map_name.blue().dimmed(),
         );
         Ok(DeriveResult::Ready(Work { input, lock_key }))
     }

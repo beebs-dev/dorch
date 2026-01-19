@@ -24,7 +24,7 @@ spec:
 {{ toYaml .Values.imagePullSecrets | indent 10 }}
 {{- end }}
       containers:
-      - name: init
+      - name: analyzer
         image: {{ $image }}
         imagePullPolicy: {{ .Values.analyzer.map.imagePullPolicy }}
         command:
