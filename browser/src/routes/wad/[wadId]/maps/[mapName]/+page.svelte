@@ -201,23 +201,37 @@
 </svelte:head>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
-	<header class="mt-3 flex items-start gap-4">
-		<nav class="flex-1 text-sm text-zinc-400" aria-label="Breadcrumb">
-			<a
-				href={resolve(`/wad/${encodeURIComponent(data.wadId)}`)}
-				class="hover:text-zinc-200 hover:underline"
-			>
-				{wadTitle()}
-			</a>
-			<span class="px-2 text-zinc-600">/</span>
-			<a
-				href={resolve(`/wad/${encodeURIComponent(data.wadId)}?tab=maps`)}
-				class="hover:text-zinc-200 hover:underline"
-			>
-				Maps
-			</a>
-			<span class="px-2 text-zinc-600">/</span>
-			<span class="font-bold text-zinc-200">{data.mapName}</span>
+	<header class="mt-3 flex flex-wrap items-start justify-between gap-4">
+		<nav aria-label="Breadcrumb" class="min-w-0 flex-1">
+			<ol class="flex min-w-0 flex-wrap items-baseline gap-2">
+				<li class="min-w-0">
+					<a
+						href={resolve(`/wad/${encodeURIComponent(data.wadId)}`)}
+						class="block min-w-0 truncate text-xs font-[var(--dorch-mono)] font-medium tracking-wide text-zinc-400 hover:text-zinc-200 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+					>
+						{wadTitle()}
+					</a>
+				</li>
+				<li aria-hidden="true" class="shrink-0 text-xs text-zinc-600">
+					/
+				</li>
+				<li class="shrink-0">
+					<a
+						href={resolve(`/wad/${encodeURIComponent(data.wadId)}?tab=maps`)}
+						class="text-xs font-[var(--dorch-mono)] font-medium tracking-wide text-zinc-400 hover:text-zinc-200 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+					>
+						MAPS
+					</a>
+				</li>
+				<li aria-hidden="true" class="shrink-0 text-xs text-zinc-600">
+					/
+				</li>
+				<li class="min-w-0" aria-current="page">
+					<h1 class="truncate text-2xl font-semibold tracking-tight text-zinc-100">
+						{data.mapName}
+					</h1>
+				</li>
+			</ol>
 		</nav>
 		<div class="flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs text-zinc-400">
 			<span class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800 ring-inset">
