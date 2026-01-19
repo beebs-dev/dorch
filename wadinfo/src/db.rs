@@ -1,6 +1,6 @@
 use crate::client::{
-    GetWadMapResponse, ListWadsResponse, MapReference, MapThumbnail, ReadMapStat, ReadWad,
-    ReadWadMetaWithTextFiles, ResolvedWadURL, WadImage, WadSearchResults,
+    GetWadMapResponse, ListWadsResponse, MapAnalysis, MapReference, MapThumbnail, ReadMapStat,
+    ReadWad, ReadWadMetaWithTextFiles, ResolvedWadURL, WadAnalysis, WadImage, WadSearchResults,
 };
 use anyhow::{Context, Result};
 use dorch_common::{
@@ -95,6 +95,14 @@ mod sql {
     pub const LIST_WAD_TEXT_FILES: &str = include_str!("sql/list_wad_text_files.sql");
     pub const DELETE_WAD_MAP_IMAGES: &str = include_str!("sql/delete_wad_map_images.sql");
     pub const INSERT_WAD_MAP_IMAGE: &str = include_str!("sql/insert_wad_map_image.sql");
+
+    pub const INSERT_WAD_ANALYSIS: &str = include_str!("sql/insert_wad_analysis.sql");
+    pub const INSERT_WAD_ANALYSIS_TAG: &str = include_str!("sql/insert_wad_analysis_tag.sql");
+    pub const INSERT_MAP_ANALYSIS: &str = include_str!("sql/insert_map_analysis.sql");
+    pub const INSERT_MAP_ANALYSIS_TAG: &str = include_str!("sql/insert_map_analysis_tag.sql");
+    pub const LIST_MAP_ANALYSES: &str = include_str!("sql/list_map_analyses.sql");
+    pub const DELETE_WAD_ANALYSIS_TAGS: &str = include_str!("sql/delete_wad_analysis_tags.sql");
+    pub const DELETE_MAP_ANALYSIS_TAGS: &str = include_str!("sql/delete_map_analysis_tags.sql");
 }
 
 #[derive(Clone)]
@@ -236,8 +244,135 @@ impl Database {
             .await
             .context("failed to prepare INSERT_WAD_MAP_IMAGE")?;
 
-        _ = conn;
+        _ = conn
+            .prepare(sql::INSERT_WAD_ANALYSIS)
+            .await
+            .context("failed to prepare INSERT_WAD_ANALYSIS")?;
+        _ = conn
+            .prepare(sql::INSERT_WAD_ANALYSIS_TAG)
+            .await
+            .context("failed to prepare INSERT_WAD_ANALYSIS_TAG")?;
+        _ = conn
+            .prepare(sql::INSERT_MAP_ANALYSIS)
+            .await
+            .context("failed to prepare INSERT_MAP_ANALYSIS")?;
+        _ = conn
+            .prepare(sql::INSERT_MAP_ANALYSIS_TAG)
+            .await
+            .context("failed to prepare INSERT_MAP_ANALYSIS_TAG")?;
+        _ = conn
+            .prepare(sql::LIST_MAP_ANALYSES)
+            .await
+            .context("failed to prepare LIST_MAP_ANALYSES")?;
+        _ = conn
+            .prepare(sql::DELETE_WAD_ANALYSIS_TAGS)
+            .await
+            .context("failed to prepare DELETE_WAD_ANALYSIS_TAGS")?;
+        _ = conn
+            .prepare(sql::DELETE_MAP_ANALYSIS_TAGS)
+            .await
+            .context("failed to prepare DELETE_MAP_ANALYSIS_TAGS")?;
         Ok(Self { pool })
+    }
+
+    pub async fn list_map_analyses(&self, wad_id: Uuid) -> Result<Vec<MapAnalysis>> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::LIST_MAP_ANALYSES)
+            .await
+            .context("failed to prepare LIST_MAP_ANALYSES")?;
+        conn.query(&stmt, &[&wad_id])
+            .await
+            .context("failed to execute LIST_MAP_ANALYSES")?
+            .into_iter()
+            .map(|row| {
+                Ok(MapAnalysis {
+                    description: row.try_get("description")?,
+                    tags: row.try_get("tags")?,
+                    map_name: row.try_get("map_name")?,
+                    map_title: row.try_get("map_title")?,
+                    wad_id,
+                })
+            })
+            .collect::<Result<Vec<_>>>()
+    }
+
+    pub async fn insert_map_analysis(&self, analysis: &MapAnalysis) -> Result<()> {
+        let mut conn = self.pool.get().await.context("failed to get connection")?;
+        let tx = conn
+            .transaction()
+            .await
+            .context("failed to begin transaction")?;
+        let insert_stmt = tx
+            .prepare_cached(sql::INSERT_MAP_ANALYSIS)
+            .await
+            .context("failed to prepare INSERT_MAP_ANALYSIS")?;
+        let insert_tag_stmt = tx
+            .prepare_cached(sql::INSERT_MAP_ANALYSIS_TAG)
+            .await
+            .context("failed to prepare INSERT_MAP_ANALYSIS_TAG")?;
+        let delete_tags_stmt = tx
+            .prepare_cached(sql::DELETE_MAP_ANALYSIS_TAGS)
+            .await
+            .context("failed to prepare DELETE_MAP_ANALYSIS_TAGS")?;
+        tx.execute(
+            &insert_stmt,
+            &[
+                &analysis.wad_id,
+                &analysis.map_name,
+                &analysis.map_title,
+                &analysis.description,
+            ],
+        )
+        .await
+        .context("failed to execute INSERT_MAP_ANALYSIS")?;
+        tx.execute(&delete_tags_stmt, &[&analysis.wad_id, &analysis.map_name])
+            .await
+            .context("failed to execute DELETE_MAP_ANALYSIS_TAGS")?;
+        for tag in &analysis.tags {
+            tx.execute(
+                &insert_tag_stmt,
+                &[&analysis.wad_id, &analysis.map_name, tag],
+            )
+            .await
+            .with_context(|| format!("insert map_analysis_tag {}", tag))?;
+        }
+        tx.commit().await.context("commit insert_map_analysis tx")
+    }
+
+    pub async fn insert_wad_analysis(&self, analysis: &WadAnalysis) -> Result<()> {
+        let mut conn = self.pool.get().await.context("failed to get connection")?;
+        let tx = conn
+            .transaction()
+            .await
+            .context("failed to begin transaction")?;
+        let insert_stmt = tx
+            .prepare_cached(sql::INSERT_WAD_ANALYSIS)
+            .await
+            .context("failed to prepare INSERT_WAD_ANALYSIS")?;
+        let insert_tag_stmt = tx
+            .prepare_cached(sql::INSERT_WAD_ANALYSIS_TAG)
+            .await
+            .context("failed to prepare INSERT_WAD_ANALYSIS_TAG")?;
+        let delete_tags_stmt = tx
+            .prepare_cached(sql::DELETE_WAD_ANALYSIS_TAGS)
+            .await
+            .context("failed to prepare DELETE_WAD_ANALYSIS_TAGS")?;
+        tx.execute(
+            &insert_stmt,
+            &[&analysis.wad_id, &analysis.title, &analysis.description],
+        )
+        .await
+        .context("failed to execute INSERT_WAD_ANALYSIS")?;
+        tx.execute(&delete_tags_stmt, &[&analysis.wad_id])
+            .await
+            .context("failed to execute DELETE_WAD_ANALYSIS_TAGS")?;
+        for tag in &analysis.tags {
+            tx.execute(&insert_tag_stmt, &[&analysis.wad_id, tag])
+                .await
+                .with_context(|| format!("insert wad_analysis_tag {}", tag))?;
+        }
+        tx.commit().await.context("commit insert_wad_analysis tx")
     }
 
     pub async fn get_wad(&self, wad_id: Uuid) -> Result<Option<ReadWad>> {

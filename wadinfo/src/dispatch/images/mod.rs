@@ -24,7 +24,6 @@ pub async fn run(args: DispatchImagesRunArgs) -> Result<()> {
     .await
     .context("Failed to connect to NATS")?;
     let js = async_nats::jetstream::new(nats);
-
     let cancel = CancellationToken::new();
     tokio::spawn({
         let cancel = cancel.clone();
@@ -33,9 +32,7 @@ pub async fn run(args: DispatchImagesRunArgs) -> Result<()> {
             cancel.cancel();
         }
     });
-
     dorch_common::signal_ready();
-
     let mut empty_pulls: u32 = 0;
     while !cancel.is_cancelled() {
         let mut conn = db.get_conn().await?;
@@ -51,11 +48,12 @@ pub async fn run(args: DispatchImagesRunArgs) -> Result<()> {
         }
         empty_pulls = 0;
         for wad_id in &wad_ids {
-            let publish_ack = js
+            _ = js
                 .publish(subjects::images(wad_id), wad_id.to_string().into())
                 .await
-                .context("JetStream publish failed")?;
-            publish_ack.await.context("JetStream publish ack failed")?;
+                .context("JetStream publish failed")?
+                .await
+                .context("JetStream publish ack failed")?;
         }
         db.mark_dispatched_images_many(&tx, &wad_ids)
             .await

@@ -1,8 +1,8 @@
 use crate::{
     app::App,
     client::{
-        ListWadsRequest, ResolveMapThumbnailsRequest, ResolveMapThumbnailsResponse,
-        ResolveWadURLsRequest, ResolveWadURLsResponse, WadImage, WadSearchRequest,
+        ListWadsRequest, MapAnalysis, ResolveMapThumbnailsRequest, ResolveMapThumbnailsResponse,
+        ResolveWadURLsRequest, ResolveWadURLsResponse, WadAnalysis, WadImage, WadSearchRequest,
     },
 };
 use anyhow::{Context, Result, bail};
@@ -44,6 +44,8 @@ pub async fn run_server(
         .route("/wad_urls", post(resolve_wad_s3_urls))
         .route("/featured", get(featured_wads))
         .route("/wad/{id}", get(get_wad))
+        .route("/wad/{id}/analysis", post(post_wad_analysis))
+        .route("/wad/{id}/map/{map}/analysis", post(post_map_analysis))
         .route("/wad/{id}/map/{map}", get(get_wad_map))
         .route(
             "/wad/{id}/maps/{map}/images",
@@ -82,6 +84,38 @@ pub async fn run_server(
 
 async fn health() -> impl IntoResponse {
     StatusCode::OK.into_response()
+}
+
+pub async fn post_map_analysis(
+    State(state): State<App>,
+    Path((wad_id, map_name)): Path<(Uuid, String)>,
+    Json(analysis): Json<MapAnalysis>,
+) -> impl IntoResponse {
+    if wad_id != analysis.wad_id || map_name != analysis.map_name {
+        return response::error(anyhow::anyhow!(
+            "WAD ID or map name in path does not match analysis payload"
+        ));
+    }
+    if let Err(e) = state.db.insert_map_analysis(&analysis).await {
+        return response::error(e.context("Failed to insert map analysis"));
+    }
+    StatusCode::NO_CONTENT.into_response()
+}
+
+pub async fn post_wad_analysis(
+    State(state): State<App>,
+    Path(wad_id): Path<Uuid>,
+    Json(req): Json<WadAnalysis>,
+) -> impl IntoResponse {
+    if wad_id != req.wad_id {
+        return response::error(anyhow::anyhow!(
+            "WAD ID in path does not match analysis payload"
+        ));
+    }
+    if let Err(e) = state.db.insert_wad_analysis(&req).await {
+        return response::error(e.context("Failed to insert wad analysis"));
+    }
+    StatusCode::NO_CONTENT.into_response()
 }
 
 pub async fn upsert_wad(State(state): State<App>, Json(req): Json<InsertWad>) -> impl IntoResponse {

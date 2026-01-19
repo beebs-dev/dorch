@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use async_nats::ConnectOptions;
+use dorch_common::streams::subjects;
 use rand::Rng;
 use tokio::time::{Duration, sleep};
 use tokio_util::sync::CancellationToken;
@@ -13,9 +14,7 @@ pub async fn run(args: DispatchAnalysisRunArgs) -> Result<()> {
     let db = db::Database::new(pool)
         .await
         .context("Failed to create dispatch-analysis database")?;
-
     let nats_args = args.nats.require()?;
-
     let nats = async_nats::connect_with_options(
         &nats_args.nats_url,
         ConnectOptions::new().user_and_password(nats_args.nats_user, nats_args.nats_password),
@@ -23,7 +22,6 @@ pub async fn run(args: DispatchAnalysisRunArgs) -> Result<()> {
     .await
     .context("Failed to connect to NATS")?;
     let js = async_nats::jetstream::new(nats);
-
     let cancel = CancellationToken::new();
     tokio::spawn({
         let cancel = cancel.clone();
@@ -32,14 +30,11 @@ pub async fn run(args: DispatchAnalysisRunArgs) -> Result<()> {
             cancel.cancel();
         }
     });
-
     dorch_common::signal_ready();
-
     let mut empty_pulls: u32 = 0;
     while !cancel.is_cancelled() {
         let mut conn = db.get_conn().await?;
         let tx = conn.transaction().await.context("begin tx")?;
-
         let Some(wad_id) = db.pull_one(&tx).await? else {
             tx.commit().await.context("commit empty pull tx")?;
             empty_pulls = empty_pulls.saturating_add(1);
@@ -48,18 +43,15 @@ pub async fn run(args: DispatchAnalysisRunArgs) -> Result<()> {
                 _ = cancel.cancelled() => break,
             }
         };
-
         empty_pulls = 0;
-
         let wad_id_str = wad_id.to_string();
-        let subject = format!("dorch.wad.{wad_id_str}.analysis");
-
-        let publish_ack = js
+        let subject = subjects::analysis::wad(wad_id_str.as_str());
+        _ = js
             .publish(subject, wad_id_str.clone().into())
             .await
-            .context("JetStream publish failed")?;
-        publish_ack.await.context("JetStream publish ack failed")?;
-
+            .context("JetStream publish failed")?
+            .await
+            .context("JetStream publish ack failed")?;
         db.mark_dispatched_analysis(&tx, wad_id)
             .await
             .context("Failed to mark analysis dispatched")?;
