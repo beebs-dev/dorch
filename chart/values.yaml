@@ -161,7 +161,7 @@ wadinfo:
     analysis:
       image: thavlik/dorch-wadinfo:latest
       imagePullPolicy: Always
-      replicas: 0
+      replicas: 1
       logLevel: debug
       resources:
         requests: 
@@ -250,12 +250,28 @@ analyzer:
     replicas: 1
     logLevel: debug
     resources: {}
+    openai:
+      api_key:
+        valueFrom:
+          secretKeyRef:
+            name: openai-cred
+            key: api_key
+      base_url: null
+      model: "gpt-5.2"
   map:
     image: thavlik/dorch-analyzer:latest
     imagePullPolicy: Always
     replicas: 1
     logLevel: debug
     resources: {}
+    openai:
+      api_key:
+        valueFrom:
+          secretKeyRef:
+            name: openai-cred
+            key: api_key
+      base_url: null
+      model: "gpt-5.2"
 
 webrtcAuth:
   image: thavlik/dorch-webrtc-auth:latest

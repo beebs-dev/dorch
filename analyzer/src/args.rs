@@ -26,8 +26,8 @@ pub(crate) struct WadArgs {
     #[arg(long, env = "NODE_ID", required = true)]
     pub node_id: String,
 
-    #[arg(long, env = "ENDPOINT", required = true)]
-    pub endpoint: String,
+    #[arg(long, env = "WADINFO_ENDPOINT", required = true)]
+    pub wadinfo_endpoint: String,
 
     #[command(flatten)]
     pub nats: NatsArgs,
@@ -53,8 +53,8 @@ pub(crate) struct MapArgs {
     #[arg(long, env = "NODE_ID", required = true)]
     pub node_id: String,
 
-    #[arg(long, env = "ENDPOINT", required = true)]
-    pub endpoint: String,
+    #[arg(long, env = "WADINFO_ENDPOINT", required = true)]
+    pub wadinfo_endpoint: String,
 
     #[command(flatten)]
     pub nats: NatsArgs,

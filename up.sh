@@ -26,6 +26,10 @@ do_restart() {
             restart_args+=("party")
             restart_args+=("party-router")
             ;;
+        analyzer)
+            restart_args+=("analyzer-map")
+            restart_args+=("analyzer-wad")
+            ;;
         server|proxy)
             restart_server=true
             kubectl delete pod --context $KUBECONTEXT -n $NAMESPACE test-game

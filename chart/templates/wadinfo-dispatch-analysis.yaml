@@ -1,0 +1,79 @@
+{{- $image := printf "%s%s" .Values.registry .Values.wadinfo.dispatch.analysis.image -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-wadinfo-dispatch-analysis
+spec:
+  replicas: {{ .Values.wadinfo.dispatch.analysis.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-wadinfo-dispatch-analysis
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-wadinfo-dispatch-analysis
+    spec:
+    {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 10 }}
+    {{- end }}
+      containers:
+      - name: dispatch-analysis
+        imagePullPolicy: {{ .Values.wadinfo.dispatch.analysis.imagePullPolicy }}
+        image: {{ $image }}
+    {{- if .Values.wadinfo.dispatch.analysis.resources }}
+        resources:
+{{ toYaml .Values.wadinfo.dispatch.analysis.resources | indent 10 }}
+    {{- end }}
+        command:
+          - dorch-wadinfo
+          - dispatch
+          - analysis
+{{- if .Values.prometheus.enabled }}
+        ports:
+        - containerPort: 2112
+          protocol: TCP
+          name: metrics
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 2112
+{{- end }}
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /etc/ready
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        env:
+        - name: SERVICE_NAME
+          value: wadinfo-dispatch-analysis
+        - name: RUST_LOG
+          value: info,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info
+        - name: LOG_LEVEL
+          value: {{ .Values.wadinfo.dispatch.analysis.logLevel }}
+{{- if .Values.prometheus.enabled }}
+        - name: DORCH_METRICS_ENABLED
+          value: "true"
+        - name: DORCH_METRICS_PORT
+          value: "2112"
+{{- end }}
+{{ include "dorch.metrics-env" . | indent 8 }}
+{{ include "dorch.nats-env" . | indent 8 }}
+{{ include "dorch.postgres-env" . | indent 8 }}
+---
+{{- if .Values.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ .Release.Name }}-wadinfo-dispatch-analysis
+  labels:
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-wadinfo-dispatch-analysis
+  podMetricsEndpoints:
+  - port: metrics
+{{- end }}

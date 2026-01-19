@@ -46,3 +46,37 @@ spec:
   retention: limits
   discard: old
   maxAge: 168h
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Stream
+metadata:
+  name: dorch-wad-analysis
+  namespace: nats
+spec:
+  name: DORCH_WAD_ANALYSIS
+  account: admin
+  subjects:
+    - "dorch.analysis.wad.*"
+  storage: file
+  replicas: 1
+  duplicateWindow: 2m
+  retention: limits
+  discard: old
+  maxAge: 168h
+---
+apiVersion: jetstream.nats.io/v1beta2
+kind: Stream
+metadata:
+  name: dorch-map-analysis
+  namespace: nats
+spec:
+  name: DORCH_MAP_ANALYSIS
+  account: admin
+  subjects:
+    - "dorch.analysis.map.*.*"
+  storage: file
+  replicas: 1
+  duplicateWindow: 2m
+  retention: limits
+  discard: old
+  maxAge: 168h

@@ -67,10 +67,12 @@ pub async fn run(args: args::MapArgs) -> Result<()> {
     println!(
         "{}{}",
         "🚀 Starting map analyzer • endpoint=".green(),
-        args.endpoint.to_string().green().dimmed(),
+        args.wadinfo_endpoint.to_string().green().dimmed(),
     );
-    let wadinfo = dorch_wadinfo::client::Client::new(args.endpoint);
-    let locker = async_redis_lock::Locker::from_redis_url(args.redis.url().as_str()).await?;
+    let wadinfo = dorch_wadinfo::client::Client::new(args.wadinfo_endpoint);
+    let locker = async_redis_lock::Locker::from_redis_url(args.redis.url().as_str())
+        .await
+        .context("Failed to create Redis locker")?;
     dorch_common::signal_ready();
     App::new(locker, analyzer, cancel, DeriveMap::new(wadinfo))
         .run(consumer)

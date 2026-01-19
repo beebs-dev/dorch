@@ -188,7 +188,7 @@ pub mod subjects {
             T: Display,
             U: Display,
         {
-            format!("dorch.analysis.wad.{}.{}", wad_id, map)
+            format!("dorch.analysis.map.{}.{}", wad_id, map)
         }
     }
 }
