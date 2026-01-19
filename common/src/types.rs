@@ -158,39 +158,45 @@ pub mod wad {
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct ReadWadMeta {
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Uuid::is_nil")]
         pub id: Uuid,
+
+        #[serde(default, skip_serializing_if = "String::is_empty")]
         pub sha1: String,
-        #[serde(default)]
+
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         pub sha256: Option<String>,
-        #[serde(default)]
+
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         pub title: Option<String>,
 
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         pub authors: Option<Vec<String>>,
 
         /// All known filenames ever observed for this WAD (from filenames.json).
         /// May include duplicates (e.g., casing differences).
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         pub filenames: Option<Vec<String>>,
 
         /// A preferred/canonical filename to use (from additional.json:filename), if provided.
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         pub filename: Option<String>,
 
         /// Additional WAD Archive overrides (additional.json). Stored for provenance.
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         pub additional: Option<AdditionalMeta>,
 
         /// WAD Archive flags (additional.json).
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         pub flags: Option<WadFlags>,
 
         /// When this WAD was first indexed in Wad Archive (additional.json:added).
         /// Stored as the original timestamp string.
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         pub added: Option<String>,
+
         pub file: FileMeta,
+
         pub content: ContentMeta,
     }
 
@@ -340,33 +346,37 @@ pub mod wad {
         #[serde(rename = "type")]
         pub file_type: String,
 
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         pub size: Option<i64>,
 
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         pub url: Option<String>,
 
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         pub corrupt: Option<bool>,
 
-        #[serde(default, rename = "corruptMessage")]
+        #[serde(
+            default,
+            rename = "corruptMessage",
+            skip_serializing_if = "Option::is_none"
+        )]
         pub corrupt_message: Option<String>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct ContentMeta {
         /// Prefer extracted maps if present; else WAD Archive maps.
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         pub maps: Option<Vec<String>>,
 
         /// From wads.json; dynamic set of counters.
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         pub counts: Option<BTreeMap<String, i64>>,
 
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         pub engines_guess: Option<Vec<String>>,
 
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         pub iwads_guess: Option<Vec<String>>,
     }
 

@@ -108,6 +108,8 @@ mod sql {
     pub const DELETE_MAP_ANALYSIS_TAGS: &str = include_str!("sql/delete_map_analysis_tags.sql");
     pub const GET_WAD_ANALYSIS: &str = include_str!("sql/get_wad_analysis.sql");
     pub const GET_WAD_MAP_ANALYSIS: &str = include_str!("sql/get_wad_map_analysis.sql");
+    pub const GET_WAD_MAP_ANALYSIS_EXISTS: &str =
+        include_str!("sql/get_wad_map_analysis_exists.sql");
 }
 
 #[derive(Clone)]
@@ -293,7 +295,24 @@ impl Database {
             .prepare(sql::GET_WAD_MAP_ANALYSIS)
             .await
             .context("failed to prepare GET_WAD_MAP_ANALYSIS")?;
+        _ = conn
+            .prepare(sql::GET_WAD_MAP_ANALYSIS_EXISTS)
+            .await
+            .context("failed to prepare GET_WAD_MAP_ANALYSIS_EXISTS")?;
         Ok(Self { pool })
+    }
+
+    pub async fn map_analysis_exists(&self, wad_id: Uuid, map_name: &str) -> Result<bool> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::GET_WAD_MAP_ANALYSIS_EXISTS)
+            .await
+            .context("failed to prepare GET_WAD_MAP_ANALYSIS_EXISTS")?;
+        Ok(conn
+            .query_opt(&stmt, &[&wad_id, &map_name])
+            .await
+            .context("failed to execute GET_WAD_MAP_ANALYSIS_EXISTS")?
+            .is_some())
     }
 
     pub async fn list_map_analyses(&self, wad_id: Uuid) -> Result<Vec<MapAnalysis>> {

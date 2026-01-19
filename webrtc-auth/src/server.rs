@@ -35,7 +35,7 @@ pub async fn run(
             .realm(kc.realm)
             .build(),
     );
-    let keycloak_layer = KeycloakAuthLayer::<String>::builder()
+    let _keycloak_layer = KeycloakAuthLayer::<String>::builder()
         .instance(keycloak_auth_instance)
         .passthrough_mode(PassthroughMode::Block)
         .persist_raw_claims(true)

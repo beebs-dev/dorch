@@ -9,8 +9,8 @@ use openai::{
 use std::{ops::Deref, sync::Arc};
 use tiktoken_rs::{CoreBPE, p50k_base};
 
-const ANALYSIS_MAX_TOKENS: u64 = 1500;
-const INPUT_TOKEN_LIMIT: u64 = 270000; // 2000 less than max for gpt5.2
+const ANALYSIS_MAX_TOKENS: u64 = 350;
+const INPUT_TOKEN_LIMIT: u64 = 1200;
 
 pub struct AnalyzerInner {
     model: String,

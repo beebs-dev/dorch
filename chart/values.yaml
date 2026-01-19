@@ -247,7 +247,7 @@ analyzer:
   wad:
     image: thavlik/dorch-analyzer:latest
     imagePullPolicy: Always
-    replicas: 4
+    replicas: 1
     logLevel: debug
     resources: {}
     openai:
@@ -257,11 +257,11 @@ analyzer:
             name: openai-cred
             key: api_key
       base_url: null
-      model: "gpt-5.2"
+      model: "gpt-4.1-mini"
   map:
     image: thavlik/dorch-analyzer:latest
     imagePullPolicy: Always
-    replicas: 4
+    replicas: 1
     logLevel: debug
     resources: {}
     openai:
@@ -271,7 +271,7 @@ analyzer:
             name: openai-cred
             key: api_key
       base_url: null
-      model: "gpt-5.2"
+      model: "gpt-4.1-mini"
 
 webrtcAuth:
   image: thavlik/dorch-webrtc-auth:latest

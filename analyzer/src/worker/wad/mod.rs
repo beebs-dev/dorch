@@ -5,6 +5,7 @@ use crate::{
     worker::{
         analyzer::Analyzer,
         app::{App, DeriveResult, Work, Worker},
+        optimize_readwad,
     },
 };
 use anyhow::{Context, Result, anyhow};
@@ -80,7 +81,7 @@ pub async fn run(args: args::WadArgs) -> Result<()> {
         .context("Failed to create Redis locker")?;
     dorch_common::signal_ready();
     println!("{}", "🚀 Starting wad analyzer".green());
-    App::new(locker, analyzer, cancel, DeriveWad::new(wadinfo, js))
+    App::new(analyzer, cancel, DeriveWad::new(wadinfo, js, locker))
         .run(consumer)
         .await
 }
@@ -92,32 +93,69 @@ pub struct RawWadAnalysis {
     pub tags: Vec<String>,
 }
 
+#[derive(Clone, Deserialize)]
+pub struct WadContext {
+    pub wad_id: Uuid,
+}
+
 pub struct DeriveWad {
     wadinfo: dorch_wadinfo::client::Client,
     js: async_nats::jetstream::Context,
+    locker: async_redis_lock::Locker,
 }
 
 impl DeriveWad {
-    pub fn new(wadinfo: dorch_wadinfo::client::Client, js: async_nats::jetstream::Context) -> Self {
-        Self { wadinfo, js }
+    pub fn new(
+        wadinfo: dorch_wadinfo::client::Client,
+        js: async_nats::jetstream::Context,
+        locker: async_redis_lock::Locker,
+    ) -> Self {
+        Self {
+            wadinfo,
+            js,
+            locker,
+        }
     }
 }
 
-impl Worker<ReadWad, RawWadAnalysis> for DeriveWad {
-    async fn derive_input(&self, _subject: &str, payload: &Bytes) -> Result<DeriveResult<ReadWad>> {
+impl Worker<ReadWad, RawWadAnalysis, WadContext> for DeriveWad {
+    async fn derive_input(
+        &self,
+        _subject: &str,
+        payload: &Bytes,
+    ) -> Result<DeriveResult<ReadWad, WadContext>> {
         let wad_id = Uuid::parse_str(
             std::str::from_utf8(payload.as_ref()).context("Invalid UTF-8 in payload")?,
         )
         .context("Failed to parse wad ID from payload")?;
-        let input = self
+        if wad_id.is_nil() {
+            return Ok(DeriveResult::Discard);
+        }
+        let lock_key = format!("l:w:{}", wad_id);
+        let lock = self
+            .locker
+            .clone()
+            .acquire(&lock_key)
+            .await
+            .context("Failed to acquire lock")?;
+        let mut input = self
             .wadinfo
             .get_wad(wad_id)
             .await
             .context("Failed to get wad")?
             .ok_or_else(|| anyhow!("Wad not found: {}", wad_id))?;
-        let lock_key = format!("l:w:{}", wad_id);
+        if input.meta.analysis.is_some() {
+            println!(
+                "{}{}",
+                "ℹ️  Skipping WAD that has already been analyzed • wad_id=".blue(),
+                wad_id.blue().dimmed(),
+            );
+            return Ok(DeriveResult::Discard);
+        }
+        optimize_readwad(&mut input);
         let wad_title = input.meta.meta.title.as_deref().unwrap_or("<untitled>");
         if input.maps.is_empty() {
+            input.meta.meta.id = Uuid::nil();
             println!(
                 "{}{}{}{}{}{}",
                 "ℹ️  Analyzing WAD • wad_id=".blue(),
@@ -127,15 +165,15 @@ impl Worker<ReadWad, RawWadAnalysis> for DeriveWad {
                 " • title=".blue(),
                 wad_title.blue().dimmed(),
             );
-            Ok(DeriveResult::Ready(Work { input, lock_key }))
+            Ok(DeriveResult::Ready(Work {
+                input,
+                lock: Some(lock),
+                context: WadContext { wad_id },
+            }))
         } else {
-            // Ensure the map analyses are done.
-            let map_analysis = self
-                .wadinfo
-                .list_map_analyses(wad_id)
-                .await
-                .context("Failed to list map analyses")?;
-            if map_analysis.len() == input.maps.len() {
+            let analyzed_map_count = input.maps.iter().filter(|m| m.analysis.is_some()).count();
+            if analyzed_map_count == input.maps.len() {
+                input.meta.meta.id = Uuid::nil();
                 println!(
                     "{}{}{}{}{}{}",
                     "ℹ️ Analyzing WAD • wad_id=".blue(),
@@ -145,20 +183,17 @@ impl Worker<ReadWad, RawWadAnalysis> for DeriveWad {
                     " • title=".blue(),
                     wad_title.blue().dimmed(),
                 );
-                Ok(DeriveResult::Ready(Work { input, lock_key }))
+                Ok(DeriveResult::Ready(Work {
+                    input,
+                    lock: Some(lock),
+                    context: WadContext { wad_id },
+                }))
             } else {
-                // Request the missing maps.
                 let missing_maps = input
                     .maps
                     .iter()
-                    .filter_map(|m| {
-                        let map_name = &m.map.map;
-                        if !map_analysis.iter().any(|ma| &ma.map_name == map_name) {
-                            Some(map_name.clone())
-                        } else {
-                            None
-                        }
-                    })
+                    .filter(|m| m.analysis.is_none())
+                    .map(|m| m.map.map.clone())
                     .collect::<Vec<_>>();
                 println!(
                     "{}{}{}{}{}{}",
@@ -172,7 +207,10 @@ impl Worker<ReadWad, RawWadAnalysis> for DeriveWad {
                 for map in missing_maps {
                     let subject = subjects::analysis::map(wad_id, &map);
                     let mut map_input = input.clone();
+                    map_input.meta.meta.content.counts = None;
+                    map_input.meta.meta.content.maps = None;
                     map_input.maps.retain(|m| m.map.map == map);
+                    map_input.maps.first_mut().unwrap().analysis = None;
                     let payload = Bytes::from(serde_json::to_vec(&map_input)?);
                     _ = self
                         .js
@@ -198,9 +236,9 @@ impl Worker<ReadWad, RawWadAnalysis> for DeriveWad {
         }
     }
 
-    async fn post(&self, input: ReadWad, analysis: RawWadAnalysis) -> Result<()> {
+    async fn post(&self, context: WadContext, analysis: RawWadAnalysis) -> Result<()> {
         let analysis = WadAnalysis {
-            wad_id: input.meta.meta.id,
+            wad_id: context.wad_id,
             title: analysis.title.filter(|t| !t.is_empty()),
             description: analysis.description,
             tags: analysis.tags,
@@ -208,7 +246,7 @@ impl Worker<ReadWad, RawWadAnalysis> for DeriveWad {
         println!(
             "{}{}{}{}{}{}{}{}{}",
             "✅ Completed WAD analysis • wad_id=".green(),
-            input.meta.meta.id.to_string().green().dimmed(),
+            context.wad_id.green().dimmed(),
             " • title=".green(),
             analysis
                 .title

@@ -19,6 +19,7 @@ use dorch_wadinfo::client::{MapAnalysis, ReadWad};
 use owo_colors::OwoColorize;
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
 
 mod prompts {
     pub const ANALYZE_MAP: &str = include_str!("prompts/analyze_map.txt");
@@ -77,7 +78,7 @@ pub async fn run(args: args::MapArgs) -> Result<()> {
         .context("Failed to create Redis locker")?;
     dorch_common::signal_ready();
     println!("{}", "🚀 Starting map analyzer".green());
-    App::new(locker, analyzer, cancel, DeriveMap::new(wadinfo))
+    App::new(analyzer, cancel, DeriveMap::new(wadinfo, locker))
         .run(consumer)
         .await
 }
@@ -89,55 +90,88 @@ pub struct RawMapAnalysis {
     pub tags: Vec<String>,
 }
 
+pub struct MapContext {
+    pub wad_id: Uuid,
+    pub map_name: String,
+}
+
 pub struct DeriveMap {
     wadinfo: dorch_wadinfo::client::Client,
+    locker: async_redis_lock::Locker,
 }
 
 impl DeriveMap {
-    pub fn new(wadinfo: dorch_wadinfo::client::Client) -> Self {
-        Self { wadinfo }
+    pub fn new(wadinfo: dorch_wadinfo::client::Client, locker: async_redis_lock::Locker) -> Self {
+        Self { wadinfo, locker }
     }
 }
 
-impl Worker<ReadWad, RawMapAnalysis> for DeriveMap {
-    async fn derive_input(&self, _subject: &str, payload: &Bytes) -> Result<DeriveResult<ReadWad>> {
-        let input: ReadWad = serde_json::from_slice(payload.as_ref())
+impl Worker<ReadWad, RawMapAnalysis, MapContext> for DeriveMap {
+    async fn derive_input(
+        &self,
+        _subject: &str,
+        payload: &Bytes,
+    ) -> Result<DeriveResult<ReadWad, MapContext>> {
+        let mut input: ReadWad = serde_json::from_slice(payload.as_ref())
             .context("Failed to deserialize map analysis input")?;
+        let wad_id = input.meta.meta.id; // save
+        if wad_id.is_nil() || input.maps.is_empty() {
+            return Ok(DeriveResult::Discard);
+        }
+        input.meta.meta.id = Uuid::nil(); // discard it
         let map_name = input
             .maps
             .first()
             .as_ref()
             .map(|m| m.map.map.clone())
             .ok_or_else(|| anyhow!("No map found in ReadWad"))?;
-        let lock_key = format!("l:w:{}:m:{}", input.meta.meta.id, map_name,);
+        let wad_name = input.meta.meta.title.as_deref().unwrap_or("<untitled>");
+        // First check to see if the analysis was already done
+        if self
+            .wadinfo
+            .map_analysis_exists(wad_id, &map_name)
+            .await
+            .context("Failed to check if map analysis is done")?
+        {
+            // Already done, skip it
+            println!(
+                "{}{}{}{}{}{}",
+                "ℹ️ Skipping already analyzed MAP • wad_id=".blue(),
+                wad_id.to_string().blue().dimmed(),
+                " • wad_name=".blue(),
+                wad_name.blue().dimmed(),
+                " • map_name=".blue(),
+                map_name.blue().dimmed(),
+            );
+            return Ok(DeriveResult::Discard);
+        }
+        let lock_key = format!("l:w:{}:m:{}", wad_id, map_name);
+        let lock = self
+            .locker
+            .clone()
+            .acquire(&lock_key)
+            .await
+            .context("Failed to acquire lock")?;
         println!(
             "{}{}{}{}{}{}",
             "ℹ️ Analyzing MAP • wad_id=".blue(),
-            input.meta.meta.id.to_string().blue().dimmed(),
+            wad_id.to_string().blue().dimmed(),
             " • wad_name=".blue(),
-            input
-                .meta
-                .meta
-                .title
-                .as_deref()
-                .unwrap_or("<untitled>")
-                .blue()
-                .dimmed(),
+            wad_name.blue().dimmed(),
             " • map_name=".blue(),
             map_name.blue().dimmed(),
         );
-        Ok(DeriveResult::Ready(Work { input, lock_key }))
+        Ok(DeriveResult::Ready(Work {
+            input,
+            lock: Some(lock),
+            context: MapContext { wad_id, map_name },
+        }))
     }
 
-    async fn post(&self, input: ReadWad, analysis: RawMapAnalysis) -> Result<()> {
+    async fn post(&self, context: MapContext, analysis: RawMapAnalysis) -> Result<()> {
         let analysis = MapAnalysis {
-            wad_id: input.meta.meta.id,
-            map_name: input
-                .maps
-                .first()
-                .as_ref()
-                .map(|m| m.map.map.clone())
-                .ok_or_else(|| anyhow!("No map found in ReadWad"))?,
+            wad_id: context.wad_id,
+            map_name: context.map_name.clone(),
             map_title: analysis.title.filter(|t| !t.is_empty()),
             description: analysis.description,
             tags: analysis.tags,
@@ -145,7 +179,7 @@ impl Worker<ReadWad, RawMapAnalysis> for DeriveMap {
         println!(
             "{}{}{}{}{}{}{}{}{}{}{}",
             "✅ Completed map analysis • wad_id=".green(),
-            input.meta.meta.id.to_string().green().dimmed(),
+            context.wad_id.green().dimmed(),
             " • map_name=".green(),
             analysis.map_name.green().dimmed(),
             " • map_title=".green(),

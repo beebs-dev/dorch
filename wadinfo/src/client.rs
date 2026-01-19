@@ -67,9 +67,10 @@ pub struct ReadMapStat {
     #[serde(flatten)]
     pub map: MapStat,
 
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub images: Vec<WadImage>,
 
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub analysis: Option<AbridgedMapAnalysis>,
 }
 
@@ -81,7 +82,7 @@ pub struct ReadWadMetaWithTextFiles {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub analysis: Option<AbridgedWadAnalysis>,
 
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_files: Option<Vec<TextFile>>,
 }
 
@@ -195,6 +196,7 @@ pub struct AbridgedMapAnalysis {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MapAnalysis {
+    #[serde(default, skip_serializing_if = "Uuid::is_nil")]
     pub wad_id: Uuid,
     pub map_name: String,
     pub map_title: Option<String>,
@@ -212,6 +214,27 @@ impl Client {
     pub fn new(base_url: String) -> Self {
         let inner = reqwest::Client::new();
         Self { inner, base_url }
+    }
+
+    pub async fn map_analysis_exists(&self, wad_id: Uuid, map_name: &str) -> Result<bool> {
+        let url = format!("{}/wad/{}/map/{}/analysis", self.base_url, wad_id, map_name);
+        let resp = self
+            .inner
+            .get(&url)
+            .send()
+            .await
+            .context("Failed to send map_analysis_exists request")?;
+        match resp.status() {
+            reqwest::StatusCode::NOT_FOUND => Ok(false),
+            status if !status.is_success() => {
+                bail!(
+                    "map_analysis_exists request failed with status {}: {}",
+                    status,
+                    resp.text().await.unwrap_or_default()
+                );
+            }
+            _ => Ok(true),
+        }
     }
 
     pub async fn list_map_analyses(&self, wad_id: Uuid) -> Result<Vec<MapAnalysis>> {

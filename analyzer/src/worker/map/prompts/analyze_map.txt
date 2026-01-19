@@ -12,6 +12,8 @@ Your job is to:
 
 Even though you only output map-level data, you must thoroughly inspect all fields of the map, including stats, monsters, items, mechanics, difficulty, textures, and metadata. You may also consider high-level clues from the WAD meta if relevant (engine, IWAD, etc.).
 
+Your response must be brief and efficient. Do not be verbose. Do not repeat information. Keep the entire output under 350 tokens.
+
 ## Your output
 
 You must output a SINGLE JSON object in EXACTLY this shape:
@@ -25,11 +27,11 @@ You must output a SINGLE JSON object in EXACTLY this shape:
 ### Field requirements
 
 - "title":
-  - Attempt to derive the display title for the map
-  - If only the WAD name is present (e.g. MAP03) don't specify a title 
+  - Attempt to derive a short display title for the map (maximum ~60 characters).
+  - If only the WAD name or generic slot name is present (e.g. "MAP03", "E1M1") and no better title is implied, use an empty string "".
 
 - "tags":
-  - An array of 5–15 short, lower-case tags.
+  - An array of 4-8 short, lower-case tags (never more than 10).
   - Tags must reflect real map characteristics inferred from the data.
   - Useful categories include:
     - Theme: "techbase", "hell", "gothic", "industrial", "cave", "maze", "mixed_theme"
@@ -39,22 +41,23 @@ You must output a SINGLE JSON object in EXACTLY this shape:
     - Resources: "ammo_plentiful", "ammo_tight", "generous_health", "low_health"
     - Progression: "linear", "nonlinear", "key_hunt", "teleport_navigation"
     - Compatibility: "vanilla_compatible", "boom_compatible" when reasonably inferred from format and data
-  - Tags must be grounded in the map’s actual attributes. Do not guess wildly.
+  - Tags must be grounded in the map’s actual attributes. Do not guess wildly. Do not include redundant or highly similar tags.
 
 - "description":
-  - 2–4 sentences.
-  - Describe:
-    - The environment or theme in plain language.
+  - 2–3 concise sentences (maximum ~80–100 words total).
+  - Describe, in plain language:
+    - The environment or theme.
     - The overall combat feel (e.g. dense, incidental, hitscanner-heavy, melee-heavy, boss-focused).
     - Rough difficulty for a typical UV player, inferred from monster distribution and resource balance.
     - Any notable structure such as linear corridors, hubs, key hunts, teleport-driven flow, or large open arenas.
-  - You may reference general quantities qualitatively (e.g. “monster-heavy”, “several high-tier enemies”, “plenty of cells and rockets”).
+  - You may reference general quantities qualitatively (e.g. "monster-heavy", "several high-tier enemies", "plenty of cells and rockets").
+  - Do not list every detail. Focus only on the most important characteristics.
   - Do not invent story, characters, or lore not implied by the data.
 
 ## Style and constraints
 
 - Base all reasoning strictly on what is present in the input and general Doom knowledge.
-- Be conservative when unsure; describe unclear patterns neutrally.
+- Be conservative when unsure; describe unclear patterns neutrally and briefly.
 - Do NOT mention JSON, field names, or the structure of the input.
 - Do NOT include extra top-level keys.
 - The final output MUST be valid JSON:

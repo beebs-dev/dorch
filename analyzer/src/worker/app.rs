@@ -4,7 +4,7 @@ use async_nats::jetstream::{
     AckKind,
     consumer::{Consumer, pull},
 };
-use async_redis_lock::Locker;
+use async_redis_lock::Lock;
 use bytes::Bytes;
 use serde::{Serialize, de::DeserializeOwned};
 use std::{ops::Deref, pin::Pin, sync::Arc, time::Duration};
@@ -13,15 +13,14 @@ use tokio_stream::StreamExt;
 use tokio_util::sync::CancellationToken;
 
 pub struct AppInner {
-    locker: Locker,
     analyzer: Analyzer,
     cancel: CancellationToken,
 }
 
 #[derive(Clone)]
-pub struct App<D, T, U>
+pub struct App<D, T, U, C>
 where
-    D: Worker<T, U>,
+    D: Worker<T, U, C>,
     T: Serialize,
     U: DeserializeOwned,
 {
@@ -29,11 +28,12 @@ where
     derive_input: D,
     _t: std::marker::PhantomData<T>,
     _u: std::marker::PhantomData<U>,
+    _c: std::marker::PhantomData<C>,
 }
 
-impl<D, T, U> Deref for App<D, T, U>
+impl<D, T, U, C> Deref for App<D, T, U, C>
 where
-    D: Worker<T, U>,
+    D: Worker<T, U, C>,
     T: Serialize,
     U: DeserializeOwned,
 {
@@ -44,52 +44,46 @@ where
     }
 }
 
-pub enum DeriveResult<T>
+pub enum DeriveResult<T, U>
 where
     T: Serialize,
 {
-    Ready(Work<T>),
+    Ready(Work<T, U>),
     Pending { retry_after: Option<Duration> },
+    Discard,
 }
 
-pub struct Work<T>
+pub struct Work<T, U>
 where
     T: Serialize,
 {
     pub input: T,
-    pub lock_key: String,
+    pub context: U,
+    pub lock: Option<Lock>,
 }
 
-pub trait Worker<T, U>
+pub trait Worker<T, U, C>
 where
     T: Serialize,
     U: DeserializeOwned,
 {
-    async fn derive_input(&self, subject: &str, payload: &Bytes) -> Result<DeriveResult<T>>;
-    async fn post(&self, input: T, analysis: U) -> Result<()>;
+    async fn derive_input(&self, subject: &str, payload: &Bytes) -> Result<DeriveResult<T, C>>;
+    async fn post(&self, context: C, analysis: U) -> Result<()>;
 }
 
-impl<D, T, U> App<D, T, U>
+impl<D, T, U, C> App<D, T, U, C>
 where
-    D: Worker<T, U>,
+    D: Worker<T, U, C>,
     T: Serialize,
     U: DeserializeOwned,
 {
-    pub fn new(
-        locker: Locker,
-        analyzer: Analyzer,
-        cancel: CancellationToken,
-        derive_input: D,
-    ) -> Self {
+    pub fn new(analyzer: Analyzer, cancel: CancellationToken, derive_input: D) -> Self {
         Self {
             derive_input,
             _t: std::marker::PhantomData,
             _u: std::marker::PhantomData,
-            inner: Arc::new(AppInner {
-                locker,
-                analyzer,
-                cancel,
-            }),
+            _c: std::marker::PhantomData,
+            inner: Arc::new(AppInner { analyzer, cancel }),
         }
     }
 
@@ -98,6 +92,7 @@ where
             .messages()
             .await
             .context("Failed to get messages")?;
+        let mut failure_count = 0;
         loop {
             tokio::select! {
                 _ = self.cancel.cancelled() => bail!("Context cancelled"),
@@ -106,9 +101,15 @@ where
                         .transpose()
                         .context("Failed to get message from stream")? {
                         Some(msg) => if let Err(e) = self.handle_inner(msg.clone()).await {
+                            failure_count += 1;
                             eprintln!("Error handling message: {:?}", e);
+                            dorch_common::wait::wait(&self.cancel, failure_count).await?;
                         } else if let Err(e) = msg.ack().await {
+                            failure_count += 1;
                             eprintln!("Error acknowledging message: {:?}", e);
+                            dorch_common::wait::wait(&self.cancel, failure_count).await?;
+                        } else {
+                            failure_count = 0;
                         }
                         None => bail!("No more messages; shutting down worker"),
                     }
@@ -118,7 +119,11 @@ where
     }
 
     async fn handle_inner(&self, msg: async_nats::jetstream::Message) -> Result<()> {
-        let Work { input, lock_key } = match self
+        let Work {
+            input,
+            context,
+            lock: _lock,
+        } = match self
             .derive_input
             .derive_input(&msg.subject, &msg.payload)
             .await
@@ -132,17 +137,17 @@ where
                     .map_err(|e| anyhow!("Failed to nack message: {e:?}"))?;
                 return Ok(());
             }
+            DeriveResult::Discard => {
+                msg.ack()
+                    .await
+                    .map_err(|e| anyhow!("Failed to acknowledge message: {e:?}"))?;
+                return Ok(());
+            }
         };
-        let _lock = self
-            .locker
-            .clone()
-            .acquire(&lock_key)
-            .await
-            .context("Failed to acquire lock")?;
         let (tx, rx) = tokio::sync::mpsc::channel::<()>(10);
         let cancel = self.cancel.child_token();
         let progress_join = tokio::spawn(report_progress(msg, rx, cancel.clone()));
-        let result = self.analyze(input, tx, cancel.clone()).await;
+        let result = self.analyze(input, context, tx, cancel.clone()).await;
         let msg = progress_join
             .await
             .context("Failed to join progress reporting task")?
@@ -155,7 +160,7 @@ where
         Ok(())
     }
 
-    async fn analyze_inner(&self, input: T) -> Result<()> {
+    async fn analyze_inner(&self, input: T, context: C) -> Result<()> {
         let input_json = serde_json::to_string(&input).context("Failed to serialize input")?;
         let analysis: U = self
             .analyzer
@@ -163,7 +168,7 @@ where
             .await
             .context("Failed to analyze")?;
         self.derive_input
-            .post(input, analysis)
+            .post(context, analysis)
             .await
             .context("Failed to post analysis")
     }
@@ -171,6 +176,7 @@ where
     async fn analyze(
         &self,
         input: T,
+        context: C,
         keepalive: tokio::sync::mpsc::Sender<()>,
         cancel: CancellationToken,
     ) -> Result<()> {
@@ -189,7 +195,7 @@ where
                 }
             }
         });
-        let result = self.analyze_inner(input).await;
+        let result = self.analyze_inner(input, context).await;
         cancel.cancel();
         _keepalive_task
             .await

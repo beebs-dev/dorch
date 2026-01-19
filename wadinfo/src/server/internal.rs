@@ -46,7 +46,10 @@ pub async fn run_server(
         .route("/wad/{id}", get(get_wad))
         .route("/wad/{id}/analysis", post(post_wad_analysis))
         .route("/wad/{id}/map_analyses", get(list_wad_analyses))
-        .route("/wad/{id}/map/{map}/analysis", post(post_map_analysis))
+        .route(
+            "/wad/{id}/map/{map}/analysis",
+            post(post_map_analysis).get(get_map_analysis_exists),
+        )
         .route("/wad/{id}/map/{map}", get(get_wad_map))
         .route(
             "/wad/{id}/maps/{map}/images",
@@ -86,12 +89,25 @@ pub async fn run_server(
 async fn health() -> impl IntoResponse {
     StatusCode::OK.into_response()
 }
+pub async fn get_map_analysis_exists(
+    State(state): State<App>,
+    Path((wad_id, map_name)): Path<(Uuid, String)>,
+) -> impl IntoResponse {
+    match state.db.map_analysis_exists(wad_id, &map_name).await {
+        Ok(true) => StatusCode::OK.into_response(),
+        Ok(false) => response::not_found(anyhow::anyhow!("Map analysis not found")),
+        Err(e) => response::error(e.context("Failed to get map analysis")),
+    }
+}
 
 pub async fn post_map_analysis(
     State(state): State<App>,
     Path((wad_id, map_name)): Path<(Uuid, String)>,
     Json(analysis): Json<MapAnalysis>,
 ) -> impl IntoResponse {
+    if wad_id.is_nil() || map_name.is_empty() {
+        return response::error(anyhow::anyhow!("WAD ID or map name in path is invalid"));
+    }
     if wad_id != analysis.wad_id || map_name != analysis.map_name {
         return response::error(anyhow::anyhow!(
             "WAD ID or map name in path does not match analysis payload"
@@ -118,6 +134,9 @@ pub async fn post_wad_analysis(
     Path(wad_id): Path<Uuid>,
     Json(req): Json<WadAnalysis>,
 ) -> impl IntoResponse {
+    if wad_id.is_nil() {
+        return response::error(anyhow::anyhow!("WAD ID in path is invalid"));
+    }
     if wad_id != req.wad_id {
         return response::error(anyhow::anyhow!(
             "WAD ID in path does not match analysis payload"
