@@ -247,7 +247,7 @@ analyzer:
   wad:
     image: thavlik/dorch-analyzer:latest
     imagePullPolicy: Always
-    replicas: 2
+    replicas: 12
     logLevel: debug
     resources: {}
     openai:
@@ -261,7 +261,7 @@ analyzer:
   map:
     image: thavlik/dorch-analyzer:latest
     imagePullPolicy: Always
-    replicas: 2
+    replicas: 12
     logLevel: debug
     resources: {}
     openai:

@@ -7,8 +7,7 @@ use async_nats::jetstream::{
 use async_redis_lock::Lock;
 use bytes::Bytes;
 use serde::{Serialize, de::DeserializeOwned};
-use std::{ops::Deref, pin::Pin, sync::Arc, time::Duration};
-use tokio::time::{self, Instant, Sleep};
+use std::{ops::Deref, sync::Arc, time::Duration};
 use tokio_stream::StreamExt;
 use tokio_util::sync::CancellationToken;
 
@@ -144,15 +143,9 @@ where
                 return Ok(());
             }
         };
-        let (tx, rx) = tokio::sync::mpsc::channel::<()>(10);
-        let cancel = self.cancel.child_token();
-        let progress_join = tokio::spawn(report_progress(msg, rx, cancel.clone()));
-        let result = self.analyze(input, context, tx, cancel.clone()).await;
-        let msg = progress_join
+        self.analyze(input, context)
             .await
-            .context("Failed to join progress reporting task")?
-            .context("Progress reporting task failed")?;
-        result.context("Failed to handle inner")?;
+            .context("Failed to handle inner")?;
         msg.ack()
             .await
             .map_err(|e| anyhow!("Failed to acknowledge message: {e:?}"))
@@ -160,7 +153,7 @@ where
         Ok(())
     }
 
-    async fn analyze_inner(&self, input: T, context: C) -> Result<()> {
+    async fn analyze(&self, input: T, context: C) -> Result<()> {
         let input_json = serde_json::to_string(&input).context("Failed to serialize input")?;
         let analysis: U = self
             .analyzer
@@ -171,89 +164,5 @@ where
             .post(context, analysis)
             .await
             .context("Failed to post analysis")
-    }
-
-    async fn analyze(
-        &self,
-        input: T,
-        context: C,
-        keepalive: tokio::sync::mpsc::Sender<()>,
-        cancel: CancellationToken,
-    ) -> Result<()> {
-        let cancel = cancel.child_token();
-        let _keepalive_task = tokio::spawn({
-            let cancel = cancel.clone();
-            async move {
-                let mut tick = time::interval(Duration::from_secs(10));
-                loop {
-                    tokio::select! {
-                        _ = cancel.cancelled() => break,
-                        _ = tick.tick() => {
-                            _ = keepalive.send(()).await.ok();
-                        }
-                    }
-                }
-            }
-        });
-        let result = self.analyze_inner(input, context).await;
-        cancel.cancel();
-        _keepalive_task
-            .await
-            .context("Failed to join keepalive task")?;
-        result
-    }
-}
-
-async fn report_progress(
-    msg: async_nats::jetstream::Message,
-    mut rx: tokio::sync::mpsc::Receiver<()>,
-    cancel: CancellationToken,
-) -> Result<async_nats::jetstream::Message> {
-    let period = Duration::from_secs(10);
-    // Earliest time we're allowed to send the next ack.
-    let mut next_allowed = Instant::now();
-    // Whether we've seen at least one tick during the current cooldown.
-    let mut pending = false;
-    // Sleep until next_allowed, armed only when we need it.
-    let mut cooldown: Option<Pin<Box<Sleep>>> = None;
-    loop {
-        tokio::select! {
-            _ = cancel.cancelled() => return Ok(msg),
-            tick = rx.recv() => {
-                if tick.is_none() {
-                    return Ok(msg);
-                }
-                let now = Instant::now();
-                if now >= next_allowed && cooldown.is_none() && !pending {
-                    // We're outside the window: ack immediately and open a new 10s window.
-                    msg.ack_with(AckKind::Progress)
-                        .await
-                        .map_err(|e| anyhow!("Failed to extend deadline: {e:?}"))?;
-                    next_allowed = now + period;
-                    // No need to arm cooldown yet; if more ticks arrive during the window,
-                    // we'll arm it then.
-                } else {
-                    // We're inside the current window - coalesce.
-                    pending = true;
-                    if cooldown.is_none() {
-                        // Sleep until the window boundary to deliver one coalesced ack.
-                        cooldown = Some(Box::pin(tokio::time::sleep_until(next_allowed)));
-                    }
-                }
-            }
-
-            // Window boundary reached; if anything was pending, send one ack and start a new window.
-            _ = async { if let Some(s) = &mut cooldown { s.as_mut().await } }, if cooldown.is_some() => {
-                cooldown = None;
-                if pending {
-                    msg.ack_with(AckKind::Progress)
-                        .await
-                        .map_err(|e| anyhow!("Failed to extend deadline: {e:?}"))?;
-                    pending = false;
-                    next_allowed = Instant::now() + period;
-                    // Do not re-arm cooldown here; the next ack (if any) will be triggered by future ticks.
-                }
-            }
-        }
     }
 }
