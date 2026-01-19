@@ -16,6 +16,12 @@ export interface WadContentMeta {
 	iwads_guess?: string[] | null;
 }
 
+export interface WadAnalysisMeta {
+	title?: string | null;
+	description?: string | null;
+	tags?: string[] | null;
+}
+
 export interface WadTextFile {
 	/** Where this text file came from (e.g. "pk3" | "idgames"). */
 	source: string;
@@ -35,6 +41,7 @@ export interface WadMeta {
 	filenames?: string[] | null;
 	filename?: string | null;
 	content: WadContentMeta;
+	analysis?: WadAnalysisMeta | null;
 	/** Optional, may be omitted by some producers. */
 	text_files?: WadTextFile[] | null;
 }

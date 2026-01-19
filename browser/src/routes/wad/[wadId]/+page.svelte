@@ -38,6 +38,8 @@
 		data.wad.maps.filter((m) => (m.images?.length ?? 0) > 0)
 	);
 
+	const hasMaps = $derived(() => data.wad.maps.length > 0);
+
 	type ScreenshotPick = { mapName: string; image: WadImage };
 
 	const allScreenshotPicks = $derived(() => {
@@ -264,7 +266,9 @@
 	</nav>
 
 	{#if data.tab === 'overview'}
-		<section class="mt-6 grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
+		<section
+			class={`mt-6 grid grid-cols-1 items-stretch gap-4 ${hasMaps() ? 'lg:grid-cols-2' : ''}`}
+		>
 			<div class="flex h-full flex-col gap-4">
 				<div class="shrink-0 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
 					<h2 class="text-sm font-semibold text-zinc-200">Summary</h2>
@@ -340,75 +344,105 @@
 					</dl>
 				</div>
 
-				<div
-					class="flex min-h-0 flex-1 flex-col rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset"
-				>
-					<h2 class="text-sm font-semibold text-zinc-200">Guesses</h2>
-					<div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-						<div>
-							<div class="text-xs text-zinc-500">Engines</div>
-							<div class="mt-2 flex flex-wrap gap-2">
-								{#each data.wad.meta.content?.engines_guess ?? [] as e (e)}
-									<span
-										class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
-									>
-										{e}
-									</span>
-								{/each}
-								{#if (data.wad.meta.content?.engines_guess?.length ?? 0) === 0}
-									<span class="text-sm text-zinc-400">—</span>
-								{/if}
+				<div class="flex min-h-0 flex-1 flex-col rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
+						<h2 class="text-sm font-semibold text-zinc-200">Guesses</h2>
+						<div class="mt-3 space-y-4">
+							<div>
+								<div class="text-xs text-zinc-500">Tags</div>
+								<div class="mt-2 flex flex-wrap gap-2">
+									{#each data.wad.meta.analysis?.tags ?? [] as tag (tag)}
+										<span
+											class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
+										>
+											{tag}
+										</span>
+									{/each}
+									{#if (data.wad.meta.analysis?.tags?.length ?? 0) === 0}
+										<span class="text-sm text-zinc-400">—</span>
+									{/if}
+								</div>
+							</div>
+							<div>
+								<div class="text-xs text-zinc-500">Engines</div>
+								<div class="mt-2 flex flex-wrap gap-2">
+									{#each data.wad.meta.content?.engines_guess ?? [] as e (e)}
+										<span
+											class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
+										>
+											{e}
+										</span>
+									{/each}
+									{#if (data.wad.meta.content?.engines_guess?.length ?? 0) === 0}
+										<span class="text-sm text-zinc-400">—</span>
+									{/if}
+								</div>
+							</div>
+							<div>
+								<div class="text-xs text-zinc-500">IWADs</div>
+								<div class="mt-2 flex flex-wrap gap-2">
+									{#each data.wad.meta.content?.iwads_guess ?? [] as iwad (iwad)}
+										<span
+											class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
+										>
+											{iwad}
+										</span>
+									{/each}
+									{#if (data.wad.meta.content?.iwads_guess?.length ?? 0) === 0}
+										<span class="text-sm text-zinc-400">—</span>
+									{/if}
+								</div>
 							</div>
 						</div>
-						<div>
-							<div class="text-xs text-zinc-500">IWADs</div>
-							<div class="mt-2 flex flex-wrap gap-2">
-								{#each data.wad.meta.content?.iwads_guess ?? [] as iwad (iwad)}
-									<span
-										class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
-									>
-										{iwad}
-									</span>
-								{/each}
-								{#if (data.wad.meta.content?.iwads_guess?.length ?? 0) === 0}
-									<span class="text-sm text-zinc-400">—</span>
-								{/if}
-							</div>
-						</div>
-					</div>
 				</div>
 			</div>
 
-			<div
-				class="group relative aspect-[16/9] overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset"
-			>
-				{#if randomScreenshot?.image?.url}
-					<a
-						href={resolve(
-							`/wad/${encodeURIComponent(data.wad.meta.id)}/maps/${encodeURIComponent(
-								randomScreenshot.mapName
-							)}`
-						)}
-						class="block h-full"
-						aria-label={`View ${randomScreenshot.mapName} details`}
-					>
-						<img
-							src={randomScreenshot.image.url}
-							alt=""
-							class="block h-full w-full object-cover"
-							loading="lazy"
-						/>
-						<div
-							class="pointer-events-none absolute inset-0 flex items-end opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+			{#if hasMaps()}
+				<div
+					class="group relative aspect-[16/9] overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset"
+				>
+					{#if randomScreenshot?.image?.url}
+						<a
+							href={resolve(
+								`/wad/${encodeURIComponent(data.wad.meta.id)}/maps/${encodeURIComponent(
+									randomScreenshot.mapName
+								)}`
+							)}
+							class="block h-full"
+							aria-label={`View ${randomScreenshot.mapName} details`}
 						>
-							<div class="w-full bg-zinc-950/70 px-3 py-2 text-sm font-medium text-zinc-100">
-								{randomScreenshot.mapName}
+							<img
+								src={randomScreenshot.image.url}
+								alt=""
+								class="block h-full w-full object-cover"
+								loading="lazy"
+							/>
+							<div
+								class="pointer-events-none absolute inset-0 flex items-end opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+							>
+								<div class="w-full bg-zinc-950/70 px-3 py-2 text-sm font-medium text-zinc-100">
+									{randomScreenshot.mapName}
+								</div>
 							</div>
-						</div>
-					</a>
-				{:else}
-					<div class="h-full w-full bg-gradient-to-br from-zinc-900 to-zinc-800"></div>
-				{/if}
+						</a>
+					{:else}
+						<div class="h-full w-full bg-gradient-to-br from-zinc-900 to-zinc-800"></div>
+					{/if}
+				</div>
+			{/if}
+
+			<div class={hasMaps() ? 'lg:col-span-2' : ''}>
+				<div
+					class="flex min-h-0 flex-col rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset"
+				>
+					<h2 class="text-sm font-semibold text-zinc-200">AI Description</h2>
+					{#if data.wad.meta.analysis?.description}
+						<p class="mt-2 text-sm leading-relaxed text-zinc-300">
+							{data.wad.meta.analysis.description}
+						</p>
+					{:else}
+						<div class="mt-2 text-sm text-zinc-400">—</div>
+					{/if}
+				</div>
 			</div>
 		</section>
 
