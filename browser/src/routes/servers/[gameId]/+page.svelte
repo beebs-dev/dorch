@@ -157,7 +157,7 @@
 	<header class="flex flex-wrap items-end justify-between gap-4">
 		<div class="min-w-0">
 			<h1 class="truncate text-2xl font-semibold tracking-tight">
-				{info()?.name ?? 'Game'}
+				SERVERS // {info()?.name ?? 'Game'}
 			</h1>
 			<div class="mt-1 text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-400">
 				Game ID: {data.gameId}
@@ -179,7 +179,6 @@
 			<div class="rounded-xl bg-zinc-950 p-4 ring-1 ring-red-950/60 ring-inset">
 				<div class="flex items-start justify-between gap-4">
 					<div class="min-w-0">
-						<div class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">SERVER</div>
 						<div class="mt-1 truncate text-lg font-semibold text-zinc-100">
 							{info()?.name ?? '(unknown)'}
 						</div>
