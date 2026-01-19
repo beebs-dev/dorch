@@ -2,7 +2,6 @@
 	import './layout.css';
 	import DorchLogo from '$lib/components/DorchLogo.svelte';
 	import LoginModal from '$lib/components/LoginModal.svelte';
-	import PartyFab from '$lib/components/PartyFab.svelte';
 	import { toastMessage } from '$lib/stores/toast';
 	import { base, resolve } from '$app/paths';
 	import { page } from '$app/stores';
@@ -175,9 +174,6 @@
 		</div>
 	</header>
 	<main class="min-w-0">{@render children()}</main>
-	{#if $page.data.loggedIn}
-		<PartyFab />
-	{/if}
 	<LoginModal open={loginOpen} onClose={closeLogin} />
 	{#if $toastMessage}
 		<div
