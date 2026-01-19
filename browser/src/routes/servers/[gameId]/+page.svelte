@@ -156,11 +156,28 @@
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
 	<header class="flex flex-wrap items-end justify-between gap-4">
 		<div class="min-w-0">
-			<h1 class="truncate text-2xl font-semibold tracking-tight">
-				SERVERS // {info()?.name ?? 'Game'}
-			</h1>
-			<div class="mt-1 text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-400">
-				Game ID: {data.gameId}
+			<nav aria-label="Breadcrumb" class="min-w-0">
+				<ol class="flex min-w-0 items-baseline gap-2">
+					<li class="shrink-0">
+						<a
+							href={resolve('/')}
+							class="text-xs font-[var(--dorch-mono)] font-medium tracking-wide text-zinc-400 hover:text-zinc-200 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+						>
+							SERVERS
+						</a>
+					</li>
+					<li aria-hidden="true" class="shrink-0 text-xs text-zinc-600">
+						/
+					</li>
+					<li class="min-w-0" aria-current="page">
+						<h1 class="truncate text-2xl font-semibold tracking-tight text-zinc-100">
+							{info()?.name ?? 'Game'}
+						</h1>
+					</li>
+				</ol>
+			</nav>
+			<div class="mt-1 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">
+				GAME ID: {data.gameId}
 			</div>
 		</div>
 		<div class="flex items-center gap-2">
