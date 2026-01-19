@@ -8,6 +8,9 @@ do_build() {
     build_args=()
         for arg in "$@"; do
             case "$arg" in
+            analyzer-wad|analyzer-map)
+                build_args+=("analyzer")
+                ;;
             party-router)
                 build_args+=("party")
                 ;;

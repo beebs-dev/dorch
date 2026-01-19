@@ -230,7 +230,7 @@ impl Worker<ReadWad, RawWadAnalysis, WadContext> for DeriveWad {
                         .context("Failed to publish map analysis message")?;
                 }
                 Ok(DeriveResult::Pending {
-                    retry_after: Some(Duration::from_mins(10)),
+                    retry_after: Some(Duration::from_mins(60)),
                 })
             }
         }

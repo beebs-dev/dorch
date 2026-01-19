@@ -13,12 +13,12 @@ spec:
       labels:
         app: {{ .Release.Name }}-analyzer-map
     spec:
-      tolerations:
-      - key: dorch
-        operator: Exists
-        effect: NoSchedule
-      nodeSelector:
-        dorch: "true"
+      #tolerations:
+      #- key: dorch
+      #  operator: Exists
+      #  effect: NoSchedule
+      #nodeSelector:
+      #  dorch: "true"
 {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 10 }}
