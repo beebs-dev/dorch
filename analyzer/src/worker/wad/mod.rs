@@ -136,6 +136,15 @@ impl Worker<ReadWad, RawWadAnalysis> for DeriveWad {
                         }
                     })
                     .collect::<Vec<_>>();
+                println!(
+                    "{}{}{}{}{}{}",
+                    "ℹ️ Requesting analyses for missing maps • wad_id=".blue(),
+                    wad_id.blue().dimmed(),
+                    " • missing_count=".blue(),
+                    missing_maps.len().blue().dimmed(),
+                    " • missing_maps=".blue(),
+                    format!("{:?}", missing_maps).blue().dimmed(),
+                );
                 for map in missing_maps {
                     let subject = subjects::analysis::map(wad_id, &map);
                     let mut map_input = input.clone();
