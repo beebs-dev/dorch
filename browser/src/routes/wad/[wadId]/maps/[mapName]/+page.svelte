@@ -78,7 +78,20 @@
 
 	const monsterBreakdown = $derived(() => asSortedBreakdown(data.map.monsters?.by_type));
 	const itemBreakdown = $derived(() => asSortedBreakdown(data.map.items?.by_type));
-	const textureList = $derived(() => (data.map.stats?.textures ?? []).filter(Boolean));
+	const textureBreakdown = $derived(() => {
+		const raw = (data.map.stats as Record<string, unknown> | undefined)?.textures;
+		// Back-compat: older payloads used `string[]`.
+		if (Array.isArray(raw)) {
+			const counts: Record<string, number> = {};
+			for (const v of raw) {
+				if (!v) continue;
+				const key = String(v);
+				counts[key] = (counts[key] ?? 0) + 1;
+			}
+			return asSortedBreakdown(counts);
+		}
+		return asSortedBreakdown(raw);
+	});
 
 	let topGridEl = $state<HTMLElement | null>(null);
 	let bottomGridEl = $state<HTMLElement | null>(null);
@@ -265,7 +278,7 @@
 			>
 				<h2 class="text-center text-sm font-semibold text-zinc-200">Map Info</h2>
 				{#if !isTopExpanded('mapInfo')}
-					<span class="absolute right-4 text-xs font-normal text-zinc-500">click to expand</span>
+					<span class="absolute right-4 text-xs font-normal text-zinc-500">expand</span>
 				{/if}
 			</button>
 			{#if isTopExpanded('mapInfo')}
@@ -330,7 +343,7 @@
 			>
 				<h2 class="text-center text-sm font-semibold text-zinc-200">Stats</h2>
 				{#if !isTopExpanded('stats')}
-					<span class="absolute right-4 text-xs font-normal text-zinc-500">click to expand</span>
+					<span class="absolute right-4 text-xs font-normal text-zinc-500">expand</span>
 				{/if}
 			</button>
 			{#if isTopExpanded('stats')}
@@ -365,7 +378,7 @@
 			>
 				<h2 class="text-center text-sm font-semibold text-zinc-200">Difficulty</h2>
 				{#if !isTopExpanded('difficulty')}
-					<span class="absolute right-4 text-xs font-normal text-zinc-500">click to expand</span>
+					<span class="absolute right-4 text-xs font-normal text-zinc-500">expand</span>
 				{/if}
 			</button>
 			{#if isTopExpanded('difficulty')}
@@ -437,7 +450,7 @@
 					>
 				</h2>
 				{#if !isBottomExpanded('monsters')}
-					<span class="absolute right-4 text-xs font-normal text-zinc-500">click to expand</span>
+					<span class="absolute right-4 text-xs font-normal text-zinc-500">expand</span>
 				{/if}
 			</button>
 			{#if isBottomExpanded('monsters')}
@@ -484,7 +497,7 @@
 					>
 				</h2>
 				{#if !isBottomExpanded('items')}
-					<span class="absolute right-4 text-xs font-normal text-zinc-500">click to expand</span>
+					<span class="absolute right-4 text-xs font-normal text-zinc-500">expand</span>
 				{/if}
 			</button>
 			{#if isBottomExpanded('items')}
@@ -524,23 +537,33 @@
 			>
 				<h2 class="text-center text-sm font-semibold text-zinc-200">
 					Textures
-					<span class="ml-2 text-xs font-normal text-zinc-500">({textureList().length} unique)</span
+					<span class="ml-2 text-xs font-normal text-zinc-500"
+						>(use counts)</span
 					>
 				</h2>
 				{#if !isBottomExpanded('textures')}
-					<span class="absolute right-4 text-xs font-normal text-zinc-500">click to expand</span>
+					<span class="absolute right-4 text-xs font-normal text-zinc-500">expand</span>
 				{/if}
 			</button>
 			{#if isBottomExpanded('textures')}
-				{#if textureList().length === 0}
+				{#if textureBreakdown().length === 0}
 					<div class="px-4 py-3 text-sm text-zinc-400">No texture list available.</div>
 				{:else}
-					<div class="h-64 overflow-auto px-4 py-3">
-						<ul class="space-y-1 text-sm">
-							{#each textureList() as tex (tex)}
-								<li class="font-mono text-xs text-zinc-200">{tex}</li>
-							{/each}
-						</ul>
+					<div class="h-64 overflow-auto">
+						<table class="w-full table-fixed text-left text-sm">
+							<colgroup>
+								<col class="w-1/2" />
+								<col class="w-1/2" />
+							</colgroup>
+							<tbody class="divide-y divide-zinc-800">
+								{#each textureBreakdown() as [tex, count] (tex)}
+									<tr>
+										<td class="py-2 pr-3 pl-3 text-right font-mono text-xs text-zinc-500">{tex}</td>
+										<td class="py-2 pr-3 pl-3 text-left text-zinc-200">{count}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
 					</div>
 				{/if}
 			{/if}
