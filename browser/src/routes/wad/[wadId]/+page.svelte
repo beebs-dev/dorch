@@ -345,60 +345,45 @@
 				</div>
 
 				<div class="flex min-h-0 flex-1 flex-col rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
-						<h2 class="text-sm font-semibold text-zinc-200">Guesses</h2>
-						<div class="mt-3 space-y-4">
-							<div>
-								<div class="text-xs text-zinc-500">Tags</div>
-								<div class="mt-2 flex flex-wrap gap-2">
-									{#each data.wad.meta.analysis?.tags ?? [] as tag (tag)}
-										<span
-											class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
-										>
-											{tag}
-										</span>
-									{/each}
-									{#if (data.wad.meta.analysis?.tags?.length ?? 0) === 0}
-										<span class="text-sm text-zinc-400">—</span>
-									{/if}
-								</div>
-							</div>
-							<div>
-								<div class="text-xs text-zinc-500">Engines</div>
-								<div class="mt-2 flex flex-wrap gap-2">
-									{#each data.wad.meta.content?.engines_guess ?? [] as e (e)}
-										<span
-											class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
-										>
-											{e}
-										</span>
-									{/each}
-									{#if (data.wad.meta.content?.engines_guess?.length ?? 0) === 0}
-										<span class="text-sm text-zinc-400">—</span>
-									{/if}
-								</div>
-							</div>
-							<div>
-								<div class="text-xs text-zinc-500">IWADs</div>
-								<div class="mt-2 flex flex-wrap gap-2">
-									{#each data.wad.meta.content?.iwads_guess ?? [] as iwad (iwad)}
-										<span
-											class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
-										>
-											{iwad}
-										</span>
-									{/each}
-									{#if (data.wad.meta.content?.iwads_guess?.length ?? 0) === 0}
-										<span class="text-sm text-zinc-400">—</span>
-									{/if}
-								</div>
+					<h2 class="text-sm font-semibold text-zinc-200">Guesses</h2>
+					<div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+						<div>
+							<div class="text-xs text-zinc-500">Engines</div>
+							<div class="mt-2 flex flex-col items-start gap-2">
+								{#each data.wad.meta.content?.engines_guess ?? [] as e (e)}
+									<span
+										class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
+									>
+										{e}
+									</span>
+								{/each}
+								{#if (data.wad.meta.content?.engines_guess?.length ?? 0) === 0}
+									<span class="text-sm text-zinc-400">—</span>
+								{/if}
 							</div>
 						</div>
+						<div>
+							<div class="text-xs text-zinc-500">IWADs</div>
+							<div class="mt-2 flex flex-col items-start gap-2">
+								{#each data.wad.meta.content?.iwads_guess ?? [] as iwad (iwad)}
+									<span
+										class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
+									>
+										{iwad}
+									</span>
+								{/each}
+								{#if (data.wad.meta.content?.iwads_guess?.length ?? 0) === 0}
+									<span class="text-sm text-zinc-400">—</span>
+								{/if}
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
 
 			{#if hasMaps()}
 				<div
-					class="group relative aspect-[16/9] overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset"
+					class="group relative h-64 w-full self-start overflow-hidden rounded-lg ring-1 ring-zinc-800 ring-inset sm:h-80 lg:h-[22rem]"
 				>
 					{#if randomScreenshot?.image?.url}
 						<a
@@ -434,7 +419,7 @@
 				<div
 					class="flex min-h-0 flex-col rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset"
 				>
-					<h2 class="text-sm font-semibold text-zinc-200">AI Description</h2>
+					<h2 class="text-sm font-semibold text-zinc-200">AI Analysis</h2>
 					{#if data.wad.meta.analysis?.description}
 						<p class="mt-2 text-sm leading-relaxed text-zinc-300">
 							{data.wad.meta.analysis.description}
@@ -442,6 +427,22 @@
 					{:else}
 						<div class="mt-2 text-sm text-zinc-400">—</div>
 					{/if}
+
+					<div class="mt-4">
+						<div class="text-xs text-zinc-500">Tags</div>
+						<div class="mt-2 flex flex-wrap gap-2">
+							{#each data.wad.meta.analysis?.tags ?? [] as tag (tag)}
+								<span
+									class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
+								>
+									{tag}
+								</span>
+							{/each}
+							{#if (data.wad.meta.analysis?.tags?.length ?? 0) === 0}
+								<span class="text-sm text-zinc-400">—</span>
+							{/if}
+						</div>
+					</div>
 				</div>
 			</div>
 		</section>
