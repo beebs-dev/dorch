@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import DorchPlayButton from '$lib/components/DorchPlayButton.svelte';
 	import { wadLabel } from '$lib/utils/format';
+	import { showToast } from '$lib/stores/toast';
 
 	let { data }: { data: PageData } = $props();
 
@@ -19,6 +20,24 @@
 	);
 
 	let identity = $state(randomIdent());
+	let showGameId = $state(false);
+
+	async function copyToClipboard(text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+		} catch {
+			const ta = document.createElement('textarea');
+			ta.value = text;
+			ta.setAttribute('readonly', '');
+			ta.style.position = 'fixed';
+			ta.style.left = '-9999px';
+			document.body.appendChild(ta);
+			ta.select();
+			document.execCommand('copy');
+			document.body.removeChild(ta);
+		}
+		showToast('Copied to clipboard');
+	}
 
 	function randomIdent(): string {
 		const adjectives = [
@@ -176,9 +195,6 @@
 					</li>
 				</ol>
 			</nav>
-			<div class="mt-1 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">
-				GAME ID: {data.gameId}
-			</div>
 		</div>
 		<div class="flex items-center gap-2">
 			<a
@@ -201,6 +217,26 @@
 						</div>
 						<div class="mt-1 text-sm {difficultyColor(info()?.skill)}">
 							{difficultyLabel(info()?.skill)}
+						</div>
+						<div class="mt-2 flex flex-wrap items-center gap-2 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">
+							<span>GAME ID:</span>
+							{#if showGameId}
+								<button
+									type="button"
+									class="cursor-pointer font-[var(--dorch-mono)] text-zinc-200"
+									onclick={() => copyToClipboard(data.gameId)}
+								>
+									{data.gameId}
+								</button>
+							{:else}
+								<button
+									type="button"
+									class="text-zinc-400 underline hover:text-zinc-200"
+									onclick={() => (showGameId = true)}
+								>
+									Show
+								</button>
+							{/if}
 						</div>
 					</div>
 					<div class="shrink-0">
