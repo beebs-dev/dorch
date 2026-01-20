@@ -24,7 +24,7 @@ use dorch_common::{
 use dorch_types::{Game, GamePhase};
 use kube::{Api, api::ObjectMeta};
 use owo_colors::OwoColorize;
-use std::net::SocketAddr;
+use std::{net::SocketAddr, time::Instant};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -473,8 +473,8 @@ pub async fn try_get_info(state: &App, game: &Game) -> Option<GameInfo> {
                 "{}{}{}{}",
                 "✅ Retrieved game info • game_id=".green(),
                 game_id.green().dimmed(),
-                " • json=".green(),
-                serde_json::to_string(&info).unwrap().green().dimmed()
+                " • name=".green(),
+                info.name.green().dimmed(),
             );
             Some(info)
         }
@@ -500,6 +500,7 @@ pub async fn try_get_info(state: &App, game: &Game) -> Option<GameInfo> {
 }
 
 pub async fn list_games_inner(state: App) -> Result<ListGamesResponse> {
+    let start = std::time::Instant::now();
     let list = Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
         .list(&Default::default())
         .await
@@ -546,9 +547,17 @@ pub async fn list_games_inner(state: App) -> Result<ListGamesResponse> {
         games.push(summary);
     }
     eprintln!(
-        "{}{}",
-        "✅ Listed games • json=".green(),
-        serde_json::to_string(&games).unwrap().green().dimmed(),
+        "{}{}{}{}{}",
+        "✅ Listed games • count=".green(),
+        games.len().green().dimmed(),
+        " • elapsed=".green(),
+        Instant::now()
+            .duration_since(start)
+            .as_millis()
+            .to_string()
+            .green()
+            .dimmed(),
+        " ms".green(),
     );
     Ok(ListGamesResponse { games })
 }
