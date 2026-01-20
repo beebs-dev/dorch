@@ -325,8 +325,10 @@ fn game_pod(
                             env.push(EnvVar {
                                 name: "RTMP_ENDPOINT".to_string(),
                                 value: Some(format!(
-                                    "{}/live/{}",
-                                    strim_base_url, instance.spec.game_id,
+                                    "{}/live/{}/{}",
+                                    strim_base_url,
+                                    instance.spec.game_id,
+                                    instance.spec.game_id, // TODO: stream secret can be anything?
                                 )),
                                 ..Default::default()
                             });

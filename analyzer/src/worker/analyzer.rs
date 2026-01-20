@@ -12,7 +12,7 @@ use tiktoken_rs::{CoreBPE, p50k_base};
 use tokio::time::timeout;
 
 const ANALYSIS_MAX_TOKENS: u64 = 800;
-const INPUT_TOKEN_LIMIT: u64 = 1200;
+const INPUT_CHAR_LIMIT: usize = 4_000;
 
 pub struct AnalyzerInner {
     model: String,
@@ -34,9 +34,12 @@ pub struct Analyzer {
 /// - No Unicode / emoji / grapheme corruption
 /// - Deterministic
 pub fn respect_token_limit(text: String, _tokenizer: &CoreBPE) -> String {
-    if text.len() > 4_000 {
+    if text.len() > INPUT_CHAR_LIMIT {
         // Safety check to avoid excessive work
-        text.char_indices().take(4_000).map(|(_, c)| c).collect()
+        text.char_indices()
+            .take(INPUT_CHAR_LIMIT)
+            .map(|(_, c)| c)
+            .collect()
     } else {
         text
     }

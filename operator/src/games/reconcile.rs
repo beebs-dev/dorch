@@ -219,6 +219,9 @@ enum GameAction {
 
     /// The [`Game`] resource is in desired state and requires no actions to be taken.
     NoOp,
+
+    /// Requeue after given duration.
+    Requeue(Duration),
 }
 
 impl GameAction {
@@ -231,6 +234,7 @@ impl GameAction {
             GameAction::Active { .. } => "Active",
             GameAction::NoOp => "NoOp",
             GameAction::Error(_) => "Error",
+            GameAction::Requeue(_) => "Requeue",
         }
     }
 }
@@ -319,6 +323,7 @@ async fn reconcile(instance: Arc<Game>, context: Arc<ContextData>) -> Result<Act
     // Performs action as decided by the `determine_action` function.
     // This is the write phase of reconciliation.
     let result = match action {
+        GameAction::Requeue(after) => Action::requeue(after),
         GameAction::Starting { pod_name } => {
             // Update the phase to Starting.
             actions::starting(client, &instance, &pod_name).await?;
@@ -411,6 +416,12 @@ async fn determine_action(
         Some(pod) => pod,
         None => return Ok(GameAction::CreatePod),
     };
+
+    // Don't do anything while the pod is being deleted.
+    if pod.metadata.deletion_timestamp.is_some() {
+        return Ok(GameAction::Requeue(Duration::from_millis(500)));
+    }
+
     let pod_phase = pod.status.as_ref().and_then(|s| s.phase.as_deref());
     match pod_phase {
         Some("Pending") | Some("ContainerCreating") => {
