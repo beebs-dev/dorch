@@ -247,11 +247,9 @@ analyzer:
   wad:
     image: thavlik/dorch-analyzer:latest
     imagePullPolicy: Always
-    replicas: 3
+    replicas: 2
     logLevel: debug
-    resources:
-      limits:
-        memory: "384Mi"
+    resources: {}
     openai:
       api_key:
         valueFrom:
@@ -263,11 +261,9 @@ analyzer:
   map:
     image: thavlik/dorch-analyzer:latest
     imagePullPolicy: Always
-    replicas: 3
+    replicas: 2
     logLevel: debug
-    resources:
-      limits:
-        memory: "384Mi"
+    resources: {}
     openai:
       api_key:
         valueFrom:

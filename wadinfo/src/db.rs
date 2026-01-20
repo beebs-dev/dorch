@@ -430,6 +430,7 @@ impl Database {
             &[
                 &analysis.wad_id,
                 &analysis.title,
+                &analysis.release_date,
                 &analysis.description,
                 &authors,
             ],
@@ -508,6 +509,9 @@ impl Database {
             let title = analysis
                 .try_get("title")
                 .context("get title from wad_analysis row")?;
+            let release_date: Option<String> = analysis
+                .try_get("release_date")
+                .context("get release_date from wad_analysis row")?;
             let description: String = analysis
                 .try_get("description")
                 .context("get description from wad_analysis row")?;
@@ -525,6 +529,7 @@ impl Database {
             Some(AbridgedWadAnalysis {
                 description,
                 title,
+                release_date,
                 authors,
                 tags,
             })

@@ -28,6 +28,7 @@ You must output a SINGLE JSON object in EXACTLY this shape:
 
 {
   "title": "<wad title>",
+  "release_date": "<release date or empty string>",
   "description": "<wad-level description>",
   "authors": ["string", "..."],
   "tags": ["string", "..."]
@@ -70,6 +71,13 @@ You must output a SINGLE JSON object in EXACTLY this shape:
   - Only include authors that are explicitly stated in README(s) or other provided text.
   - If no authors are present, output an empty array [].
   - Keep each name short and as-written (do not invent).
+
+- "release_date":
+  - Only include a release date if it is explicitly stated in README(s) or other provided text.
+  - Prefer an ISO-8601-like format:
+    - "YYYY-MM-DD" if a full date is available
+    - otherwise "YYYY-MM" or "YYYY"
+  - If unknown, output an empty string "".
 
 ## Style and constraints
 

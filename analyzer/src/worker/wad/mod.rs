@@ -90,6 +90,8 @@ pub async fn run(args: args::WadArgs) -> Result<()> {
 #[derive(Clone, Deserialize)]
 pub struct RawWadAnalysis {
     pub title: Option<String>,
+    #[serde(default)]
+    pub release_date: Option<String>,
     pub description: String,
     #[serde(default)]
     pub authors: Vec<String>,
@@ -256,12 +258,13 @@ impl Worker<ReadWad, RawWadAnalysis, WadContext> for DeriveWad {
         let analysis = WadAnalysis {
             wad_id: context.wad_id,
             title: analysis.title.filter(|t| !t.is_empty()),
+            release_date: analysis.release_date.filter(|d| !d.is_empty()),
             description: analysis.description,
             authors: analysis.authors,
             tags: analysis.tags,
         };
         println!(
-            "{}{}{}{}{}{}{}{}{}",
+            "{}{}{}{}{}{}{}{}{}{}{}",
             "✅ Completed WAD analysis • wad_id=".green(),
             context.wad_id.green().dimmed(),
             " • title=".green(),
@@ -269,6 +272,13 @@ impl Worker<ReadWad, RawWadAnalysis, WadContext> for DeriveWad {
                 .title
                 .as_ref()
                 .unwrap_or(&"<untitled>".to_string())
+                .green()
+                .dimmed(),
+            " • release_date=".green(),
+            analysis
+                .release_date
+                .as_ref()
+                .unwrap_or(&"<unspecified>".to_string())
                 .green()
                 .dimmed(),
             " • description=".green(),

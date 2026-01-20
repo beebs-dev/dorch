@@ -178,6 +178,8 @@ pub struct ListWadsResponse {
 pub struct WadAnalysis {
     pub wad_id: Uuid,
     pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub release_date: Option<String>,
     pub description: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authors: Vec<String>,
@@ -187,6 +189,8 @@ pub struct WadAnalysis {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AbridgedWadAnalysis {
     pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub release_date: Option<String>,
     pub description: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authors: Vec<String>,
