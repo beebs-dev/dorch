@@ -11,7 +11,7 @@ use std::{ops::Deref, sync::Arc, time::Duration};
 use tiktoken_rs::{CoreBPE, p50k_base};
 use tokio::time::timeout;
 
-const ANALYSIS_MAX_TOKENS: u64 = 400;
+const ANALYSIS_MAX_TOKENS: u64 = 800;
 const INPUT_TOKEN_LIMIT: u64 = 1200;
 
 pub struct AnalyzerInner {
