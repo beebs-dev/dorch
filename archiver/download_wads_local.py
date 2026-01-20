@@ -260,4 +260,4 @@ def download_zips(out_dir: str):
 if __name__ == "__main__":
     # download_wad_archive('/tmp/wads', '/media/thavlik/5e8c5ae9-0337-4306-b173-221fe135f073/wads')
     download_zips(
-        '/media/thavlik/5e8c5ae9-0337-4306-b173-221fe135f073/wads/zips')
+        '/media/spare/wads/zips')
