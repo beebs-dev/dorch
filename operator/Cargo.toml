@@ -34,6 +34,8 @@ json-patch = "4.1.0"
 prometheus = { version = "0.13", optional = true }
 kube-leader-election = "0.42.0"
 tokio-util = { workspace = true }
+sha2.workspace = true
+hex = "0.4.3"
 
 [build-dependencies]
 serde_yaml = "0.9"

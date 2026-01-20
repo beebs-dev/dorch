@@ -1,4 +1,4 @@
-use crate::util::{Error, messages, patch::*};
+use crate::util::{Error, patch::*};
 use dorch_types::*;
 use k8s_openapi::{
     api::core::v1::{
@@ -26,16 +26,16 @@ pub async fn active(client: Client, instance: &Game, pod_name: &str) -> Result<(
 }
 
 /// Updates the `Game`'s phase to Terminating.
-pub async fn terminating(client: Client, instance: &Game) -> Result<(), Error> {
+pub async fn terminating(client: Client, instance: &Game, reason: String) -> Result<(), Error> {
     patch_status(client, instance, |status| {
         status.phase = GamePhase::Terminating;
-        status.message = Some(messages::TERMINATING.to_owned());
+        status.message = Some(reason);
     })
     .await?;
     Ok(())
 }
 
-pub async fn delete_pod(client: Client, instance: &Game, reason: &str) -> Result<(), Error> {
+pub async fn delete_pod(client: Client, instance: &Game, reason: String) -> Result<(), Error> {
     // pod has same name as resource
     let pod_name = instance.meta().name.as_ref().unwrap();
     println!(
@@ -44,7 +44,7 @@ pub async fn delete_pod(client: Client, instance: &Game, reason: &str) -> Result
     );
     patch_status(client.clone(), instance, |status| {
         status.phase = GamePhase::Pending;
-        status.message = Some(delete_message(&reason));
+        status.message = Some(reason);
     })
     .await?;
     let pods: Api<Pod> =
@@ -53,18 +53,14 @@ pub async fn delete_pod(client: Client, instance: &Game, reason: &str) -> Result
     Ok(())
 }
 
-fn delete_message(reason: &str) -> String {
-    format!("The game server Pod is being deleted. Reason: {}", reason)
-}
-
 fn starting_message(pod_name: &str) -> String {
     format!("The game server Pod '{}' is starting.", pod_name)
 }
 
-pub async fn starting(client: Client, instance: &Game, pod_name: &str) -> Result<(), Error> {
+pub async fn starting(client: Client, instance: &Game, reason: String) -> Result<(), Error> {
     patch_status(client, instance, |status| {
         status.phase = GamePhase::Starting;
-        status.message = Some(starting_message(pod_name));
+        status.message = Some(reason);
     })
     .await?;
     Ok(())
