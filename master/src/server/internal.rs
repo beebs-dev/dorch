@@ -16,7 +16,7 @@ use axum::{
 };
 use bytes::Bytes;
 use dorch_common::{
-    access_log, response,
+    access_log, annotations, response,
     types::{GameInfo, GameInfoUpdate, Settable},
 };
 use dorch_types::{Game, GamePhase};
@@ -25,8 +25,6 @@ use owo_colors::OwoColorize;
 use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
-
-pub const CREATOR_USER_ID_ANNOTATION: &str = "dorch.io/creator-user-id";
 
 pub async fn run_server(cancel: CancellationToken, port: u16, app_state: App) -> Result<()> {
     let health_router = Router::new()
@@ -405,17 +403,18 @@ pub async fn new_game(
     let game_id_str = game_id.to_string();
     let game = dorch_types::Game {
         metadata: ObjectMeta {
-            name: Some(game_id_str.clone()),
+            name: Some(format!("game-{}", game_id_str)),
             namespace: Some(state.namespace.clone()),
             annotations: Some(std::collections::BTreeMap::from([
                 (
-                    "dorch.io/created-by".to_string(),
+                    annotations::CREATED_BY.to_string(),
                     "dorch-master".to_string(),
                 ),
                 (
-                    CREATOR_USER_ID_ANNOTATION.to_string(),
+                    annotations::CREATED_BY_USER.to_string(),
                     req.creator_id.to_string(),
                 ),
+                (annotations::STABLE_ID.to_string(), game_id_str.clone()),
             ])),
             ..Default::default()
         },
@@ -572,7 +571,7 @@ fn game_to_summary(g: dorch_types::Game, info: Option<GameInfo>) -> Result<GameS
             .metadata
             .annotations
             .as_ref()
-            .and_then(|anns| anns.get(CREATOR_USER_ID_ANNOTATION))
+            .and_then(|anns| anns.get(annotations::CREATED_BY_USER))
             .map(|s| s.parse::<Uuid>())
             .transpose()
             .context("Invalid creator user ID")?

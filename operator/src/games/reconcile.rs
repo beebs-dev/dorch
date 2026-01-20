@@ -15,7 +15,11 @@ use kube::{
 };
 use kube_leader_election::{LeaseLock, LeaseLockParams};
 use owo_colors::OwoColorize;
-use std::{collections::HashMap, sync::Arc, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::Instant,
+};
 use tokio::{sync::Mutex, time::Duration};
 use tokio_util::sync::CancellationToken;
 
@@ -32,7 +36,36 @@ pub async fn run(
     livekit_secret: String,
     wadinfo_base_url: String,
     strim_base_url: Option<String>,
+    essential_container_names: HashSet<String>,
+    essential_init_container_names: HashSet<String>,
 ) -> Result<(), Error> {
+    if !essential_init_container_names.is_empty() {
+        println!(
+            "{}{}",
+            "✅ Essential init containers: ".green(),
+            essential_init_container_names
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<&str>>()
+                .join(","),
+        );
+    }
+    if essential_container_names.is_empty() {
+        eprintln!(
+            "{}",
+            "⚠️  Warning: No essential containers specified. Pod status monitoring will be disabled. This is unlikely to be the desired configuration.".yellow()
+        );
+    } else {
+        println!(
+            "{}{}",
+            "✅ Essential containers: ".green(),
+            essential_container_names
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<&str>>()
+                .join(","),
+        );
+    }
     let context: Arc<ContextData> = Arc::new(ContextData::new(
         client.clone(),
         proxy_image,
@@ -43,6 +76,8 @@ pub async fn run(
         livekit_secret,
         wadinfo_base_url,
         strim_base_url,
+        essential_container_names,
+        essential_init_container_names,
     ));
     // Namespace where the Lease object lives.
     // Commonly: the controller's namespace. If you deploy in one namespace, hardcode it.
@@ -145,6 +180,8 @@ struct ContextData {
     wadinfo_base_url: String,
     strim_base_url: Option<String>,
     last_action: Mutex<HashMap<(String, String), (GameAction, Instant)>>,
+    essential_container_names: HashSet<String>,
+    essential_init_container_names: HashSet<String>,
 }
 
 impl ContextData {
@@ -163,6 +200,8 @@ impl ContextData {
         livekit_secret: String,
         wadinfo_base_url: String,
         strim_base_url: Option<String>,
+        essential_container_names: HashSet<String>,
+        essential_init_container_names: HashSet<String>,
     ) -> Self {
         #[cfg(feature = "metrics")]
         {
@@ -178,6 +217,8 @@ impl ContextData {
                 wadinfo_base_url,
                 strim_base_url,
                 last_action: Mutex::new(HashMap::new()),
+                essential_container_names,
+                essential_init_container_names,
             }
         }
         #[cfg(not(feature = "metrics"))]
@@ -192,6 +233,8 @@ impl ContextData {
                 wadinfo_base_url,
                 strim_base_url,
                 last_action: Mutex::new(HashMap::new()),
+                essential_container_names,
+                essential_init_container_names,
             }
         }
     }
@@ -287,7 +330,15 @@ async fn reconcile(instance: Arc<Game>, context: Arc<ContextData>) -> Result<Act
     let start = std::time::Instant::now();
 
     // Read phase of reconciliation determines goal during the write phase.
-    let action = determine_action(client.clone(), &name, &namespace, &instance).await?;
+    let action = determine_action(
+        client.clone(),
+        &name,
+        &namespace,
+        &instance,
+        &context.essential_container_names,
+        &context.essential_init_container_names,
+    )
+    .await?;
 
     if action != GameAction::NoOp {
         let value = {
@@ -409,6 +460,8 @@ async fn determine_action(
     _name: &str,
     namespace: &str,
     instance: &Game,
+    essential_container_names: &HashSet<String>,
+    essential_init_container_names: &HashSet<String>,
 ) -> Result<GameAction, Error> {
     // Don't do anything while being deleted.
     if instance.metadata.deletion_timestamp.is_some() {
@@ -445,7 +498,11 @@ async fn determine_action(
         return Ok(action);
     }
 
-    if let Some(action) = determine_container_action(&pod) {
+    if let Some(action) = determine_container_action(
+        &pod,
+        &essential_container_names,
+        &essential_init_container_names,
+    ) {
         return Ok(action);
     }
 
@@ -666,36 +723,29 @@ fn pod_is_ready(pod: &Pod) -> Option<bool> {
         .map(|c| c.status == "True")
 }
 
-fn check_init_container_statuses(
-    pod: &Pod,
-    container_statuses: &[ContainerStatus],
-) -> Option<GameAction> {
-    for container_status in container_statuses {
-        if let Some(action) = check_container_status(pod, container_status, true) {
-            return Some(action);
-        }
-    }
-    None
-}
-
 fn check_container_statuses(
     pod: &Pod,
     container_statuses: &[ContainerStatus],
+    essential_container_names: &HashSet<String>,
+    allow_success: bool,
 ) -> Option<GameAction> {
-    for container_status in container_statuses {
-        if let Some(action) = check_container_status(pod, container_status, false) {
-            return Some(action);
-        }
-    }
-    None
+    container_statuses
+        .iter()
+        .filter(|cs| essential_container_names.contains(&cs.name))
+        .find_map(|cs| check_container_status(pod, cs, allow_success))
 }
 
-fn determine_container_action(pod: &Pod) -> Option<GameAction> {
+fn determine_container_action(
+    pod: &Pod,
+    essential_container_names: &HashSet<String>,
+    essential_init_container_names: &HashSet<String>,
+) -> Option<GameAction> {
     if let Some(init_statuses) = pod
         .status
         .as_ref()
         .and_then(|s| s.init_container_statuses.as_ref())
-        && let Some(action) = check_init_container_statuses(pod, init_statuses)
+        && let Some(action) =
+            check_container_statuses(pod, init_statuses, essential_init_container_names, true)
     {
         return Some(action);
     }
@@ -704,7 +754,7 @@ fn determine_container_action(pod: &Pod) -> Option<GameAction> {
         .as_ref()
         .and_then(|s| s.container_statuses.as_ref())
     {
-        Some(v) => check_container_statuses(pod, v),
+        Some(v) => check_container_statuses(pod, v, essential_container_names, false),
         None => Some(GameAction::Starting {
             reason: format!("Pod '{}' has no container statuses yet", pod.name_any()),
         }),

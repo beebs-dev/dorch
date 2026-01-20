@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use kube::client::Client;
+use owo_colors::OwoColorize;
 
 mod games;
 mod util;
@@ -67,6 +68,29 @@ enum Command {
 
         #[arg(long, env = "STRIM_BASE_URL")]
         strim_base_url: Option<String>,
+
+        /// Optional: Names of essential containers to monitor for pod status.
+        /// If not specified, defaults to "proxy,server" (spectator is not essential).
+        /// If set to an empty list, no containers will be considered essential.
+        /// This is almost certainly not what you want.
+        #[arg(
+            long,
+            env = "ESSENTIAL_CONTAINER_NAMES",
+            value_delimiter = ',',
+            default_value = "proxy,server"
+        )]
+        essential_container_names: Vec<String>,
+
+        /// Optional: Names of essential init containers to monitor for pod status.
+        /// Defaults to "downloader".
+        /// If set to an empty list, no init containers will be considered essential.
+        #[arg(
+            long,
+            env = "ESSENTIAL_INIT_CONTAINER_NAMES",
+            value_delimiter = ',',
+            default_value = "downloader"
+        )]
+        essential_init_container_names: Vec<String>,
     },
 }
 
@@ -89,6 +113,8 @@ async fn run(client: Client) {
             downloader_image,
             wadinfo_base_url,
             strim_base_url,
+            essential_container_names,
+            essential_init_container_names,
         } => {
             games::run(
                 client,
@@ -100,6 +126,8 @@ async fn run(client: Client) {
                 livekit_secret,
                 wadinfo_base_url,
                 strim_base_url,
+                essential_container_names.into_iter().collect(),
+                essential_init_container_names.into_iter().collect(),
             )
             .await
         }

@@ -34,6 +34,7 @@ pub fn signal_ready() {
 pub mod annotations {
     pub const STABLE_ID: &str = "dorch.beebs.dev/stable-id";
     pub const CREATED_BY: &str = "dorch.beebs.dev/created-by";
+    pub const CREATED_BY_USER: &str = "dorch.beebs.dev/created-by-user";
     pub const SPEC_HASH: &str = "dorch.beebs.dev/spec-hash";
 }
 

@@ -1,7 +1,7 @@
 use crate::{
     app::App,
     client::{JoinGameResponse, NewGameRequest},
-    server::internal::{self, CREATOR_USER_ID_ANNOTATION},
+    server::internal,
 };
 use anyhow::{Context, Result, anyhow};
 use axum::{
@@ -19,7 +19,7 @@ use axum_keycloak_auth::{
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 use dorch_auth::client::UserRecordJson;
-use dorch_common::{access_log, args::KeycloakArgs, cors, rbac::UserId, response};
+use dorch_common::{access_log, annotations, args::KeycloakArgs, cors, rbac::UserId, response};
 use kube::Api;
 use owo_colors::OwoColorize;
 use reqwest::Url;
@@ -182,7 +182,7 @@ pub async fn delete_game(
         .metadata
         .annotations
         .as_ref()
-        .and_then(|m| m.get(CREATOR_USER_ID_ANNOTATION))
+        .and_then(|m| m.get(annotations::CREATED_BY_USER))
         .map(|s| s.parse::<Uuid>())
         .transpose()
         .ok()
