@@ -338,6 +338,8 @@ impl Database {
             let description = row.try_get("description")?;
             let map_name: String = row.try_get("map_name")?;
             let map_title = row.try_get("map_title")?;
+            let authors: Vec<String> = row.try_get("authors")?;
+            let authors = escape_nul_in_vec(&authors).unwrap_or(authors);
             let tags: Vec<String> = tx
                 .query(&list_tags_stmt, &[&wad_id, &map_name])
                 .await
@@ -350,6 +352,7 @@ impl Database {
                 map_title,
                 description,
                 wad_id,
+                authors,
                 tags,
             });
         }
@@ -374,6 +377,8 @@ impl Database {
             .prepare_cached(sql::DELETE_MAP_ANALYSIS_TAGS)
             .await
             .context("failed to prepare DELETE_MAP_ANALYSIS_TAGS")?;
+        let authors =
+            escape_nul_in_vec(&analysis.authors).unwrap_or_else(|| analysis.authors.clone());
         tx.execute(
             &insert_stmt,
             &[
@@ -381,6 +386,7 @@ impl Database {
                 &analysis.map_name,
                 &analysis.map_title,
                 &analysis.description,
+                &authors,
             ],
         )
         .await
@@ -417,9 +423,16 @@ impl Database {
             .prepare_cached(sql::DELETE_WAD_ANALYSIS_TAGS)
             .await
             .context("failed to prepare DELETE_WAD_ANALYSIS_TAGS")?;
+        let authors =
+            escape_nul_in_vec(&analysis.authors).unwrap_or_else(|| analysis.authors.clone());
         tx.execute(
             &insert_stmt,
-            &[&analysis.wad_id, &analysis.title, &analysis.description],
+            &[
+                &analysis.wad_id,
+                &analysis.title,
+                &analysis.description,
+                &authors,
+            ],
         )
         .await
         .context("failed to execute INSERT_WAD_ANALYSIS")?;
@@ -498,6 +511,10 @@ impl Database {
             let description: String = analysis
                 .try_get("description")
                 .context("get description from wad_analysis row")?;
+            let authors: Vec<String> = analysis
+                .try_get("authors")
+                .context("get authors from wad_analysis row")?;
+            let authors = escape_nul_in_vec(&authors).unwrap_or(authors);
             let tags: Vec<String> = conn
                 .query(&list_analysis_tags, &[&wad_id])
                 .await
@@ -508,6 +525,7 @@ impl Database {
             Some(AbridgedWadAnalysis {
                 description,
                 title,
+                authors,
                 tags,
             })
         } else {
@@ -559,6 +577,10 @@ impl Database {
                     let description: String = analysis
                         .try_get("description")
                         .context("get description from map_analysis row")?;
+                    let authors: Vec<String> = analysis
+                        .try_get("authors")
+                        .context("get authors from map_analysis row")?;
+                    let authors = escape_nul_in_vec(&authors).unwrap_or(authors);
                     let tags: Vec<String> = conn
                         .query(&list_analysis_tags, &[&wad_id, &map.map.map])
                         .await
@@ -569,6 +591,7 @@ impl Database {
                     map.analysis = Some(AbridgedMapAnalysis {
                         title,
                         description,
+                        authors,
                         tags,
                     });
                 }
@@ -625,6 +648,10 @@ impl Database {
             let description: String = row
                 .try_get("description")
                 .context("get description from map_analysis row")?;
+            let authors: Vec<String> = row
+                .try_get("authors")
+                .context("get authors from map_analysis row")?;
+            let authors = escape_nul_in_vec(&authors).unwrap_or(authors);
             let list_analysis_tags = conn
                 .prepare_cached(sql::LIST_WAD_MAP_ANALYSIS_TAGS)
                 .await
@@ -639,6 +666,7 @@ impl Database {
             map.analysis = Some(AbridgedMapAnalysis {
                 title,
                 description,
+                authors,
                 tags,
             });
         }

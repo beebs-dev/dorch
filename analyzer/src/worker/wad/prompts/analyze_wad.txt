@@ -29,6 +29,7 @@ You must output a SINGLE JSON object in EXACTLY this shape:
 {
   "title": "<wad title>",
   "description": "<wad-level description>",
+  "authors": ["string", "..."],
   "tags": ["string", "..."]
 }
 
@@ -63,6 +64,12 @@ You must output a SINGLE JSON object in EXACTLY this shape:
     - Structure: "linear", "nonlinear", "key_hunt", "teleport_navigation"
     - Compatibility: "vanilla_compatible", "boom_compatible" when reasonably inferred
   - Tags must reflect real data; do not guess.
+
+- "authors":
+  - An array of author names/handles for the WAD.
+  - Only include authors that are explicitly stated in README(s) or other provided text.
+  - If no authors are present, output an empty array [].
+  - Keep each name short and as-written (do not invent).
 
 ## Style and constraints
 

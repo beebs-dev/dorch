@@ -350,9 +350,13 @@ create table if not exists wad_analysis (
   wad_id      uuid primary key references wads(wad_id) on delete cascade,
   title       text,
   description text not null,
+  authors     text[] not null default '{}',
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
+
+alter table wad_analysis
+  add column if not exists authors text[] not null default '{}';
 
 create table if not exists wad_analysis_tags (
   wad_id      uuid references wads(wad_id) on delete cascade,
@@ -365,10 +369,14 @@ create table if not exists wad_map_analysis (
   map_name    text not null,
   map_title   text,
   description text not null,
+  authors     text[] not null default '{}',
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
   primary key (wad_id, map_name)
 );
+
+alter table wad_map_analysis
+  add column if not exists authors text[] not null default '{}';
 
 create table if not exists wad_map_analysis_tags (
   wad_id      uuid references wads(wad_id) on delete cascade,

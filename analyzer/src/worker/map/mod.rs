@@ -87,6 +87,8 @@ pub async fn run(args: args::MapArgs) -> Result<()> {
 pub struct RawMapAnalysis {
     pub title: Option<String>,
     pub description: String,
+    #[serde(default)]
+    pub authors: Vec<String>,
     pub tags: Vec<String>,
 }
 
@@ -174,6 +176,7 @@ impl Worker<ReadWad, RawMapAnalysis, MapContext> for DeriveMap {
             map_name: context.map_name.clone(),
             map_title: analysis.title.filter(|t| !t.is_empty()),
             description: analysis.description,
+            authors: analysis.authors,
             tags: analysis.tags,
         };
         println!(

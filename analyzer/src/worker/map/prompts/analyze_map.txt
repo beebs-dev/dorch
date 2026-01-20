@@ -21,6 +21,7 @@ You must output a SINGLE JSON object in EXACTLY this shape:
 {
   "title": "string",
   "tags": ["string", "..."],
+  "authors": ["string", "..."],
   "description": "..."
 }
 
@@ -60,6 +61,11 @@ You must output a SINGLE JSON object in EXACTLY this shape:
 - Be conservative when unsure; describe unclear patterns neutrally and briefly.
 - Do NOT mention JSON, field names, or the structure of the input.
 - Do NOT include extra top-level keys.
+- "authors":
+  - An array of author names/handles relevant to this map.
+  - Only include authors that are explicitly stated in README(s), map metadata, or other provided text.
+  - If no map-specific author information is present, output an empty array [].
+  - Do not guess.
 - The final output MUST be valid JSON:
   - Double quotes around all keys and strings.
   - No comments.

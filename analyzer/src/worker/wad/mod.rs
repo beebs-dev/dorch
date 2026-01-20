@@ -90,6 +90,8 @@ pub async fn run(args: args::WadArgs) -> Result<()> {
 pub struct RawWadAnalysis {
     pub title: Option<String>,
     pub description: String,
+    #[serde(default)]
+    pub authors: Vec<String>,
     pub tags: Vec<String>,
 }
 
@@ -241,6 +243,7 @@ impl Worker<ReadWad, RawWadAnalysis, WadContext> for DeriveWad {
             wad_id: context.wad_id,
             title: analysis.title.filter(|t| !t.is_empty()),
             description: analysis.description,
+            authors: analysis.authors,
             tags: analysis.tags,
         };
         println!(

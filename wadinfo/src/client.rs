@@ -177,6 +177,8 @@ pub struct WadAnalysis {
     pub wad_id: Uuid,
     pub title: Option<String>,
     pub description: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub authors: Vec<String>,
     pub tags: Vec<String>,
 }
 
@@ -184,6 +186,8 @@ pub struct WadAnalysis {
 pub struct AbridgedWadAnalysis {
     pub title: Option<String>,
     pub description: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub authors: Vec<String>,
     pub tags: Vec<String>,
 }
 
@@ -191,6 +195,8 @@ pub struct AbridgedWadAnalysis {
 pub struct AbridgedMapAnalysis {
     pub title: Option<String>,
     pub description: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub authors: Vec<String>,
     pub tags: Vec<String>,
 }
 
@@ -201,6 +207,8 @@ pub struct MapAnalysis {
     pub map_name: String,
     pub map_title: Option<String>,
     pub description: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub authors: Vec<String>,
     pub tags: Vec<String>,
 }
 
