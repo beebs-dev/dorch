@@ -70,6 +70,15 @@ pub async fn starting(client: Client, instance: &Game, pod_name: &str) -> Result
     Ok(())
 }
 
+pub async fn pending(client: Client, instance: &Game, reason: String) -> Result<(), Error> {
+    patch_status(client, instance, |status| {
+        status.phase = GamePhase::Pending;
+        status.message = Some(reason);
+    })
+    .await?;
+    Ok(())
+}
+
 fn game_pod(
     instance: &Game,
     proxy_image: &str,

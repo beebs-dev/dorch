@@ -199,6 +199,10 @@ enum GameAction {
     /// Create all subresources required by the [`Game`].
     CreatePod,
 
+    Pending {
+        reason: String,
+    },
+
     DeletePod {
         reason: String,
     },
@@ -237,6 +241,7 @@ impl GameAction {
             GameAction::NoOp => "NoOp",
             GameAction::Error(_) => "Error",
             GameAction::Requeue(_) => "Requeue",
+            GameAction::Pending { .. } => "Pending",
         }
     }
 }
@@ -326,6 +331,12 @@ async fn reconcile(instance: Arc<Game>, context: Arc<ContextData>) -> Result<Act
     // This is the write phase of reconciliation.
     let result = match action {
         GameAction::Requeue(after) => Action::requeue(after),
+        GameAction::Pending { reason } => {
+            // Update the phase to Pending.
+            actions::pending(client, &instance, reason).await?;
+
+            Action::await_change()
+        }
         GameAction::Starting { pod_name } => {
             // Update the phase to Starting.
             actions::starting(client, &instance, &pod_name).await?;
@@ -438,14 +449,14 @@ async fn determine_action(
                 })
             };
         }
-        Some("Succeeded") => {
+        Some(v) if ["Succeeded", "Failed", "CrashLoopBackOff"].contains(&v) => {
             return Ok(GameAction::DeletePod {
-                reason: "Pod unexpectedly terminated with 'Succeeded' status".to_string(),
+                reason: format!("Pod unexpectedly terminated with '{}' phase", v),
             });
         }
-        Some("Failed") => {
-            return Ok(GameAction::DeletePod {
-                reason: "Pod unexpectedly terminated with 'Failed' status".to_string(),
+        Some(v) if v == "Pending" => {
+            return Ok(GameAction::Pending {
+                reason: format!("Pod is still in Pending phase"),
             });
         }
         Some(phase) => {
