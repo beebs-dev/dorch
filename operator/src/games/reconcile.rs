@@ -15,8 +15,8 @@ use kube::{
 };
 use kube_leader_election::{LeaseLock, LeaseLockParams};
 use owo_colors::OwoColorize;
-use std::sync::Arc;
-use tokio::time::Duration;
+use std::{collections::HashMap, sync::Arc, time::Instant};
+use tokio::{sync::Mutex, time::Duration};
 use tokio_util::sync::CancellationToken;
 
 #[cfg(feature = "metrics")]
@@ -76,7 +76,7 @@ pub async fn run(
         shutdown_signal.cancel();
     });
     dorch_common::signal_ready();
-    println!("{}", "Starting Game controller...".green());
+    println!("{}", "⚙️ Starting Game controller...".green());
     // We run indefinitely; only the leader runs the controller.
     // On leadership loss, we abort the controller and go back to standby.
     let mut controller_task: Option<tokio::task::JoinHandle<()>> = None;
@@ -107,12 +107,12 @@ pub async fn run(
         if lease.acquired_lease {
             // We are leader; ensure controller is running
             if controller_task.is_none() {
-                println!("acquired leadership; starting controller");
+                println!("{}", "👑 Acquired leadership; starting controller".green());
                 let client_for_controller = client.clone();
                 let context_for_controller = context.clone();
                 let crd_api_for_controller: Api<Game> = Api::all(client_for_controller.clone());
                 controller_task = Some(tokio::spawn(async move {
-                    println!("{}", "Game controller started.".green());
+                    println!("{}", "🚀 Game controller started.".green());
                     Controller::new(crd_api_for_controller, Default::default())
                         .owns(Api::<Pod>::all(client_for_controller), Default::default())
                         .run(reconcile, on_error, context_for_controller)
@@ -144,6 +144,7 @@ struct ContextData {
     livekit_secret: String,
     wadinfo_base_url: String,
     strim_base_url: Option<String>,
+    last_action: Mutex<HashMap<(String, String), (GameAction, Instant)>>,
 }
 
 impl ContextData {
@@ -176,6 +177,7 @@ impl ContextData {
                 livekit_secret,
                 wadinfo_base_url,
                 strim_base_url,
+                last_action: Mutex::new(HashMap::new()),
             }
         }
         #[cfg(not(feature = "metrics"))]
@@ -189,13 +191,14 @@ impl ContextData {
                 downloader_image,
                 wadinfo_base_url,
                 strim_base_url,
+                last_action: Mutex::new(HashMap::new()),
             }
         }
     }
 }
 
 /// Action to be taken upon an `Game` resource during reconciliation
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum GameAction {
     /// Create all subresources required by the [`Game`].
     CreatePod,
@@ -287,14 +290,26 @@ async fn reconcile(instance: Arc<Game>, context: Arc<ContextData>) -> Result<Act
     let action = determine_action(client.clone(), &name, &namespace, &instance).await?;
 
     if action != GameAction::NoOp {
-        println!(
-            "🔧 {}{}{}{}{}",
-            namespace.color(FG2),
-            "/".color(FG1),
-            name.color(FG2),
-            " ACTION: ".color(FG1),
-            format!("{:?}", action).color(FG2),
-        );
+        let value = {
+            let mut la = context.last_action.lock().await;
+            la.insert(
+                (namespace.clone(), name.clone()),
+                (action.clone(), Instant::now()),
+            )
+        };
+        if let Some((last_action, last_instant)) = value
+            && (Some(&action) != Some(&last_action)
+                || last_instant.elapsed() > Duration::from_secs(300))
+        {
+            println!(
+                "🔧 {}{}{}{}{}",
+                namespace.color(FG2),
+                "/".color(FG1),
+                name.color(FG2),
+                " ACTION: ".color(FG1),
+                format!("{:?}", action).color(FG2),
+            );
+        }
     }
 
     // Report the read phase performance.
@@ -334,19 +349,19 @@ async fn reconcile(instance: Arc<Game>, context: Arc<ContextData>) -> Result<Act
         GameAction::Requeue(duration) => Action::requeue(duration),
         GameAction::Terminating { reason } => {
             actions::terminating(client, &instance, reason).await?;
-            Action::await_change()
+            Action::requeue(Duration::from_secs(3))
         }
         GameAction::Pending { reason } => {
             actions::pending(client, &instance, reason).await?;
-            Action::await_change()
+            Action::requeue(Duration::from_secs(3))
         }
         GameAction::Starting { reason } => {
             actions::starting(client, &instance, reason).await?;
-            Action::await_change()
+            Action::requeue(Duration::from_secs(3))
         }
         GameAction::DeletePod { reason } => {
             actions::delete_pod(client.clone(), &instance, reason).await?;
-            Action::await_change()
+            Action::requeue(Duration::from_secs(3))
         }
         GameAction::CreatePod => {
             actions::create_pod(
@@ -362,11 +377,11 @@ async fn reconcile(instance: Arc<Game>, context: Arc<ContextData>) -> Result<Act
                 context.strim_base_url.as_deref(),
             )
             .await?;
-            Action::await_change()
+            Action::requeue(Duration::from_secs(3))
         }
         GameAction::Error(message) => {
             actions::error(client.clone(), &instance, message).await?;
-            Action::await_change()
+            Action::requeue(Duration::from_secs(3))
         }
         GameAction::Active { pod_name } => {
             actions::active(client, &instance, &pod_name).await?;
@@ -519,7 +534,11 @@ fn determine_phase_action(pod: &Pod) -> Option<GameAction> {
     }
 }
 
-fn check_container_status(pod: &Pod, container_status: &ContainerStatus) -> Option<GameAction> {
+fn check_container_status(
+    pod: &Pod,
+    container_status: &ContainerStatus,
+    allow_success: bool,
+) -> Option<GameAction> {
     let state = match &container_status.state {
         Some(state) => state,
         None => {
@@ -532,7 +551,9 @@ fn check_container_status(pod: &Pod, container_status: &ContainerStatus) -> Opti
             });
         }
     };
-    if let Some(ref terminated) = state.terminated {
+    if let Some(ref terminated) = state.terminated
+        && (!allow_success || terminated.exit_code != 0)
+    {
         let reason = terminated.reason.as_deref().unwrap_or("");
         let kind = match (terminated.exit_code, reason) {
             (0, "Completed") => "completed normally",
@@ -645,12 +666,24 @@ fn pod_is_ready(pod: &Pod) -> Option<bool> {
         .map(|c| c.status == "True")
 }
 
+fn check_init_container_statuses(
+    pod: &Pod,
+    container_statuses: &[ContainerStatus],
+) -> Option<GameAction> {
+    for container_status in container_statuses {
+        if let Some(action) = check_container_status(pod, container_status, true) {
+            return Some(action);
+        }
+    }
+    None
+}
+
 fn check_container_statuses(
     pod: &Pod,
     container_statuses: &[ContainerStatus],
 ) -> Option<GameAction> {
     for container_status in container_statuses {
-        if let Some(action) = check_container_status(pod, container_status) {
+        if let Some(action) = check_container_status(pod, container_status, false) {
             return Some(action);
         }
     }
@@ -662,7 +695,7 @@ fn determine_container_action(pod: &Pod) -> Option<GameAction> {
         .status
         .as_ref()
         .and_then(|s| s.init_container_statuses.as_ref())
-        && let Some(action) = check_container_statuses(pod, init_statuses)
+        && let Some(action) = check_init_container_statuses(pod, init_statuses)
     {
         return Some(action);
     }
