@@ -138,7 +138,7 @@ impl Worker<ReadWad, RawMapAnalysis, MapContext> for DeriveMap {
             // Already done, skip it
             println!(
                 "{}{}{}{}{}{}",
-                "ℹ️ Skipping already analyzed MAP • wad_id=".blue(),
+                "ℹ️  Skipping already analyzed MAP • wad_id=".blue(),
                 wad_id.to_string().blue().dimmed(),
                 " • wad_name=".blue(),
                 wad_name.blue().dimmed(),
@@ -156,7 +156,7 @@ impl Worker<ReadWad, RawMapAnalysis, MapContext> for DeriveMap {
             .context("Failed to acquire lock")?;
         println!(
             "{}{}{}{}{}{}",
-            "ℹ️ Analyzing MAP • wad_id=".blue(),
+            "ℹ️  Analyzing MAP • wad_id=".blue(),
             wad_id.to_string().blue().dimmed(),
             " • wad_name=".blue(),
             wad_name.blue().dimmed(),

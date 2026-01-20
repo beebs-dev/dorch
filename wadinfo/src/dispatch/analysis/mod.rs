@@ -50,7 +50,18 @@ pub async fn run(args: DispatchAnalysisRunArgs) -> Result<()> {
         let wad_id_str = wad_id.to_string();
         let subject = subjects::analysis::wad(wad_id_str.as_str());
         _ = js
-            .publish(subject, wad_id_str.clone().into())
+            .publish_with_headers(
+                subject,
+                {
+                    let mut headers = async_nats::HeaderMap::new();
+                    headers.insert(
+                        async_nats::header::NATS_MESSAGE_ID,
+                        format!("wad-analysis-{}", wad_id),
+                    );
+                    headers
+                },
+                wad_id_str.clone().into(),
+            )
             .await
             .context("JetStream publish failed")?
             .await

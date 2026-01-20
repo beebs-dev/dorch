@@ -49,6 +49,12 @@
 		data.wad.maps.filter((m) => (m.images?.length ?? 0) > 0)
 	);
 
+	const screenshotsCount = $derived(() => {
+		let total = 0;
+		for (const m of data.wad.maps) total += m.images?.length ?? 0;
+		return total;
+	});
+
 	const hasMaps = $derived(() => data.wad.maps.length > 0);
 
 	type ScreenshotPick = { mapName: string; image: WadImage };
@@ -271,6 +277,9 @@
 				<span>{t.label}</span>
 				{#if t.key === 'maps'}
 					<span class="text-xs text-zinc-500">({data.wad.maps.length})</span>
+				{/if}
+				{#if t.key === 'screenshots'}
+					<span class="text-xs text-zinc-500">({screenshotsCount()})</span>
 				{/if}
 			</a>
 		{/each}

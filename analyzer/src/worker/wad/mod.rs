@@ -20,6 +20,7 @@ use bytes::Bytes;
 use dorch_common::streams::{self, subjects};
 use dorch_wadinfo::client::{ReadWad, WadAnalysis};
 use owo_colors::OwoColorize;
+use redis_lock::RedisError;
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -134,12 +135,24 @@ impl Worker<ReadWad, RawWadAnalysis, WadContext> for DeriveWad {
             return Ok(DeriveResult::Discard);
         }
         let lock_key = format!("l:w:{}", wad_id);
-        let lock = self
-            .locker
-            .clone()
-            .acquire(&lock_key)
-            .await
-            .context("Failed to acquire lock")?;
+        let lock = match self.locker.clone().acquire(&lock_key).await {
+            Ok(lock) => lock,
+            Err(e) => {
+                if let Some(e) = e.downcast_ref::<RedisError>() {
+                    if e.is_timeout() {
+                        println!(
+                            "{}{}",
+                            "⚠️  Could not acquire lock for WAD (another analyzer may be working on it) • wad_id=".yellow(),
+                            wad_id.to_string().yellow().dimmed(),
+                        );
+                        return Ok(DeriveResult::Pending {
+                            retry_after: Some(Duration::from_secs(43)),
+                        });
+                    }
+                }
+                return Err(anyhow!("Failed to acquire lock: {}", e));
+            }
+        };
         let mut input = self
             .wadinfo
             .get_wad(wad_id)
@@ -179,7 +192,7 @@ impl Worker<ReadWad, RawWadAnalysis, WadContext> for DeriveWad {
                 input.meta.meta.id = Uuid::nil();
                 println!(
                     "{}{}{}{}{}{}",
-                    "ℹ️ Analyzing WAD • wad_id=".blue(),
+                    "ℹ️  Analyzing WAD • wad_id=".blue(),
                     wad_id.blue().dimmed(),
                     " • map_count=".blue(),
                     input.maps.len().blue().dimmed(),
@@ -200,7 +213,7 @@ impl Worker<ReadWad, RawWadAnalysis, WadContext> for DeriveWad {
                     .collect::<Vec<_>>();
                 println!(
                     "{}{}{}{}{}{}",
-                    "ℹ️ Requesting analyses for missing maps • wad_id=".blue(),
+                    "ℹ️  Requesting analyses for missing maps • wad_id=".blue(),
                     wad_id.blue().dimmed(),
                     " • missing_count=".blue(),
                     missing_maps.len().blue().dimmed(),
@@ -233,7 +246,7 @@ impl Worker<ReadWad, RawWadAnalysis, WadContext> for DeriveWad {
                         .context("Failed to publish map analysis message")?;
                 }
                 Ok(DeriveResult::Pending {
-                    retry_after: Some(Duration::from_mins(60)),
+                    retry_after: Some(Duration::from_mins(10)),
                 })
             }
         }

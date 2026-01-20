@@ -103,6 +103,9 @@ where
                             failure_count += 1;
                             eprintln!("Error handling message: {:?}", e);
                             dorch_common::wait::wait(&self.cancel, failure_count).await?;
+                            msg.ack_with(AckKind::Nak(Some(Duration::from_secs(7))))
+                                .await
+                                .map_err(|e| anyhow!("Failed to nack message: {e:?}"))?;
                         } else if let Err(e) = msg.ack().await {
                             failure_count += 1;
                             eprintln!("Error acknowledging message: {:?}", e);

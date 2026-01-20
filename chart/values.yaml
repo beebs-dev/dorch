@@ -161,7 +161,7 @@ wadinfo:
     analysis:
       image: thavlik/dorch-wadinfo:latest
       imagePullPolicy: Always
-      replicas: 1
+      replicas: 0
       logLevel: debug
       resources:
         requests: 
@@ -247,7 +247,7 @@ analyzer:
   wad:
     image: thavlik/dorch-analyzer:latest
     imagePullPolicy: Always
-    replicas: 4
+    replicas: 12
     logLevel: debug
     resources:
       limits:
@@ -263,7 +263,7 @@ analyzer:
   map:
     image: thavlik/dorch-analyzer:latest
     imagePullPolicy: Always
-    replicas: 5
+    replicas: 8
     logLevel: debug
     resources:
       limits:

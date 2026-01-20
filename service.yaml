@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: languagetool
+  namespace: vocari
+spec:
+  selector:
+    app: languagetool
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081

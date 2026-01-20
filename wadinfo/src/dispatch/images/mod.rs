@@ -52,7 +52,18 @@ pub async fn run(args: DispatchImagesRunArgs) -> Result<()> {
         empty_pulls = 0;
         for wad_id in &wad_ids {
             _ = js
-                .publish(subjects::images(wad_id), wad_id.to_string().into())
+                .publish_with_headers(
+                    subjects::images(wad_id),
+                    {
+                        let mut headers = async_nats::HeaderMap::new();
+                        headers.insert(
+                            async_nats::header::NATS_MESSAGE_ID,
+                            format!("wad-images-{}", wad_id),
+                        );
+                        headers
+                    },
+                    wad_id.to_string().into(),
+                )
                 .await
                 .context("JetStream publish failed")?
                 .await

@@ -9,7 +9,7 @@ use openai::{
 use std::{ops::Deref, sync::Arc};
 use tiktoken_rs::{CoreBPE, p50k_base};
 
-const ANALYSIS_MAX_TOKENS: u64 = 350;
+const ANALYSIS_MAX_TOKENS: u64 = 400;
 const INPUT_TOKEN_LIMIT: u64 = 1200;
 
 pub struct AnalyzerInner {

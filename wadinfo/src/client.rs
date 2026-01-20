@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::{Context, Result, bail};
 use dorch_common::{
     Pagination,
@@ -220,7 +222,10 @@ pub struct Client {
 
 impl Client {
     pub fn new(base_url: String) -> Self {
-        let inner = reqwest::Client::new();
+        let inner = reqwest::Client::builder()
+            .timeout(Duration::from_secs(20))
+            .build()
+            .unwrap();
         Self { inner, base_url }
     }
 
