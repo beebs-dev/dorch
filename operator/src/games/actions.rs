@@ -199,7 +199,7 @@ fn game_pod(
     }
     Pod {
         metadata: ObjectMeta {
-            name: Some(format!("game-{}", instance.spec.game_id)),
+            name: instance.meta().name.clone(),
             namespace: instance.meta().namespace.clone(),
             owner_references: Some(vec![instance.controller_owner_ref(&()).unwrap()]),
             annotations: Some({
@@ -429,8 +429,13 @@ pub async fn create_pod(
     .await?;
     let pods: Api<Pod> =
         Api::namespaced(client.clone(), instance.meta().namespace.as_ref().unwrap());
-    pods.create(&Default::default(), &pod).await?;
-    Ok(())
+    match pods.create(&Default::default(), &pod).await {
+        Ok(_) => Ok(()),
+        Err(e) => match e {
+            kube::Error::Api(ae) if ae.code == 409 => Ok(()),
+            _ => return Err(Error::from(e)),
+        },
+    }
 }
 
 pub async fn error(client: Client, instance: &Game, message: String) -> Result<(), Error> {

@@ -76,7 +76,7 @@ pub async fn run(
         shutdown_signal.cancel();
     });
     dorch_common::signal_ready();
-    println!("{}", "⚙️ Starting Game controller...".green());
+    println!("{}", "⚙️  Starting Game controller...".green());
     // We run indefinitely; only the leader runs the controller.
     // On leadership loss, we abort the controller and go back to standby.
     let mut controller_task: Option<tokio::task::JoinHandle<()>> = None;
