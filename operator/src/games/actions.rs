@@ -1,4 +1,5 @@
-use crate::util::{Error, patch::*};
+use crate::util::{self, Error, patch::*};
+use dorch_common::annotations;
 use dorch_types::*;
 use k8s_openapi::{
     api::core::v1::{
@@ -201,6 +202,18 @@ fn game_pod(
             name: instance.meta().name.clone(),
             namespace: instance.meta().namespace.clone(),
             owner_references: Some(vec![instance.controller_owner_ref(&()).unwrap()]),
+            annotations: Some({
+                let mut annotations = std::collections::BTreeMap::new();
+                annotations.insert(
+                    annotations::SPEC_HASH.to_string(),
+                    util::hash_spec(&instance.spec),
+                );
+                annotations.insert(
+                    annotations::CREATED_BY.to_string(),
+                    "dorch-operator".to_string(),
+                );
+                annotations
+            }),
             ..Default::default()
         },
         spec: Some(PodSpec {
