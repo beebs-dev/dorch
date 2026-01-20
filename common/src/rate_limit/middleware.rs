@@ -86,6 +86,11 @@ where
                 return inner.call(req).await;
             }
 
+            // Ignore internal cluster traffic
+            if ip.starts_with("10.") || ip.starts_with("192.168.") || ip.starts_with("172.") {
+                return inner.call(req).await;
+            }
+
             // Key format (namespaced) – tune as desired
             let key = format!("ip:{ip}");
 

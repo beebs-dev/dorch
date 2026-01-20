@@ -548,7 +548,7 @@ pub async fn list_games_inner(state: App) -> Result<ListGamesResponse> {
     }
     eprintln!(
         "{}{}{}{}{}",
-        "✅ Listed games • count=".green(),
+        "✅  Listed games • count=".green(),
         games.len().green().dimmed(),
         " • elapsed=".green(),
         Instant::now()
