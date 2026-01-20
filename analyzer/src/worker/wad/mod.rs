@@ -140,17 +140,17 @@ impl Worker<ReadWad, RawWadAnalysis, WadContext> for DeriveWad {
         let lock = match self.locker.clone().acquire(&lock_key).await {
             Ok(lock) => lock,
             Err(e) => {
-                if let Some(e) = e.downcast_ref::<RedisError>() {
-                    if e.is_timeout() {
-                        println!(
+                if let Some(e) = e.downcast_ref::<RedisError>()
+                    && e.is_timeout()
+                {
+                    println!(
                             "{}{}",
                             "⚠️  Could not acquire lock for WAD (another analyzer may be working on it) • wad_id=".yellow(),
                             wad_id.to_string().yellow().dimmed(),
                         );
-                        return Ok(DeriveResult::Pending {
-                            retry_after: Some(Duration::from_secs(43)),
-                        });
-                    }
+                    return Ok(DeriveResult::Pending {
+                        retry_after: Some(Duration::from_secs(43)),
+                    });
                 }
                 return Err(anyhow!("Failed to acquire lock: {}", e));
             }

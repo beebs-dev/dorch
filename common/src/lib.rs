@@ -31,6 +31,12 @@ pub fn signal_ready() {
     std::fs::write("/etc/ready", "ready").expect("Failed to write readiness file");
 }
 
+pub mod annotations {
+    pub const STABLE_ID: &str = "dorch.beebs.dev/stable-id";
+    pub const CREATED_BY: &str = "dorch.beebs.dev/created-by";
+    pub const SPEC_HASH: &str = "dorch.beebs.dev/spec-hash";
+}
+
 /// Redis topic for master server updates
 pub const MASTER_TOPIC: &str = "dorch.master";
 

@@ -434,15 +434,31 @@ async fn determine_action(
         return Ok(action);
     }
 
-    if pod_is_ready(&pod).unwrap_or(false) {
-        determine_status_action(instance)
-    } else {
-        Ok(GameAction::Starting {
+    match pod_is_ready(&pod) {
+        Some(true) => {
+            // Keep the Active phase up-to-date
+            determine_status_action(instance)
+        }
+        Some(false) => {
+            // Ready condition exists but is False; include the condition message if present
+            let msg = pod
+                .status
+                .as_ref()
+                .and_then(|s| s.conditions.as_ref())
+                .and_then(|cs| cs.iter().find(|c| c.type_ == "Ready"))
+                .and_then(|c| c.message.as_deref())
+                .unwrap_or("Ready condition is False");
+
+            Ok(GameAction::Starting {
+                reason: format!("Pod '{}' is not Ready: {}", pod.name_any(), msg),
+            })
+        }
+        None => Ok(GameAction::Starting {
             reason: format!(
-                "Pod '{}' is running but pending Ready status",
+                "Pod '{}' is running but is lacking the Ready condition",
                 pod.name_any()
             ),
-        })
+        }),
     }
 }
 
@@ -538,10 +554,9 @@ fn check_container_status(pod: &Pod, container_status: &ContainerStatus) -> Opti
             ),
         });
     }
-    if let Some(ref waiting) = state.waiting
-        && let Some(reason_str) = waiting.reason.as_deref()
-    {
+    if let Some(ref waiting) = state.waiting {
         // Note: there may not be a waiting reason, in which case we treat it as not existing.
+        let reason_str = waiting.reason.as_deref().unwrap_or("");
         const FATAL_WAITING: &[&'static str] = &[
             "ImagePullBackOff",
             "ErrImageNeverPull",
@@ -562,19 +577,21 @@ fn check_container_status(pod: &Pod, container_status: &ContainerStatus) -> Opti
             {
                 Some(GameAction::DeletePod {
                     reason: format!(
-                        "Pod '{}' container '{}' is in CrashLoopBackOff (last exit code {}, reason: {})",
+                        "Pod '{}' container '{}' is in CrashLoopBackOff (last exit code {}, reason: {}, restartCount: {})",
                         pod.name_any(),
                         container_status.name,
                         t.exit_code,
                         t.reason.as_deref().unwrap_or("(no reason provided)"),
+                        container_status.restart_count,
                     ),
                 })
             } else {
                 Some(GameAction::DeletePod {
                     reason: format!(
-                        "Pod '{}' container '{}' is in CrashLoopBackOff (no last termination details available)",
+                        "Pod '{}' container '{}' is in CrashLoopBackOff (no last termination details available, restartCount: {})",
                         pod.name_any(),
                         container_status.name,
+                        container_status.restart_count,
                     ),
                 })
             }
