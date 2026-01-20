@@ -24,7 +24,7 @@ where
     U: DeserializeOwned,
 {
     inner: Arc<AppInner>,
-    derive_input: D,
+    delegate: D,
     _t: std::marker::PhantomData<T>,
     _u: std::marker::PhantomData<U>,
     _c: std::marker::PhantomData<C>,
@@ -78,7 +78,7 @@ where
 {
     pub fn new(analyzer: Analyzer, cancel: CancellationToken, derive_input: D) -> Self {
         Self {
-            derive_input,
+            delegate: derive_input,
             _t: std::marker::PhantomData,
             _u: std::marker::PhantomData,
             _c: std::marker::PhantomData,
@@ -123,7 +123,7 @@ where
             context,
             lock: _lock,
         } = match self
-            .derive_input
+            .delegate
             .derive_input(&msg.subject, &msg.payload)
             .await
             .context("Failed to derive input")?
@@ -160,7 +160,7 @@ where
             .analyze(input_json)
             .await
             .context("Failed to analyze")?;
-        self.derive_input
+        self.delegate
             .post(context, analysis)
             .await
             .context("Failed to post analysis")

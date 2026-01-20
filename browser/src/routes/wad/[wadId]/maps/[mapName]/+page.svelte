@@ -34,34 +34,6 @@
 		return entries as Array<[string, number]>;
 	}
 
-	function groupVisualRows(
-		container: HTMLElement | null,
-		cards: Array<[string, HTMLElement | null]>
-	): Record<string, number> {
-		if (!container) return {};
-		const cRect = container.getBoundingClientRect();
-		const measured: Array<{ key: string; y: number }> = [];
-		for (const [key, el] of cards) {
-			if (!el) continue;
-			const r = el.getBoundingClientRect();
-			// Use a small quantization to make grouping stable across sub-pixel differences.
-			const y = Math.round(((r.top - cRect.top) / 4) * 4);
-			measured.push({ key, y });
-		}
-		measured.sort((a, b) => a.y - b.y);
-		const rowByKey: Record<string, number> = {};
-		let currentRow = -1;
-		let lastY: number | null = null;
-		for (const m of measured) {
-			if (lastY === null || Math.abs(m.y - lastY) > 6) {
-				currentRow += 1;
-				lastY = m.y;
-			}
-			rowByKey[m.key] = currentRow;
-		}
-		return rowByKey;
-	}
-
 	const statRows = $derived(() => {
 		const s = data.map.stats ?? {};
 		return [
@@ -93,97 +65,44 @@
 		return asSortedBreakdown(raw);
 	});
 
-	let topGridEl = $state<HTMLElement | null>(null);
-	let bottomGridEl = $state<HTMLElement | null>(null);
+	type TopKey = 'mapInfo' | 'stats' | 'difficulty';
+	type BottomKey = 'monsters' | 'items' | 'textures';
 
-	let mapInfoEl = $state<HTMLElement | null>(null);
-	let statsEl = $state<HTMLElement | null>(null);
-	let difficultyEl = $state<HTMLElement | null>(null);
+	let topExpanded = $state<Record<TopKey, boolean>>({
+		mapInfo: true,
+		stats: true,
+		difficulty: true
+	});
 
-	let monstersEl = $state<HTMLElement | null>(null);
-	let itemsEl = $state<HTMLElement | null>(null);
-	let texturesEl = $state<HTMLElement | null>(null);
-
-	let topRowByKey = $state<Record<string, number>>({});
-	let bottomRowByKey = $state<Record<string, number>>({});
-
-	let topExpandedAnchor = $state<string | null>('mapInfo');
-	let bottomExpandedAnchor = $state<string | null>(null);
+	let bottomExpanded = $state<Record<BottomKey, boolean>>({
+		monsters: true,
+		items: true,
+		textures: true
+	});
 
 	// Reset defaults when navigating between maps.
 	$effect(() => {
 		const deps = `${data.wadId}:${data.mapName}`;
 		if (!deps) return;
-		topExpandedAnchor = 'mapInfo';
+		topExpanded = { mapInfo: true, stats: true, difficulty: true };
+		bottomExpanded = { monsters: true, items: true, textures: true };
 	});
 
-	function recomputeTopRows() {
-		topRowByKey = groupVisualRows(topGridEl, [
-			['mapInfo', mapInfoEl],
-			['stats', statsEl],
-			['difficulty', difficultyEl]
-		]);
+	function isTopExpanded(key: TopKey): boolean {
+		return topExpanded[key] ?? false;
 	}
 
-	function recomputeBottomRows() {
-		bottomRowByKey = groupVisualRows(bottomGridEl, [
-			['monsters', monstersEl],
-			['items', itemsEl],
-			['textures', texturesEl]
-		]);
+	function isBottomExpanded(key: BottomKey): boolean {
+		return bottomExpanded[key] ?? false;
 	}
 
-	function isTopExpanded(key: string): boolean {
-		if (!topExpandedAnchor) return false;
-		const a = topRowByKey[topExpandedAnchor];
-		const b = topRowByKey[key];
-		if (a === undefined || b === undefined) return topExpandedAnchor === key;
-		return a === b;
+	function toggleTop(key: TopKey) {
+		topExpanded[key] = !topExpanded[key];
 	}
 
-	function isBottomExpanded(key: string): boolean {
-		if (!bottomExpandedAnchor) return false;
-		const a = bottomRowByKey[bottomExpandedAnchor];
-		const b = bottomRowByKey[key];
-		if (a === undefined || b === undefined) return bottomExpandedAnchor === key;
-		return a === b;
+	function toggleBottom(key: BottomKey) {
+		bottomExpanded[key] = !bottomExpanded[key];
 	}
-
-	function toggleTop(key: string) {
-		recomputeTopRows();
-		topExpandedAnchor = isTopExpanded(key) ? null : key;
-	}
-
-	function toggleBottom(key: string) {
-		recomputeBottomRows();
-		bottomExpandedAnchor = isBottomExpanded(key) ? null : key;
-	}
-
-	$effect(() => {
-		if (!topGridEl) return;
-		recomputeTopRows();
-		const onResize = () => recomputeTopRows();
-		window.addEventListener('resize', onResize);
-		const ro = new ResizeObserver(onResize);
-		ro.observe(topGridEl);
-		return () => {
-			window.removeEventListener('resize', onResize);
-			ro.disconnect();
-		};
-	});
-
-	$effect(() => {
-		if (!bottomGridEl) return;
-		recomputeBottomRows();
-		const onResize = () => recomputeBottomRows();
-		window.addEventListener('resize', onResize);
-		const ro = new ResizeObserver(onResize);
-		ro.observe(bottomGridEl);
-		return () => {
-			window.removeEventListener('resize', onResize);
-			ro.disconnect();
-		};
-	});
 
 	let modalImageUrl = $state<string | null>(null);
 
@@ -265,9 +184,79 @@
 		</div>
 	</header>
 
-	<section class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3" bind:this={topGridEl}>
+	<section class="mt-6 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
+		<h2 class="text-sm font-semibold text-zinc-200">AI Analysis</h2>
+		{#if data.map.analysis?.description}
+			<p class="mt-2 text-sm leading-relaxed text-zinc-300">
+				{data.map.analysis.description}
+			</p>
+		{:else}
+			<div class="mt-2 text-sm text-zinc-400">—</div>
+		{/if}
+
+		<div class="mt-4">
+			<div class="text-xs text-zinc-500">Tags</div>
+			<div class="mt-2 flex flex-wrap gap-2">
+				{#each data.map.analysis?.tags ?? [] as tag (tag)}
+					<span
+						class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
+					>
+						{tag}
+					</span>
+				{/each}
+				{#if (data.map.analysis?.tags?.length ?? 0) === 0}
+					<span class="text-sm text-zinc-400">—</span>
+				{/if}
+			</div>
+		</div>
+	</section>
+
+	<section class="mt-4 overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
+		<div class="border-b border-zinc-800 px-4 py-3">
+			<h2 class="text-center text-sm font-semibold text-zinc-200">
+				Screenshots
+				<span class="ml-2 text-xs font-normal text-zinc-500">({data.map.images?.length ?? 0})</span>
+			</h2>
+		</div>
+		<div class="p-4">
+			{#if (data.map.images?.length ?? 0) === 0}
+				<div class="text-sm text-zinc-400">No screenshots are available for this map yet.</div>
+			{:else}
+				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+					{#each data.map.images ?? [] as img (img.id ?? img.url)}
+						{#if isPano(img)}
+							<div
+								class="dorch-pano-glow dorch-pano-label rounded-xl bg-zinc-950 ring-1 ring-red-950/60 ring-inset"
+							>
+								<div class="overflow-hidden rounded-xl">
+									<PanoViewer url={img.url} />
+								</div>
+							</div>
+						{:else}
+							<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset">
+								<button
+									type="button"
+									class="block w-full"
+									onclick={() => (modalImageUrl = img.url)}
+									aria-label="Open screenshot"
+								>
+									<img
+										src={img.url}
+										alt=""
+										class="aspect-[16/9] w-full cursor-zoom-in object-cover"
+										loading="lazy"
+									/>
+								</button>
+							</div>
+						{/if}
+					{/each}
+				</div>
+			{/if}
+		</div>
+	</section>
+
+	<section class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
 		<div
-			bind:this={mapInfoEl}
 			class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset"
 		>
 			<button
@@ -331,10 +320,7 @@
 			{/if}
 		</div>
 
-		<div
-			bind:this={statsEl}
-			class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset"
-		>
+		<div class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
 			<button
 				type="button"
 				class="relative flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3 transition-colors hover:bg-zinc-900/40 focus-visible:bg-zinc-900/40 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset"
@@ -366,10 +352,7 @@
 			{/if}
 		</div>
 
-		<div
-			bind:this={difficultyEl}
-			class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset"
-		>
+		<div class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
 			<button
 				type="button"
 				class="relative flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3 transition-colors hover:bg-zinc-900/40 focus-visible:bg-zinc-900/40 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset"
@@ -432,9 +415,8 @@
 		</div>
 	</section>
 
-	<section class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3" bind:this={bottomGridEl}>
+	<section class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
 		<div
-			bind:this={monstersEl}
 			class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset"
 		>
 			<button
@@ -480,10 +462,7 @@
 			{/if}
 		</div>
 
-		<div
-			bind:this={itemsEl}
-			class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset"
-		>
+		<div class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
 			<button
 				type="button"
 				class="relative flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3 transition-colors hover:bg-zinc-900/40 focus-visible:bg-zinc-900/40 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset"
@@ -525,10 +504,7 @@
 			{/if}
 		</div>
 
-		<div
-			bind:this={texturesEl}
-			class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset"
-		>
+		<div class="overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
 			<button
 				type="button"
 				class="relative flex w-full cursor-pointer items-center justify-center border-b border-zinc-800 px-4 py-3 transition-colors hover:bg-zinc-900/40 focus-visible:bg-zinc-900/40 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset"
@@ -566,77 +542,6 @@
 						</table>
 					</div>
 				{/if}
-			{/if}
-		</div>
-	</section>
-
-	<section class="mt-4 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
-		<h2 class="text-sm font-semibold text-zinc-200">AI Analysis</h2>
-		{#if data.map.analysis?.description}
-			<p class="mt-2 text-sm leading-relaxed text-zinc-300">
-				{data.map.analysis.description}
-			</p>
-		{:else}
-			<div class="mt-2 text-sm text-zinc-400">—</div>
-		{/if}
-
-		<div class="mt-4">
-			<div class="text-xs text-zinc-500">Tags</div>
-			<div class="mt-2 flex flex-wrap gap-2">
-				{#each data.map.analysis?.tags ?? [] as tag (tag)}
-					<span
-						class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
-					>
-						{tag}
-					</span>
-				{/each}
-				{#if (data.map.analysis?.tags?.length ?? 0) === 0}
-					<span class="text-sm text-zinc-400">—</span>
-				{/if}
-			</div>
-		</div>
-	</section>
-
-	<section class="mt-6 overflow-hidden rounded-xl bg-zinc-950/40 ring-1 ring-zinc-800 ring-inset">
-		<div class="border-b border-zinc-800 px-4 py-3">
-			<h2 class="text-center text-sm font-semibold text-zinc-200">
-				Screenshots
-				<span class="ml-2 text-xs font-normal text-zinc-500">({data.map.images?.length ?? 0})</span>
-			</h2>
-		</div>
-		<div class="p-4">
-			{#if (data.map.images?.length ?? 0) === 0}
-				<div class="text-sm text-zinc-400">No screenshots are available for this map yet.</div>
-			{:else}
-				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-					{#each data.map.images ?? [] as img (img.id ?? img.url)}
-						{#if isPano(img)}
-							<div
-								class="dorch-pano-glow dorch-pano-label rounded-xl bg-zinc-950 ring-1 ring-red-950/60 ring-inset"
-							>
-								<div class="overflow-hidden rounded-xl">
-									<PanoViewer url={img.url} />
-								</div>
-							</div>
-						{:else}
-							<div class="overflow-hidden rounded-xl bg-zinc-950 ring-1 ring-zinc-800 ring-inset">
-								<button
-									type="button"
-									class="block w-full"
-									onclick={() => (modalImageUrl = img.url)}
-									aria-label="Open screenshot"
-								>
-									<img
-										src={img.url}
-										alt=""
-										class="aspect-[16/9] w-full cursor-zoom-in object-cover"
-										loading="lazy"
-									/>
-								</button>
-							</div>
-						{/if}
-					{/each}
-				</div>
 			{/if}
 		</div>
 	</section>
