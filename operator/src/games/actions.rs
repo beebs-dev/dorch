@@ -199,7 +199,7 @@ fn game_pod(
     }
     Pod {
         metadata: ObjectMeta {
-            name: instance.meta().name.clone(),
+            name: Some(format!("game-{}", instance.spec.game_id)),
             namespace: instance.meta().namespace.clone(),
             owner_references: Some(vec![instance.controller_owner_ref(&()).unwrap()]),
             annotations: Some({
