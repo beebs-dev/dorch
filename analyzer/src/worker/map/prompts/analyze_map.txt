@@ -65,6 +65,8 @@ You must output a SINGLE JSON object in EXACTLY this shape:
   - An array of author names/handles relevant to this map.
   - Only include authors that are explicitly stated in README(s), map metadata, or other provided text.
   - If no map-specific author information is present, output an empty array [].
+  - If the WAD has multiple authors, look at the readmes to see which author(s) are credited for this map specifically.
+  - If specific authorship isn't mentioned for this map, default to the WAD author(s).
   - Do not guess.
 - The final output MUST be valid JSON:
   - Double quotes around all keys and strings.

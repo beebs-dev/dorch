@@ -16,23 +16,18 @@ pub fn optimize_readwad(input: &mut ReadWad) {
     }
     if let Some(text_files) = &mut input.meta.text_files {
         for text_file in text_files {
-            if text_file.contents.len() > 5_000 {
-                // slice along the character boundary
-                if let Some(truncated) = text_file
-                    .contents
-                    .char_indices()
-                    .nth(5_000)
-                    .map(|(idx, _)| &text_file.contents[..idx])
-                {
-                    text_file.contents = format!(
-                        "{}\n\nFile was truncated due to length. Original size in bytes: {}",
-                        truncated,
-                        text_file.contents.len()
-                    );
-                } else {
-                    text_file.contents =
-                        format!("<omitted: too large ({} bytes)>", text_file.contents.len());
-                }
+            // truncate at character boundaries
+            if let Some(truncated) = text_file
+                .contents
+                .char_indices()
+                .nth(5_000)
+                .map(|(idx, _)| &text_file.contents[..idx])
+            {
+                text_file.contents = format!(
+                    "{}\n\nFile was truncated due to length. Original size in bytes: {}",
+                    truncated,
+                    text_file.contents.len()
+                );
             }
         }
     }
