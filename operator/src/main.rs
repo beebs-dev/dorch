@@ -1,6 +1,5 @@
 use clap::{Parser, Subcommand};
 use kube::client::Client;
-use owo_colors::OwoColorize;
 
 mod games;
 mod util;

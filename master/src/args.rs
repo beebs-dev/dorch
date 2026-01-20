@@ -35,4 +35,9 @@ pub struct ServerArgs {
 
     #[arg(long, env = "AUTH_ENDPOINT", required = true)]
     pub auth_endpoint: String,
+
+    /// The prefix applied to Game resource names in Kubernetes
+    /// For example, if the prefix is "game", a game with ID "1234" will correspond to a Kubernetes resource named "game-1234".
+    #[arg(long, env = "GAME_RESOURCE_PREFIX", default_value = "game")]
+    pub game_resource_prefix: String,
 }

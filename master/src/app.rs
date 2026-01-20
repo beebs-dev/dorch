@@ -11,6 +11,7 @@ pub struct AppInner {
     pub namespace: String,
     pub store: GameInfoStore,
     pub auth: AuthClient,
+    pub game_resource_prefix: String,
 }
 
 #[derive(Clone)]
@@ -34,6 +35,7 @@ impl App {
         namespace: String,
         store: GameInfoStore,
         auth: AuthClient,
+        game_resource_prefix: String,
     ) -> Self {
         Self {
             inner: Arc::new(AppInner {
@@ -43,6 +45,7 @@ impl App {
                 namespace,
                 store,
                 auth,
+                game_resource_prefix,
             }),
         }
     }

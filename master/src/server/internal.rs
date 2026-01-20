@@ -587,9 +587,9 @@ pub async fn delete_game(State(state): State<App>, Path(game_id): Path<Uuid>) ->
     {
         return match e {
             kube::Error::Api(ae) if ae.code == 404 => {
-                response::not_found(anyhow!("Game not found"))
+                response::not_found(anyhow!("Game {} not found", game_id))
             }
-            e => response::error(anyhow!("Failed to delete game: {:?}", e)),
+            e => response::error(anyhow!("Failed to delete game {}: {:?}", game_id, e)),
         };
     }
     if let Err(e) = state.store.delete_game_info(game_id).await {
@@ -606,26 +606,26 @@ pub async fn delete_game(State(state): State<App>, Path(game_id): Path<Uuid>) ->
 
 pub async fn get_game_internal(state: App, game_id: Uuid) -> Result<Option<GameSummary>> {
     let game = match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
-        .get(game_id.to_string().as_str())
+        .get(format!("{}-{}", state.game_resource_prefix, game_id).as_str())
         .await
     {
         Ok(game) => game,
         Err(kube::Error::Api(ae)) if ae.code == 404 => {
             return Ok(None);
         }
-        Err(e) => bail!("Failed to get game: {:?}", e),
+        Err(e) => bail!("Failed to get game {}: {:?}", game_id, e),
     };
     let info = try_get_info(&state, &game).await;
     match game_to_summary(game, info) {
         Ok(summary) => Ok(Some(summary)),
-        Err(e) => Err(anyhow!("Failed to parse game: {:?}", e)),
+        Err(e) => Err(anyhow!("Failed to parse game {}: {:?}", game_id, e)),
     }
 }
 
 pub async fn get_game(State(state): State<App>, Path(game_id): Path<Uuid>) -> impl IntoResponse {
     match get_game_internal(state, game_id).await {
         Ok(Some(summary)) => (StatusCode::OK, Json(summary)).into_response(),
-        Ok(None) => response::not_found(anyhow!("Game not found")),
-        Err(e) => response::error(anyhow!("Failed to get game: {:?}", e)),
+        Ok(None) => response::not_found(anyhow!("Game {} not found", game_id)),
+        Err(e) => response::error(e),
     }
 }

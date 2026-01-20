@@ -38,7 +38,15 @@ async fn run_servers(args: args::ServerArgs) -> Result<()> {
     .await
     .context("Failed to connect to NATS")?;
     let cancel = CancellationToken::new();
-    let state = App::new(cancel.clone(), nats, client, args.namespace, store, auth);
+    let state = App::new(
+        cancel.clone(),
+        nats,
+        client,
+        args.namespace,
+        store,
+        auth,
+        args.game_resource_prefix,
+    );
     tokio::spawn({
         let cancel = cancel.clone();
         async move {

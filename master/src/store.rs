@@ -108,6 +108,7 @@ impl GameInfoStore {
             }
         };
         if hash.is_empty() {
+            println!("Game info for {} not found in Redis", game_id);
             return Ok(None);
         }
 

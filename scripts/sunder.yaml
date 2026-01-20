@@ -2,7 +2,7 @@
 apiVersion: dorch.beebs.dev/v1
 kind: Game
 metadata:
-  name: 75a2a516-697c-4788-9062-62635491c6eb
+  name: game-75a2a516-697c-4788-9062-62635491c6eb
   namespace: dorch
 spec:
   game_id: 75a2a516-697c-4788-9062-62635491c6eb

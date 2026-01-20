@@ -90,8 +90,8 @@ pub async fn run_server(
 pub async fn get_game(State(state): State<App>, Path(game_id): Path<Uuid>) -> impl IntoResponse {
     let mut summary = match internal::get_game_internal(state, game_id).await {
         Ok(Some(summary)) => summary,
-        Ok(None) => return response::not_found(anyhow!("Game not found")),
-        Err(e) => return response::error(anyhow!("Failed to get game: {:?}", e)),
+        Ok(None) => return response::not_found(anyhow!("Game {} not found", game_id)),
+        Err(e) => return response::error(e),
     };
     // Remove creator ID from public response
     summary.creator_id = Uuid::nil();
@@ -126,11 +126,13 @@ pub async fn join_game(
 ) -> impl IntoResponse {
     let info = match state.store.get_game_info(game_id).await {
         Ok(Some(info)) => info,
-        Ok(None) => return response::not_found(anyhow!("Game not found")),
-        Err(e) => return response::error(e.context("Failed to get game info")),
+        Ok(None) => return response::not_found(anyhow!("Game {} not found", game_id)),
+        Err(e) => {
+            return response::error(e.context(format!("Failed to get game info for {}", game_id)));
+        }
     };
     if info.player_count >= info.max_players {
-        return response::forbidden(anyhow!("Game is full"));
+        return response::forbidden(anyhow!("Game {} is full", game_id));
     }
     let username = user_id.to_string();
     let password = Uuid::new_v4().to_string();
@@ -138,7 +140,10 @@ pub async fn join_game(
         match dorch_auth::zandronum_srp_sha256::generate_user_secrets(&username, &password) {
             Ok(v) => v,
             Err(e) => {
-                return response::error(e.context("Failed to generate SRP secrets"));
+                return response::error(e.context(format!(
+                    "Failed to generate SRP secrets for game {}",
+                    game_id
+                )));
             }
         };
     let record = UserRecordJson {
@@ -148,7 +153,7 @@ pub async fn join_game(
         verifier_b64: B64.encode(&secrets.verifier),
     };
     if let Err(e) = state.auth.post_user_record(&record).await {
-        response::error(e.context("Failed to post user record"))
+        response::error(e.context(format!("Failed to post user record for game {}", game_id)))
     } else {
         let resp = JoinGameResponse {
             game_id,
@@ -172,9 +177,9 @@ pub async fn delete_game(
         Err(e) => {
             return match e {
                 kube::Error::Api(ae) if ae.code == 404 => {
-                    response::not_found(anyhow!("Game not found"))
+                    response::not_found(anyhow!("Game {} not found", game_id))
                 }
-                _ => response::error(anyhow!("Failed to get game: {:?}", e)),
+                _ => response::error(anyhow!("Failed to get game {}: {:?}", game_id, e)),
             };
         }
     };
