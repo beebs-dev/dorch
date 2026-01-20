@@ -26,6 +26,7 @@
 	let currentTransition: TransitionKind = 'fade';
 	let switching = false;
 	let statusText = '';
+	let switchSeq = 0;
 
 	let videoA: HTMLVideoElement | null = null;
 	let videoB: HTMLVideoElement | null = null;
@@ -36,6 +37,17 @@
 	let hlsB: import('hls.js').default | null = null;
 
 	let switchTimer: number | null = null;
+	let currentIndex = -1;
+	let nextIndex = -1;
+
+	let lastItemsKey = '';
+	$: {
+		const key = items.map((i) => i.game_id).join('|');
+		if (mounted && key !== lastItemsKey) {
+			lastItemsKey = key;
+			void start();
+		}
+	}
 
 	function randInt(maxExclusive: number): number {
 		return Math.floor(Math.random() * maxExclusive);
@@ -54,6 +66,17 @@
 		}
 
 		return list.find((x) => x.game_id !== avoidGameId) ?? list[0];
+	}
+
+	function wrapIndex(index: number, len: number): number {
+		if (len <= 0) return -1;
+		return ((index % len) + len) % len;
+	}
+
+	function itemAt(index: number): JumbotronItem | null {
+		if (!items.length) return null;
+		const i = wrapIndex(index, items.length);
+		return i >= 0 ? items[i] : null;
 	}
 
 	function pickTransition(): TransitionKind {
@@ -214,56 +237,73 @@
 		}
 	}
 
-	async function switchNow() {
+	function armTimer() {
+		clearTimer();
+		if (!items.length) return;
+		switchTimer = window.setInterval(() => {
+			void switchNow();
+		}, intervalMs);
+	}
+
+	async function switchNow(opts: { transition?: TransitionKind } = {}) {
+		const seq = ++switchSeq;
 		if (switching) return;
 		if (!current || !next) return;
 		if (!mounted) return;
 
 		switching = true;
-		currentTransition = pickTransition();
-		setActiveVisualState();
+		try {
+			currentTransition = opts.transition ?? pickTransition();
+			setActiveVisualState();
 
-		// If the standby stream isn't ready, try to recover by preloading another.
-		const standby = standbyVideo();
-		if (standby) {
-			await waitForPreload(standby, 1800);
-			if (standby.readyState < 2 || standby.error) {
-				let recovered = false;
-				for (let tries = 0; tries < 3; tries++) {
-					const alternative = pickDifferentRandom(items, current?.game_id);
-					if (!alternative || alternative.game_id === next.game_id) continue;
-					next = alternative;
-					recovered = await primeNextStream(next);
-					if (recovered) break;
-				}
-				if (!recovered) {
-					// Don't switch to an unbuffered stream.
-					switching = false;
-					return;
+			// If the standby stream isn't ready, try to recover by preloading another.
+			const standby = standbyVideo();
+			if (standby) {
+				await waitForPreload(standby, 1800);
+				if (seq !== switchSeq) return;
+				if (standby.readyState < 2 || standby.error) {
+					let recovered = false;
+					for (let tries = 0; tries < 3; tries++) {
+						const alternative = pickDifferentRandom(items, current?.game_id);
+						if (!alternative || alternative.game_id === next.game_id) continue;
+						next = alternative;
+						recovered = await primeNextStream(next);
+						if (seq !== switchSeq) return;
+						if (recovered) break;
+					}
+					if (!recovered) {
+						// Don't switch to an unbuffered stream.
+						return;
+					}
 				}
 			}
+
+			// Swap active slot.
+			activeSlot = activeSlot === 'a' ? 'b' : 'a';
+			current = next;
+			currentIndex = nextIndex >= 0 ? wrapIndex(nextIndex, items.length) : currentIndex;
+			nextIndex = wrapIndex(currentIndex + 1, items.length);
+			next = itemAt(nextIndex);
+
+			// Ensure the newly active video is audible (but keep it fairly subtle for UX).
+			const active = activeVideo();
+			if (active) {
+				active.muted = true;
+				await safePlay(active);
+				if (seq !== switchSeq) return;
+			}
+
+			setActiveVisualState();
+
+			// Preload the next candidate immediately (gives us >1–2s headroom).
+			await primeNextStream(next);
+			if (seq !== switchSeq) return;
+
+			// Let the CSS animation run.
+			await new Promise((r) => setTimeout(r, 900));
+		} finally {
+			if (seq === switchSeq) switching = false;
 		}
-
-		// Swap active slot.
-		activeSlot = activeSlot === 'a' ? 'b' : 'a';
-		current = next;
-		next = pickDifferentRandom(items, current.game_id);
-
-		// Ensure the newly active video is audible (but keep it fairly subtle for UX).
-		const active = activeVideo();
-		if (active) {
-			active.muted = true;
-			await safePlay(active);
-		}
-
-		setActiveVisualState();
-
-		// Preload the next candidate immediately (gives us >1–2s headroom).
-		await primeNextStream(next);
-
-		// Let the CSS animation run.
-		await new Promise((r) => setTimeout(r, 900));
-		switching = false;
 	}
 
 	function clearTimer() {
@@ -277,8 +317,10 @@
 		clearTimer();
 		if (!items.length) return;
 
-		current = pickDifferentRandom(items, null);
-		next = pickDifferentRandom(items, current?.game_id);
+		currentIndex = randInt(items.length);
+		nextIndex = wrapIndex(currentIndex + 1, items.length);
+		current = itemAt(currentIndex);
+		next = itemAt(nextIndex);
 
 		// Load current into active slot.
 		const active = activeVideo();
@@ -305,9 +347,57 @@
 		// Preload next right away so transitions are hitch-free.
 		await primeNextStream(next);
 
-		switchTimer = window.setInterval(() => {
-			void switchNow();
-		}, intervalMs);
+		armTimer();
+	}
+
+	async function step(delta: -1 | 1) {
+		if (items.length < 2) return;
+		if (!mounted) return;
+
+		clearTimer();
+		const seq = ++switchSeq;
+
+		// Cancel any in-flight auto switch and swap immediately.
+		switching = false;
+		currentTransition = delta === 1 ? 'slide-left' : 'slide-right';
+		currentIndex = wrapIndex((currentIndex >= 0 ? currentIndex : 0) + delta, items.length);
+		nextIndex = wrapIndex(currentIndex + 1, items.length);
+		current = itemAt(currentIndex);
+		next = itemAt(nextIndex);
+
+		activeSlot = activeSlot === 'a' ? 'b' : 'a';
+		setActiveVisualState();
+
+		const active = activeVideo();
+		if (active && current) {
+			statusText = 'Loading stream…';
+			stopAndResetVideo(active);
+			const { hls } = await attachStreamToVideo(current.url, active, activeHls());
+			if (seq !== switchSeq) {
+				destroyHls(hls);
+				return;
+			}
+			if (activeSlot === 'a') hlsA = hls;
+			else hlsB = hls;
+
+			active.muted = true;
+			active.playsInline = true;
+			active.autoplay = true;
+			active.loop = true;
+			active.preload = 'auto';
+
+			void safePlay(active);
+			void (async () => {
+				await waitForPreload(active, 2500);
+				if (seq !== switchSeq) return;
+				statusText = '';
+			})();
+		}
+
+		// Preload the next stream in the background; don't block responsiveness.
+		if (next) void primeNextStream(next);
+
+		armTimer();
 	}
 
 	onMount(() => {
@@ -428,6 +518,53 @@
 			{/if}
 		</div>
 	</a>
+
+	{#if items.length > 1}
+		<div class="pointer-events-none absolute inset-0 z-30">
+			<div class="pointer-events-auto absolute inset-y-0 left-3 flex items-center">
+				<button
+					type="button"
+					class="grid h-10 w-10 place-items-center rounded-full bg-black/45 text-zinc-100 ring-1 ring-white/15 backdrop-blur hover:bg-black/60 focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:outline-none disabled:opacity-50"
+					onclick={(e) => {
+						e.preventDefault();
+						e.stopPropagation();
+						void step(-1);
+					}}
+					aria-label="Previous stream"
+					title="Previous"
+				>
+					<svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5" aria-hidden="true">
+						<path
+							fill-rule="evenodd"
+							d="M12.78 15.53a.75.75 0 0 1-1.06 0l-5-5a.75.75 0 0 1 0-1.06l5-5a.75.75 0 1 1 1.06 1.06L8.31 10l4.47 4.47a.75.75 0 0 1 0 1.06z"
+							clip-rule="evenodd"
+						/>
+					</svg>
+				</button>
+			</div>
+			<div class="pointer-events-auto absolute inset-y-0 right-3 flex items-center">
+				<button
+					type="button"
+					class="grid h-10 w-10 place-items-center rounded-full bg-black/45 text-zinc-100 ring-1 ring-white/15 backdrop-blur hover:bg-black/60 focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:outline-none disabled:opacity-50"
+					onclick={(e) => {
+						e.preventDefault();
+						e.stopPropagation();
+						void step(1);
+					}}
+					aria-label="Next stream"
+					title="Next"
+				>
+					<svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5" aria-hidden="true">
+						<path
+							fill-rule="evenodd"
+							d="M7.22 4.47a.75.75 0 0 1 1.06 0l5 5a.75.75 0 0 1 0 1.06l-5 5a.75.75 0 0 1-1.06-1.06L11.69 10 7.22 5.53a.75.75 0 0 1 0-1.06z"
+							clip-rule="evenodd"
+						/>
+					</svg>
+				</button>
+			</div>
+		</div>
+	{/if}
 </div>
 
 <style>
