@@ -156,7 +156,8 @@ impl Worker<ReadWad, RawWadAnalysis, WadContext> for DeriveWad {
         }
         optimize_readwad(&mut input);
         let wad_title = input.meta.meta.title.as_deref().unwrap_or("<untitled>");
-        if input.maps.is_empty() {
+        if input.maps.len() < 2 {
+            // For WADs with no maps and single-map WADs, just analyze the whole thing in one pass.
             input.meta.meta.id = Uuid::nil();
             println!(
                 "{}{}{}{}{}{}",

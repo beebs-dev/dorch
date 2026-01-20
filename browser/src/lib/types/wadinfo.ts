@@ -19,6 +19,8 @@ export interface WadContentMeta {
 export interface WadAnalysisMeta {
 	title?: string | null;
 	description?: string | null;
+	/** Optional author list inferred by analysis, used as a fallback when meta.authors is missing. */
+	authors?: string[] | null;
 	tags?: string[] | null;
 }
 

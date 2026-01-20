@@ -11,6 +11,17 @@
 		() => `${ellipsize(wadTitle(), 64)} // ${ellipsize(data.mapName, 24)} - GIB.GG`
 	);
 
+	const mapAuthors = $derived(() => {
+		const normalize = (arr: Array<string | null | undefined> | null | undefined) =>
+			(arr ?? [])
+				.map((a) => (typeof a === 'string' ? a.trim() : ''))
+				.filter((a) => a.length > 0);
+
+		const fromMeta = normalize(data.map.wad_meta?.authors);
+		if (fromMeta.length) return fromMeta;
+		return normalize(data.map.analysis?.authors);
+	});
+
 	function isPano(img: unknown): boolean {
 		if (!img || typeof img !== 'object') return false;
 		const rec = img as Record<string, unknown>;
@@ -295,6 +306,10 @@
 								<td class="py-2 pr-3 pl-3 text-left text-zinc-200"
 									>{data.map.metadata?.source ?? '—'}</td
 								>
+							</tr>
+							<tr>
+								<td class="py-2 pr-3 pl-3 text-right text-zinc-500">Author(s)</td>
+								<td class="py-2 pr-3 pl-3 text-left text-zinc-200">{asText(mapAuthors())}</td>
 							</tr>
 							<tr>
 								<td class="py-2 pr-3 pl-3 text-right text-zinc-500">Teleports</td>

@@ -613,10 +613,7 @@ impl Database {
             .prepare_cached(sql::GET_WAD_MAP)
             .await
             .context("failed to prepare GET_WAD_MAP")?;
-        let get_analysis_stmt = conn
-            .prepare_cached(sql::GET_WAD_MAP_ANALYSIS)
-            .await
-            .context("failed to prepare GET_WAD_MAP_ANALYSIS")?;
+
         let row = conn
             .query_opt(&stmt, &[&wad_id, &map_name])
             .await
@@ -637,38 +634,84 @@ impl Database {
         let map_json: serde_json::Value = row.try_get("map_json")?;
         let mut map: ReadMapStat =
             serde_json::from_value(map_json).context("deserialize ReadMapStat")?;
-        if let Some(row) = conn
-            .query_opt(&get_analysis_stmt, &[&wad_id, &map_name])
-            .await
-            .context("failed to execute GET_WAD_MAP_ANALYSIS")?
-        {
-            let title = row
-                .try_get("map_title")
-                .context("get map_title from map_analysis row")?;
-            let description: String = row
-                .try_get("description")
-                .context("get description from map_analysis row")?;
-            let authors: Vec<String> = row
-                .try_get("authors")
-                .context("get authors from map_analysis row")?;
-            let authors = escape_nul_in_vec(&authors).unwrap_or(authors);
-            let list_analysis_tags = conn
-                .prepare_cached(sql::LIST_WAD_MAP_ANALYSIS_TAGS)
+
+        if wad_meta.content.maps.as_ref().is_none_or(|m| m.len() <= 1) {
+            // Return the wad analysis as the map analysis
+            let stmt = conn
+                .prepare_cached(sql::GET_WAD_ANALYSIS)
                 .await
-                .context("failed to prepare LIST_WAD_MAP_ANALYSIS_TAGS")?;
-            let tags: Vec<String> = conn
-                .query(&list_analysis_tags, &[&wad_id, &map_name])
+                .context("failed to prepare GET_WAD_ANALYSIS")?;
+            if let Some(analysis) = conn
+                .query_opt(&stmt, &[&wad_id])
                 .await
-                .context("failed to execute LIST_WAD_MAP_ANALYSIS_TAGS")?
-                .into_iter()
-                .map(|row| row.try_get("tag").context("get tag"))
-                .collect::<Result<Vec<_>>>()?;
-            map.analysis = Some(AbridgedMapAnalysis {
-                title,
-                description,
-                authors,
-                tags,
-            });
+                .context("failed to execute GET_WAD_ANALYSIS")?
+            {
+                let list_analysis_tags = conn
+                    .prepare_cached(sql::LIST_WAD_ANALYSIS_TAGS)
+                    .await
+                    .context("failed to prepare LIST_WAD_ANALYSIS_TAGS")?;
+                let title = analysis
+                    .try_get("title")
+                    .context("get title from wad_analysis row")?;
+                let description: String = analysis
+                    .try_get("description")
+                    .context("get description from wad_analysis row")?;
+                let authors: Vec<String> = analysis
+                    .try_get("authors")
+                    .context("get authors from wad_analysis row")?;
+                let authors = escape_nul_in_vec(&authors).unwrap_or(authors);
+                let tags: Vec<String> = conn
+                    .query(&list_analysis_tags, &[&wad_id])
+                    .await
+                    .context("failed to execute LIST_WAD_ANALYSIS_TAGS")?
+                    .into_iter()
+                    .map(|row| row.try_get("tag").context("get tag"))
+                    .collect::<Result<Vec<_>>>()?;
+                map.analysis = Some(AbridgedMapAnalysis {
+                    title,
+                    description,
+                    authors,
+                    tags,
+                });
+            }
+        } else {
+            let get_analysis_stmt = conn
+                .prepare_cached(sql::GET_WAD_MAP_ANALYSIS)
+                .await
+                .context("failed to prepare GET_WAD_MAP_ANALYSIS")?;
+            if let Some(row) = conn
+                .query_opt(&get_analysis_stmt, &[&wad_id, &map_name])
+                .await
+                .context("failed to execute GET_WAD_MAP_ANALYSIS")?
+            {
+                let title = row
+                    .try_get("map_title")
+                    .context("get map_title from map_analysis row")?;
+                let description: String = row
+                    .try_get("description")
+                    .context("get description from map_analysis row")?;
+                let authors: Vec<String> = row
+                    .try_get("authors")
+                    .context("get authors from map_analysis row")?;
+                let authors = escape_nul_in_vec(&authors).unwrap_or(authors);
+                let list_analysis_tags = conn
+                    .prepare_cached(sql::LIST_WAD_MAP_ANALYSIS_TAGS)
+                    .await
+                    .context("failed to prepare LIST_WAD_MAP_ANALYSIS_TAGS")?;
+                let tags: Vec<String> = conn
+                    .query(&list_analysis_tags, &[&wad_id, &map_name])
+                    .await
+                    .context("failed to execute LIST_WAD_MAP_ANALYSIS_TAGS")?
+                    .into_iter()
+                    .map(|row| row.try_get("tag").context("get tag"))
+                    .collect::<Result<Vec<_>>>()?;
+                map.analysis = Some(AbridgedMapAnalysis {
+                    title,
+                    description,
+                    authors,
+                    tags,
+                });
+            }
         }
         Ok(Some(GetWadMapResponse { map, wad_meta }))
     }

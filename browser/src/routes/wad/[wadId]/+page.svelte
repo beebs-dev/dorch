@@ -22,6 +22,17 @@
 	const wadTitle = $derived(() => wadLabel(data.wad.meta));
 	const pageTitle = $derived(() => `${ellipsize(wadTitle(), 64)} - GIB.GG`);
 
+	const wadAuthors = $derived(() => {
+		const normalize = (arr: Array<string | null | undefined> | null | undefined) =>
+			(arr ?? [])
+				.map((a) => (typeof a === 'string' ? a.trim() : ''))
+				.filter((a) => a.length > 0);
+
+		const fromMeta = normalize(data.wad.meta.authors);
+		if (fromMeta.length) return fromMeta;
+		return normalize(data.wad.meta.analysis?.authors);
+	});
+
 	function isPano(img: unknown): boolean {
 		if (!img || typeof img !== 'object') return false;
 		const rec = img as Record<string, unknown>;
@@ -279,9 +290,9 @@
 						</div>
 						<div class="flex flex-wrap justify-between gap-2">
 							<dt class="text-zinc-500">Author(s)</dt>
-							{#if (data.wad.meta.authors?.length ?? 0) > 0}
+							{#if wadAuthors().length > 0}
 								<dd class="flex flex-wrap justify-end gap-2">
-									{#each data.wad.meta.authors ?? [] as author (author)}
+									{#each wadAuthors() as author (author)}
 										<span
 											class="rounded-full bg-zinc-900 px-2 py-1 text-xs text-zinc-300 ring-1 ring-zinc-800 ring-inset"
 										>

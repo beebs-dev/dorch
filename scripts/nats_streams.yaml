@@ -76,7 +76,7 @@ spec:
     - "dorch.analysis.map.*.*"
   storage: file
   replicas: 1
-  duplicateWindow: 2m
+  duplicateWindow: 24h
   retention: limits
   discard: old
   maxAge: 168h
