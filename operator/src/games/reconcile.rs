@@ -199,7 +199,9 @@ enum GameAction {
     /// Create all subresources required by the [`Game`].
     CreatePod,
 
-    DeletePod,
+    DeletePod {
+        reason: String,
+    },
 
     Starting {
         pod_name: String,
@@ -228,7 +230,7 @@ impl GameAction {
     fn to_str(&self) -> &str {
         match self {
             GameAction::CreatePod => "CreatePod",
-            GameAction::DeletePod => "DeletePod",
+            GameAction::DeletePod { .. } => "DeletePod",
             GameAction::Starting { .. } => "Starting",
             GameAction::Delete => "Delete",
             GameAction::Active { .. } => "Active",
@@ -330,8 +332,8 @@ async fn reconcile(instance: Arc<Game>, context: Arc<ContextData>) -> Result<Act
 
             Action::await_change()
         }
-        GameAction::DeletePod => {
-            actions::delete_pod(client.clone(), &instance).await?;
+        GameAction::DeletePod { reason } => {
+            actions::delete_pod(client.clone(), &instance, &reason).await?;
 
             Action::await_change()
         }
@@ -405,7 +407,6 @@ async fn determine_action(
         return Ok(GameAction::Delete);
     }
 
-    // Does the ffmpeg pod exist?
     let pod = match get_pod(
         client.clone(),
         namespace,
@@ -422,26 +423,48 @@ async fn determine_action(
         return Ok(GameAction::Requeue(Duration::from_millis(500)));
     }
 
-    let pod_phase = pod.status.as_ref().and_then(|s| s.phase.as_deref());
-    match pod_phase {
+    match pod.status.as_ref().and_then(|s| s.phase.as_deref()) {
+        Some("Running") => { /* continue */ }
         Some("Pending") | Some("ContainerCreating") => {
-            if instance
+            return if instance
                 .status
                 .as_ref()
                 .is_some_and(|s| s.phase == GamePhase::Starting)
             {
-                return Ok(GameAction::NoOp);
-            }
-            return Ok(GameAction::Starting {
-                pod_name: pod.meta().name.clone().unwrap(),
+                Ok(GameAction::NoOp)
+            } else {
+                Ok(GameAction::Starting {
+                    pod_name: pod.meta().name.clone().unwrap(),
+                })
+            };
+        }
+        Some("Succeeded") => {
+            return Ok(GameAction::DeletePod {
+                reason: "Pod unexpectedly terminated with 'Succeeded' status".to_string(),
             });
         }
-        Some("Running") => {}
-        Some("Succeeded") | Some("Failed") => {
-            return Ok(GameAction::DeletePod);
+        Some("Failed") => {
+            return Ok(GameAction::DeletePod {
+                reason: "Pod unexpectedly terminated with 'Failed' status".to_string(),
+            });
         }
-        _ => {
-            return Ok(GameAction::Error("Pod is in unknown state.".to_owned()));
+        Some(phase) => {
+            return Ok(GameAction::Error(format!(
+                "Pod is in unknown phase: {}",
+                phase
+            )));
+        }
+        None => {
+            return if pod
+                .metadata
+                .creation_timestamp
+                .is_some_and(|t| Utc::now().signed_duration_since(t.0).num_seconds() < 10)
+            {
+                // Pod just created, wait a bit
+                Ok(GameAction::Requeue(Duration::from_secs(3)))
+            } else {
+                Ok(GameAction::Error("Pod has no status phase".to_string()))
+            };
         }
     }
 
@@ -452,16 +475,16 @@ async fn determine_action(
             if let Some(state) = &container_status.state
                 && let Some(ref terminated) = state.terminated
             {
-                println!(
-                    "Pod's container terminated with exit code {} and reason: {}",
-                    terminated.exit_code,
-                    terminated
-                        .reason
-                        .as_ref()
-                        .unwrap_or(&"No reason provided".to_string())
-                );
-                // Recreate the pod
-                return Ok(GameAction::DeletePod);
+                let reason = terminated
+                    .reason
+                    .as_deref()
+                    .unwrap_or("(no reason provided)");
+                return Ok(GameAction::DeletePod {
+                    reason: format!(
+                        "Pod's container terminated with exit code {} and reason: {}",
+                        terminated.exit_code, reason,
+                    ),
+                });
             }
         }
     }

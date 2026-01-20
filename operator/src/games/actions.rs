@@ -35,16 +35,30 @@ pub async fn terminating(client: Client, instance: &Game) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn delete_pod(client: Client, instance: &Game) -> Result<(), Error> {
+pub async fn delete_pod(client: Client, instance: &Game, reason: &str) -> Result<(), Error> {
+    // pod has same name as resource
+    let pod_name = instance.meta().name.as_ref().unwrap();
+    println!(
+        "Deleting Pod '{}' for Game '{}' • reason: {}",
+        pod_name, pod_name, reason
+    );
+    patch_status(client.clone(), instance, |status| {
+        status.phase = GamePhase::Pending;
+        status.message = Some(delete_message(&reason));
+    })
+    .await?;
     let pods: Api<Pod> =
         Api::namespaced(client.clone(), instance.meta().namespace.as_ref().unwrap());
-    pods.delete(instance.meta().name.as_ref().unwrap(), &Default::default())
-        .await?;
+    pods.delete(pod_name, &Default::default()).await?;
     Ok(())
 }
 
+fn delete_message(reason: &str) -> String {
+    format!("The game server Pod is being deleted. Reason: {}", reason)
+}
+
 fn starting_message(pod_name: &str) -> String {
-    format!("The game server pod '{}' is starting.", pod_name)
+    format!("The game server Pod '{}' is starting.", pod_name)
 }
 
 pub async fn starting(client: Client, instance: &Game, pod_name: &str) -> Result<(), Error> {
