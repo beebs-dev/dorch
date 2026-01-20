@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use dorch_common::shutdown::shutdown_signal;
+use dorch_common::{rate_limit::RateLimiter, shutdown::shutdown_signal};
 use owo_colors::OwoColorize;
 use tokio_util::sync::CancellationToken;
 
@@ -82,18 +82,20 @@ async fn run_servers(args: args::ServerArgs) -> Result<()> {
         shutdown_signal().await;
         cancel_clone.cancel();
     });
-    let cancel_clone = cancel.clone();
-    let args_clone = args.clone();
-    let args_clone2 = args.clone();
     let app_state = App::new(cancel.clone(), db);
-    let app_state_clone = app_state.clone();
-    let mut internal_join = Box::pin(tokio::spawn(async move {
-        server::internal::run_server(cancel_clone, args_clone2, app_state_clone).await
+    let pool = dorch_common::redis::init_redis(&args.redis).await;
+    let rate_limiter = RateLimiter::new(pool, args.rate_limiter.into());
+    let mut internal_join = Box::pin(tokio::spawn({
+        let port = args.internal_port;
+        let cancel = cancel.clone();
+        let rate_limiter = rate_limiter.clone();
+        let app_state = app_state.clone();
+        async move { server::internal::run_server(cancel, port, app_state, rate_limiter).await }
     }));
-    let cancel_clone = cancel.clone();
-    let app_state_clone = app_state.clone();
-    let mut pub_join = Box::pin(tokio::spawn(async move {
-        server::public::run_server(cancel_clone, args_clone, app_state_clone).await
+    let mut pub_join = Box::pin(tokio::spawn({
+        let port = args.public_port;
+        let cancel = cancel.clone();
+        async move { server::public::run_server(cancel, port, args.kc, app_state, rate_limiter).await }
     }));
     tokio::select! {
         res = &mut internal_join => {

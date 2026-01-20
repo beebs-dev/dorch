@@ -1,5 +1,6 @@
 import { env } from '$env/dynamic/private';
 import { createDorchMasterClient } from '$lib/server/dorchmaster';
+import { getTrustedXForwardedFor } from '$lib/server/forwarded';
 import { createWadinfoClient } from '$lib/server/wadinfo';
 import type { RequestHandler } from './$types';
 
@@ -37,19 +38,23 @@ function copyProxyHeaders(src: Headers): Headers {
 async function resolveWadinfoThumbnailUrl(
 	fetchFn: typeof fetch,
 	wadId: string,
-	mapName: string
+	mapName: string,
+	forwardedFor?: string
 ): Promise<string | null> {
-	const wadinfo = createWadinfoClient(fetchFn);
+	const wadinfo = createWadinfoClient(fetchFn, { forwardedFor });
 	const items = await wadinfo.resolveMapThumbnails([{ wad_id: wadId, map: mapName }]);
 	return items[0]?.url ?? null;
 }
 
-export const GET: RequestHandler = async ({ fetch, params, url }) => {
+export const GET: RequestHandler = async ({ fetch, params, url, request }) => {
+	const forwardedFor = getTrustedXForwardedFor(request);
 	const gameId = params.gameId;
 
 	// 1) Prefer dorch-master liveshot.
 	const liveshotUrl = buildMasterUrl(`/game/${encodeURIComponent(gameId)}/liveshot`);
-	const liveshotRes = await fetch(liveshotUrl);
+	const liveshotRes = await fetch(liveshotUrl, {
+		headers: forwardedFor ? { 'x-forwarded-for': forwardedFor } : undefined
+	});
 	if (liveshotRes.status === 200) {
 		return new Response(liveshotRes.body, {
 			status: 200,
@@ -70,7 +75,7 @@ export const GET: RequestHandler = async ({ fetch, params, url }) => {
 	const mapName = url.searchParams.get('map');
 	if (wadId && mapName) {
 		try {
-			const resolvedUrl = await resolveWadinfoThumbnailUrl(fetch, wadId, mapName);
+			const resolvedUrl = await resolveWadinfoThumbnailUrl(fetch, wadId, mapName, forwardedFor);
 			if (resolvedUrl) {
 				return new Response(null, {
 					status: 307,
@@ -84,14 +89,19 @@ export const GET: RequestHandler = async ({ fetch, params, url }) => {
 
 	// 3) Slower fallback: lookup game -> map + wad ids, then resolve via wadinfo.
 	try {
-		const dorch = createDorchMasterClient(fetch);
+		const dorch = createDorchMasterClient(fetch, { forwardedFor });
 		const resp = await dorch.listGames();
 		const game = (resp.games ?? []).find((g) => g.game_id === gameId);
 		const currentMap = game?.info?.current_map;
 		const fallbackWadId = game?.files?.[game.files.length - 1] ?? game?.iwad;
 
 		if (currentMap && fallbackWadId) {
-			const resolvedUrl = await resolveWadinfoThumbnailUrl(fetch, fallbackWadId, currentMap);
+			const resolvedUrl = await resolveWadinfoThumbnailUrl(
+				fetch,
+				fallbackWadId,
+				currentMap,
+				forwardedFor
+			);
 			if (resolvedUrl) {
 				return new Response(null, {
 					status: 307,

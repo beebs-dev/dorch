@@ -36,7 +36,7 @@ pub async fn upgrade(
     Query(payload): Query<WebsockAuthPayload>,
 ) -> impl IntoResponse {
     let conn_id: Uuid = payload.conn_id;
-    let handshake = match auth::auth_conn(&state.redis, &state.kc, payload).await {
+    let handshake = match auth::auth_conn(&state.pool, &state.kc, payload).await {
         Ok(v) => v,
         Err(e) => {
             return response::unauthorized(e.context("WebSocket authentication failed"));

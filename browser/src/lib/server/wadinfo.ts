@@ -108,15 +108,17 @@ async function requestJson<T>(
 	fetchFn: typeof fetch,
 	path: string,
 	init?: RequestInit,
-	opts?: { internal?: boolean }
+	opts?: { internal?: boolean; forwardedFor?: string }
 ): Promise<T> {
 	const url = buildUrl(path, opts);
+	const headers = new Headers(init?.headers);
+	if (!headers.has('accept')) headers.set('accept', 'application/json');
+	if (opts?.forwardedFor && !headers.has('x-forwarded-for')) {
+		headers.set('x-forwarded-for', opts.forwardedFor);
+	}
 	const res = await fetchFn(url, {
 		...init,
-		headers: {
-			accept: 'application/json',
-			...(init?.headers ?? {})
-		}
+		headers
 	});
 	if (!res.ok) {
 		let body: string | undefined;
@@ -134,14 +136,17 @@ async function requestJson<T>(
 	return (await res.json()) as T;
 }
 
-export function createWadinfoClient(fetchFn: typeof fetch) {
+export function createWadinfoClient(fetchFn: typeof fetch, opts?: { forwardedFor?: string }) {
+	const forwardedFor = opts?.forwardedFor;
 	return {
 		async featured(opts: { limit?: number } = {}): Promise<ListWadsResponse> {
 			const url = buildUrl('/featured');
 			if (typeof opts.limit === 'number') url.searchParams.set('limit', String(opts.limit));
 			const res = await requestJson<ListWadsResponse>(
 				fetchFn,
-				url.pathname + `?${url.searchParams.toString()}`
+				url.pathname + `?${url.searchParams.toString()}`,
+				undefined,
+				{ forwardedFor }
 			);
 			return normalizeListWadsResponse(res);
 		},
@@ -157,7 +162,9 @@ export function createWadinfoClient(fetchFn: typeof fetch) {
 			if (opts.desc) url.searchParams.set('d', 'true');
 			const res = await requestJson<ListWadsResponse>(
 				fetchFn,
-				url.pathname + `?${url.searchParams.toString()}`
+				url.pathname + `?${url.searchParams.toString()}`,
+				undefined,
+				{ forwardedFor }
 			);
 			return normalizeListWadsResponse(res);
 		},
@@ -173,13 +180,20 @@ export function createWadinfoClient(fetchFn: typeof fetch) {
 			url.searchParams.set('limit', String(opts.limit));
 			const res = await requestJson<WadSearchResults>(
 				fetchFn,
-				url.pathname + `?${url.searchParams.toString()}`
+				url.pathname + `?${url.searchParams.toString()}`,
+				undefined,
+				{ forwardedFor }
 			);
 			return normalizeWadSearchResults(res);
 		},
 
 		async getWad(wadId: string): Promise<GetWadResponse> {
-			const wad = await requestJson<GetWadResponse>(fetchFn, `/wad/${encodeURIComponent(wadId)}`);
+			const wad = await requestJson<GetWadResponse>(
+				fetchFn,
+				`/wad/${encodeURIComponent(wadId)}`,
+				undefined,
+				{ forwardedFor }
+			);
 			return normalizeGetWadResponse(wad);
 		},
 
@@ -187,7 +201,9 @@ export function createWadinfoClient(fetchFn: typeof fetch) {
 			// Note: backend route is singular `/wad/{id}/map/{map}`.
 			const res = await requestJson<GetWadMapResponse>(
 				fetchFn,
-				`/wad/${encodeURIComponent(wadId)}/map/${encodeURIComponent(mapName)}`
+				`/wad/${encodeURIComponent(wadId)}/map/${encodeURIComponent(mapName)}`,
+				undefined,
+				{ forwardedFor }
 			);
 			return {
 				...res,
@@ -198,7 +214,9 @@ export function createWadinfoClient(fetchFn: typeof fetch) {
 		async listWadMapImages(wadId: string, mapName: string): Promise<WadImage[]> {
 			return requestJson<WadImage[]>(
 				fetchFn,
-				`/wad/${encodeURIComponent(wadId)}/maps/${encodeURIComponent(mapName)}/images`
+				`/wad/${encodeURIComponent(wadId)}/maps/${encodeURIComponent(mapName)}/images`,
+				undefined,
+				{ forwardedFor }
 			);
 		},
 
@@ -214,7 +232,7 @@ export function createWadinfoClient(fetchFn: typeof fetch) {
 					},
 					body: JSON.stringify({ items })
 				},
-				{ internal: true }
+				{ internal: true, forwardedFor }
 			);
 			console.log('Received map thumbnails from wadinfo:', res);
 			return (res.items ?? []).map(normalizeMapThumbnail);

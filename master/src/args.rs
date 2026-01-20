@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use dorch_common::args::{KeycloakArgs, NatsArgs, RedisArgs};
+use dorch_common::args::{KeycloakArgs, NatsArgs, RateLimiterArgs, RedisArgs};
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about, long_about = None)]
@@ -20,6 +20,9 @@ pub struct ServerArgs {
 
     #[arg(long, env = "PUBLIC_PORT", default_value_t = 3000)]
     pub public_port: u16,
+
+    #[command(flatten)]
+    pub rate_limiter: RateLimiterArgs,
 
     #[command(flatten)]
     pub redis: RedisArgs,

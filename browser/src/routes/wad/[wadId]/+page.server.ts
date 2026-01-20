@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { createWadinfoClient } from '$lib/server/wadinfo';
+import { getTrustedXForwardedFor } from '$lib/server/forwarded';
 
 const allowedTabs = new Set(['overview', 'maps', 'screenshots', 'statistics']);
 
@@ -10,12 +11,13 @@ function statusFromUnknown(e: unknown): number | null {
 	return typeof status === 'number' ? status : null;
 }
 
-export const load: PageServerLoad = async ({ fetch, params, url, setHeaders }) => {
+export const load: PageServerLoad = async ({ fetch, params, url, setHeaders, request }) => {
+	const forwardedFor = getTrustedXForwardedFor(request);
 	const wadId = params.wadId;
 	const tabParam = (url.searchParams.get('tab') ?? 'overview').toLowerCase();
 	const tab = allowedTabs.has(tabParam) ? tabParam : 'overview';
 
-	const wadinfo = createWadinfoClient(fetch);
+	const wadinfo = createWadinfoClient(fetch, { forwardedFor });
 	try {
 		const wad = await wadinfo.getWad(wadId);
 		setHeaders({ 'cache-control': 'private, max-age=0, s-maxage=30' });

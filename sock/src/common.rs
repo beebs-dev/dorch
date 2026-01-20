@@ -8,6 +8,8 @@ use axum::http::request::Parts;
 use axum_keycloak_auth::decode::KeycloakToken;
 use bytes::Bytes;
 use deadpool_redis::Pool;
+use dorch_common::args::KeycloakArgs;
+use dorch_common::args::RedisArgs;
 use dorch_common::redis::listen_for_work;
 use dorch_common::response;
 use owo_colors::OwoColorize;
@@ -19,7 +21,7 @@ use uuid::Uuid;
 
 pub struct AppStateInner {
     cancel: CancellationToken,
-    pub redis: Pool,
+    pub pool: Pool,
     pub nats: async_nats::Client,
     pub kc: Keycloak,
     pub handle: Arc<Mutex<Option<tokio::task::JoinHandle<Result<()>>>>>,
@@ -40,22 +42,14 @@ impl std::ops::Deref for AppState {
 }
 
 impl AppState {
-    pub async fn new(cancel: CancellationToken, cli: args::Cli) -> AppState {
-        let (redis, nats) = join!(dorch_common::redis::init_redis(&cli.redis), async move {
-            println!(
-                "{} {}",
-                "🔌 Connecting to NATS • url=".green(),
-                cli.nats.nats_url.green().dimmed()
-            );
-            async_nats::connect_with_options(
-                &cli.nats.nats_url,
-                ConnectOptions::new().user_and_password("app".into(), "devpass".into()),
-            )
-            .await
-            .expect("Failed to connect to NATS")
-        });
+    pub async fn new(
+        cancel: CancellationToken,
+        pool: deadpool_redis::Pool,
+        nats: async_nats::Client,
+        redis_args: RedisArgs,
+        keycloak_args: KeycloakArgs,
+    ) -> AppState {
         let cancel_clone = cancel.clone();
-        let redis_args = cli.redis.clone();
         let (tx, _rx) = tokio::sync::broadcast::channel(64);
         let handle = tokio::spawn(listen_for_work(
             cancel_clone,
@@ -64,13 +58,13 @@ impl AppState {
             dorch_common::MASTER_TOPIC,
         ));
         let kc = Keycloak {
-            args: cli.kc,
+            args: keycloak_args,
             client: reqwest::Client::new(),
         };
         AppState {
             inner: Arc::new(AppStateInner {
                 cancel,
-                redis,
+                pool,
                 nats,
                 kc,
                 handle: Arc::new(Mutex::new(Some(handle))),

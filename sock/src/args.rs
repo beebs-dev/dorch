@@ -1,4 +1,5 @@
 use clap::Parser;
+use dorch_common::args::{KeycloakArgs, NatsArgs, RateLimiterArgs, RedisArgs};
 
 /// Command line arguments for the websocket server.
 #[derive(Parser, Debug, Clone)]
@@ -8,11 +9,14 @@ pub(crate) struct Cli {
     pub port: u16,
 
     #[command(flatten)]
-    pub nats: dorch_common::args::NatsArgs,
+    pub nats: NatsArgs,
 
     #[command(flatten)]
-    pub redis: dorch_common::args::RedisArgs,
+    pub redis: RedisArgs,
 
     #[command(flatten)]
-    pub kc: dorch_common::args::KeycloakArgs,
+    pub kc: KeycloakArgs,
+
+    #[command(flatten)]
+    pub rate_limiter: RateLimiterArgs,
 }

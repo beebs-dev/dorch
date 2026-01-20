@@ -16,7 +16,9 @@ use axum::{
 };
 use bytes::Bytes;
 use dorch_common::{
-    access_log, annotations, response,
+    access_log, annotations,
+    rate_limit::{RateLimiter, middleware::RateLimitLayer},
+    response,
     types::{GameInfo, GameInfoUpdate, Settable},
 };
 use dorch_types::{Game, GamePhase};
@@ -26,7 +28,12 @@ use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-pub async fn run_server(cancel: CancellationToken, port: u16, app_state: App) -> Result<()> {
+pub async fn run_server(
+    cancel: CancellationToken,
+    port: u16,
+    app_state: App,
+    rate_limiter: RateLimiter,
+) -> Result<()> {
     let health_router = Router::new()
         .route("/healthz", get(health))
         .route("/readyz", get(health));
@@ -40,6 +47,7 @@ pub async fn run_server(cancel: CancellationToken, port: u16, app_state: App) ->
             get(get_live_shot).post(post_live_shot),
         )
         .with_state(app_state)
+        .layer(RateLimitLayer::new(rate_limiter))
         .layer(middleware::from_fn(access_log::internal));
     let addr: SocketAddr = format!("0.0.0.0:{}", port)
         .parse()
@@ -553,7 +561,6 @@ pub async fn list_games(State(state): State<App>) -> impl IntoResponse {
 }
 
 fn game_to_summary(g: dorch_types::Game, info: Option<GameInfo>) -> Result<GameSummary> {
-    eprintln!("files: {:?}", g.spec.files);
     Ok(GameSummary {
         game_id: Uuid::parse_str(&g.spec.game_id).context("Invalid game ID")?,
         iwad: Uuid::parse_str(&g.spec.iwad).context("Invalid IWAD ID")?,

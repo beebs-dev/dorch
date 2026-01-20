@@ -40,14 +40,21 @@ function buildUrl(path: string): URL {
 	return new URL(path.replace(/^\//, ''), base);
 }
 
-async function requestJson<T>(fetchFn: typeof fetch, path: string, init?: RequestInit): Promise<T> {
+async function requestJson<T>(
+	fetchFn: typeof fetch,
+	path: string,
+	init?: RequestInit,
+	opts?: { forwardedFor?: string }
+): Promise<T> {
 	const url = buildUrl(path);
+	const headers = new Headers(init?.headers);
+	if (!headers.has('accept')) headers.set('accept', 'application/json');
+	if (opts?.forwardedFor && !headers.has('x-forwarded-for')) {
+		headers.set('x-forwarded-for', opts.forwardedFor);
+	}
 	const res = await fetchFn(url, {
 		...init,
-		headers: {
-			accept: 'application/json',
-			...(init?.headers ?? {})
-		}
+		headers
 	});
 	if (!res.ok) {
 		let body: string | undefined;
@@ -65,14 +72,15 @@ async function requestJson<T>(fetchFn: typeof fetch, path: string, init?: Reques
 	return (await res.json()) as T;
 }
 
-export function createDorchMasterClient(fetchFn: typeof fetch) {
+export function createDorchMasterClient(fetchFn: typeof fetch, opts?: { forwardedFor?: string }) {
+	const forwardedFor = opts?.forwardedFor;
 	return {
 		async listGames(): Promise<ListGamesResponse> {
-			return requestJson<ListGamesResponse>(fetchFn, '/game');
+			return requestJson<ListGamesResponse>(fetchFn, '/game', undefined, { forwardedFor });
 		},
 		async getJumbotron(): Promise<JumbotronResponse> {
 			// dorch-master returns: { items: [{ game_id, url }, ...] }
-			return requestJson<JumbotronResponse>(fetchFn, '/jumbotron');
+			return requestJson<JumbotronResponse>(fetchFn, '/jumbotron', undefined, { forwardedFor });
 		},
 		DorchMasterHttpError
 	};

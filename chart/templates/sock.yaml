@@ -1,41 +1,35 @@
-{{- $image := printf "%s%s" .Values.registry .Values.wadinfo.image -}}
+{{- $image := printf "%s%s" .Values.registry .Values.sock.image -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-wadinfo
+  name: {{ .Release.Name }}-sock
 spec:
-  replicas: {{ .Values.wadinfo.replicas }}
+  replicas: {{ .Values.sock.replicas }}
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-wadinfo
+      app: {{ .Release.Name }}-sock
   template:
     metadata:
       labels:
-        app: {{ .Release.Name }}-wadinfo
+        app: {{ .Release.Name }}-sock
     spec:
     {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 10 }}
     {{- end }}
       containers:
-      - name: wadinfo
-        imagePullPolicy: {{ .Values.wadinfo.imagePullPolicy }}
+      - name: sock
+        imagePullPolicy: {{ .Values.sock.imagePullPolicy }}
         image: {{ $image }}
-    {{- if .Values.wadinfo.resources }}
+    {{- if .Values.sock.resources }}
         resources:
-{{ toYaml .Values.wadinfo.resources | indent 10 }}
+{{ toYaml .Values.sock.resources | indent 10 }}
     {{- end }}
         command:
-          - dorch-wadinfo
-          - server
-          - --internal-port
-          - "80"
-          - --public-port
+          - dorch-sock
+          - --port
           - "3000"
         ports:
-        - containerPort: 80
-          protocol: TCP
-          name: internal
         - containerPort: 3000
           protocol: TCP
           name: public
@@ -47,34 +41,34 @@ spec:
         readinessProbe:
           httpGet:
             path: /readyz
-            port: 80
+            port: 3000
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 80
+            port: 3000
         env:
         - name: SERVICE_NAME
-          value: wadinfo
+          value: sock
         - name: RUST_LOG
           value: info,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info
         - name: LOG_LEVEL
-          value: {{ .Values.wadinfo.logLevel }}
+          value: {{ .Values.sock.logLevel }}
+{{ include "dorch.nats-env" . | indent 8 }}
+{{ include "dorch.redis-env" . | indent 8 }}
 {{ include "dorch.keycloak-env" . | indent 8 }}
 {{ include "dorch.metrics-env" . | indent 8 }}
-{{ include "dorch.postgres-env" . | indent 8 }}
-{{ include "dorch.redis-env" . | indent 8 }}
 ---
 {{- if .Values.prometheus.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
-  name: {{ .Release.Name }}-wadinfo
+  name: {{ .Release.Name }}-sock
   labels:
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
 spec:
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-wadinfo
+      app: {{ .Release.Name }}-sock
   podMetricsEndpoints:
   - port: metrics
 {{- end }}
@@ -82,15 +76,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-wadinfo
+  name: {{ .Release.Name }}-sock
   labels:
-    app: {{ .Release.Name }}-wadinfo
+    app: {{ .Release.Name }}-sock
 spec:
   type: ClusterIP
   selector:
-    app: {{ .Release.Name }}-wadinfo
+    app: {{ .Release.Name }}-sock
   ports:
-  - name: internal
-    port: 80
   - name: public
     port: 3000

@@ -8,7 +8,12 @@ use axum_keycloak_auth::{
     instance::{KeycloakAuthInstance, KeycloakConfig},
     layer::KeycloakAuthLayer,
 };
-use dorch_common::{access_log, args::KeycloakArgs, cors};
+use dorch_common::{
+    access_log,
+    args::KeycloakArgs,
+    cors,
+    rate_limit::{RateLimiter, middleware::RateLimitLayer},
+};
 use owo_colors::OwoColorize;
 use reqwest::Url;
 use std::net::SocketAddr;
@@ -21,6 +26,7 @@ pub async fn run(
     port: u16,
     app_state: AppState,
     kc: KeycloakArgs,
+    rate_limiter: RateLimiter,
 ) -> Result<()> {
     dorch_common::metrics::maybe_spawn_metrics_server();
     println!("Using Keycloak endpoint: {}", kc.endpoint);
@@ -43,10 +49,12 @@ pub async fn run(
     let auth_router = Router::new()
         .route("/ws/auth", post(crate::auth::begin_handshake))
         .layer(keycloak_layer)
+        .layer(RateLimitLayer::new(rate_limiter.clone()))
         .layer(middleware::from_fn(access_log::public))
         .with_state(app_state.clone());
     let ws_router = Router::new()
         .route("/ws", get(crate::ws::upgrade))
+        .layer(RateLimitLayer::new(rate_limiter))
         .layer(middleware::from_fn(access_log::public))
         .with_state(app_state);
     let addr: SocketAddr = format!("0.0.0.0:{}", port)

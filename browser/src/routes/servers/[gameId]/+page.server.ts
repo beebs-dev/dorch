@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { createDorchMasterClient } from '$lib/server/dorchmaster';
 import { createWadinfoClient } from '$lib/server/wadinfo';
+import { getTrustedXForwardedFor } from '$lib/server/forwarded';
 import type { GameSummary } from '$lib/types/games';
 import type { WadMeta } from '$lib/types/wadinfo';
 
@@ -29,10 +30,11 @@ function uniquePreserveOrder(items: Array<string | null | undefined>): string[] 
 	return out;
 }
 
-export const load: PageServerLoad = async ({ fetch, params, setHeaders }) => {
+export const load: PageServerLoad = async ({ fetch, params, setHeaders, request }) => {
+	const forwardedFor = getTrustedXForwardedFor(request);
 	const gameId = params.gameId;
-	const dorch = createDorchMasterClient(fetch);
-	const wadinfo = createWadinfoClient(fetch);
+	const dorch = createDorchMasterClient(fetch, { forwardedFor });
+	const wadinfo = createWadinfoClient(fetch, { forwardedFor });
 
 	let game: GameSummary | null = null;
 	try {

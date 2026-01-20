@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { createWadinfoClient } from '$lib/server/wadinfo';
+import { getTrustedXForwardedFor } from '$lib/server/forwarded';
 
 function statusFromUnknown(e: unknown): number | null {
 	if (!e || typeof e !== 'object') return null;
@@ -8,11 +9,12 @@ function statusFromUnknown(e: unknown): number | null {
 	return typeof status === 'number' ? status : null;
 }
 
-export const load: PageServerLoad = async ({ fetch, params, setHeaders }) => {
+export const load: PageServerLoad = async ({ fetch, params, setHeaders, request }) => {
+	const forwardedFor = getTrustedXForwardedFor(request);
 	const wadId = params.wadId;
 	const mapName = params.mapName;
 
-	const wadinfo = createWadinfoClient(fetch);
+	const wadinfo = createWadinfoClient(fetch, { forwardedFor });
 	try {
 		const [map, images] = await Promise.all([
 			wadinfo.getWadMap(wadId, mapName),

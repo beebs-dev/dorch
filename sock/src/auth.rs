@@ -68,7 +68,7 @@ pub async fn begin_handshake(
     };
     let conn_id = Uuid::new_v4();
     let value = serde_json::to_vec(&handshake).expect("Failed to encode handshake");
-    let set_result = match state.redis.get().await {
+    let set_result = match state.pool.get().await {
         Ok(mut conn) => conn.set(handshake_key(conn_id), value).await,
         Err(e) => {
             return response::error(Error::from(e).context("Failed to get Redis connection"));

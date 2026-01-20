@@ -2,6 +2,7 @@ import type { PageServerLoad } from './$types';
 import { createWadinfoClient } from '$lib/server/wadinfo';
 import type { WadImage, WadMeta } from '$lib/types/wadinfo';
 import { clampInt, getIntParam, getStringParam } from '$lib/utils/format';
+import { getTrustedXForwardedFor } from '$lib/server/forwarded';
 
 type WadBrowserResults = {
 	items: WadMeta[];
@@ -13,13 +14,14 @@ type WadBrowserResults = {
 	query?: string;
 };
 
-export const load: PageServerLoad = async ({ fetch, url, setHeaders }) => {
+export const load: PageServerLoad = async ({ fetch, url, setHeaders, request }) => {
+	const forwardedFor = getTrustedXForwardedFor(request);
 	const q = getStringParam(url, 'q');
 	const sort = url.searchParams.get('sort') ?? 'featured';
 	const offset = clampInt(getIntParam(url, 'offset') ?? 0, 0, 1_000_000_000);
 	const limit = clampInt(getIntParam(url, 'limit') ?? 25, 1, 100);
 
-	const wadinfo = createWadinfoClient(fetch);
+	const wadinfo = createWadinfoClient(fetch, { forwardedFor });
 
 	let results: WadBrowserResults;
 	if (q) {

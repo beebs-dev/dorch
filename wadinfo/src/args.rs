@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use dorch_common::args::{KeycloakArgs, PostgresArgs};
+use dorch_common::args::{KeycloakArgs, PostgresArgs, RateLimiterArgs, RedisArgs};
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about, long_about = None)]
@@ -37,6 +37,12 @@ pub struct ServerArgs {
 
     #[command(flatten)]
     pub postgres: PostgresArgs,
+
+    #[command(flatten)]
+    pub redis: RedisArgs,
+
+    #[command(flatten)]
+    pub rate_limiter: RateLimiterArgs,
 }
 
 #[derive(Parser, Debug, Clone)]

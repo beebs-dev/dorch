@@ -19,7 +19,14 @@ use axum_keycloak_auth::{
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 use dorch_auth::client::UserRecordJson;
-use dorch_common::{access_log, annotations, args::KeycloakArgs, cors, rbac::UserId, response};
+use dorch_common::{
+    access_log, annotations,
+    args::KeycloakArgs,
+    cors,
+    rate_limit::{RateLimiter, middleware::RateLimitLayer},
+    rbac::UserId,
+    response,
+};
 use kube::Api;
 use owo_colors::OwoColorize;
 use reqwest::Url;
@@ -32,6 +39,7 @@ pub async fn run_server(
     port: u16,
     kc: KeycloakArgs,
     app_state: App,
+    rate_limiter: RateLimiter,
 ) -> Result<()> {
     let keycloak_auth_instance = KeycloakAuthInstance::new(
         KeycloakConfig::builder()
@@ -51,6 +59,7 @@ pub async fn run_server(
         .route("/game/{game_id}/join", post(join_game))
         .with_state(app_state.clone())
         .layer(keycloak_layer)
+        .layer(RateLimitLayer::new(rate_limiter.clone()))
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::dev());
     let router = Router::new()
@@ -58,6 +67,7 @@ pub async fn run_server(
         .route("/game", get(list_games))
         .route("/game/{game_id}", get(get_game))
         .with_state(app_state)
+        .layer(RateLimitLayer::new(rate_limiter))
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::dev());
     let addr: SocketAddr = format!("0.0.0.0:{}", port)

@@ -3,6 +3,7 @@ import { createDorchMasterClient, type JumbotronItem } from '$lib/server/dorchma
 import { createWadinfoClient } from '$lib/server/wadinfo';
 import type { GameSummary } from '$lib/types/games';
 import type { WadMeta } from '$lib/types/wadinfo';
+import { getTrustedXForwardedFor } from '$lib/server/forwarded';
 
 type ServerRow = {
 	game: GameSummary;
@@ -15,9 +16,10 @@ function wadDisplayName(meta: WadMeta): string {
 	return meta.title ?? meta.filename ?? meta.filenames?.[0] ?? meta.id;
 }
 
-export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
-	const dorch = createDorchMasterClient(fetch);
-	const wadinfo = createWadinfoClient(fetch);
+export const load: PageServerLoad = async ({ fetch, setHeaders, request }) => {
+	const forwardedFor = getTrustedXForwardedFor(request);
+	const dorch = createDorchMasterClient(fetch, { forwardedFor });
+	const wadinfo = createWadinfoClient(fetch, { forwardedFor });
 
 	let jumbotronItems: JumbotronItem[] = [];
 	try {

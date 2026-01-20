@@ -1,9 +1,14 @@
+use std::sync::Arc;
+
 use crate::{app::App, args::Commands};
 use anyhow::{Context, Result};
 use async_nats::ConnectOptions;
 use clap::Parser;
 use dorch_auth::client::Client as AuthClient;
-use dorch_common::shutdown::shutdown_signal;
+use dorch_common::{
+    rate_limit::{RateLimiter, RateLimiterConfig, middleware::RateLimitLayer},
+    shutdown::shutdown_signal,
+};
 use kube::client::Client;
 use owo_colors::OwoColorize;
 use tokio_util::sync::CancellationToken;
@@ -30,7 +35,7 @@ async fn run_servers(args: args::ServerArgs) -> Result<()> {
         .expect("Expected a valid KUBECONFIG environment variable.");
     let auth = AuthClient::new(args.auth_endpoint);
     let pool = dorch_common::redis::init_redis(&args.redis).await;
-    let store = store::GameInfoStore::new(pool);
+    let store = store::GameInfoStore::new(pool.clone());
     let nats = async_nats::connect_with_options(
         &args.nats.nats_url,
         ConnectOptions::new().user_and_password(args.nats.nats_user, args.nats.nats_password),
@@ -54,17 +59,20 @@ async fn run_servers(args: args::ServerArgs) -> Result<()> {
             cancel.cancel();
         }
     });
+    let rate_limiter = RateLimiter::new(pool.clone(), args.rate_limiter.into());
     let mut internal_join = Box::pin(tokio::spawn({
         let cancel = cancel.clone();
         let port = args.internal_port;
         let state = state.clone();
-        async move { server::internal::run_server(cancel, port, state).await }
+        let rate_limiter = rate_limiter.clone();
+        async move { server::internal::run_server(cancel, port, state, rate_limiter).await }
     }));
     let mut pub_join = Box::pin(tokio::spawn({
         let cancel = cancel.clone();
         let port = args.public_port;
         let kc = args.kc;
-        async move { server::public::run_server(cancel, port, kc, state).await }
+        let rate_limiter = rate_limiter.clone();
+        async move { server::public::run_server(cancel, port, kc, state, rate_limiter).await }
     }));
     tokio::select! {
         res = &mut internal_join => {

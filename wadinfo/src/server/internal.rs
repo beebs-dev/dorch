@@ -14,7 +14,12 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
-use dorch_common::{access_log, response, types::wad::InsertWad};
+use dorch_common::{
+    access_log,
+    rate_limit::{RateLimiter, middleware::RateLimitLayer},
+    response,
+    types::wad::InsertWad,
+};
 use owo_colors::OwoColorize;
 use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
@@ -27,8 +32,9 @@ pub struct FeaturedRequest {
 
 pub async fn run_server(
     cancel: CancellationToken,
-    args: crate::args::ServerArgs,
+    port: u16,
     app_state: App,
+    rate_limiter: RateLimiter,
 ) -> Result<()> {
     let health_router = Router::new()
         .route("/healthz", get(health))
@@ -57,8 +63,8 @@ pub async fn run_server(
         )
         .route("/search", get(search))
         .with_state(app_state)
+        .layer(RateLimitLayer::new(rate_limiter))
         .layer(middleware::from_fn(access_log::internal));
-    let port = args.internal_port;
     let addr: SocketAddr = format!("0.0.0.0:{}", port)
         .parse()
         .expect("Invalid address");

@@ -14,6 +14,7 @@ pub mod cli;
 pub mod cors;
 pub mod metrics;
 pub mod postgres;
+pub mod rate_limit;
 pub mod rbac;
 pub mod redis;
 mod request_context;
@@ -376,7 +377,7 @@ pub mod access_log {
     ) -> axum::response::Response {
         let ip = get_source_ip(req.headers())
             .map(|ip| ip.to_string())
-            .unwrap_or("<unknown>".into());
+            .unwrap_or("unknown".into());
         let method = req.method().clone();
         let path = req.uri().path().to_string();
         let start = std::time::Instant::now();
@@ -394,7 +395,7 @@ pub mod access_log {
             ((230, 126, 16), (171, 85, 17))
         };
         println!(
-            "🧾 {} {} {} {} {} {}{}{} {}",
+            "🧾 {} {} {} {} {} {}{}{} {}{}",
             format!("[{}]", prefix).truecolor(a.0, a.1, a.2),
             method.truecolor(b.0, b.1, b.2),
             path.truecolor(b.0, b.1, b.2),
@@ -403,6 +404,7 @@ pub mod access_log {
             "(".truecolor(a.0, a.1, a.2),
             format!("{:?}", duration).truecolor(b.0, b.1, b.2),
             ")".truecolor(a.0, a.1, a.2),
+            "xff=".magenta(),
             ip.magenta().dimmed(),
         );
         response

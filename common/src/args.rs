@@ -1,6 +1,33 @@
 use clap::Parser;
 
 #[derive(Parser, Debug, Clone)]
+pub struct RateLimiterArgs {
+    /// Max requests allowed in the burst window
+    #[arg(long, env = "RATE_LIMITER_BURST_LIMIT", default_value_t = 20)]
+    pub burst_limit: i64,
+
+    /// Burst window length in milliseconds (e.g. 5000 = 5s)
+    #[arg(long, env = "RATE_LIMITER_BURST_WINDOW_MS", default_value_t = 5000)]
+    pub burst_window_ms: i64,
+
+    /// Max requests allowed in the long-term window
+    #[arg(long, env = "RATE_LIMITER_LONG_LIMIT", default_value_t = 100)]
+    pub long_limit: i64,
+
+    /// Long-term window length in milliseconds (e.g. 60000 = 60s)
+    #[arg(long, env = "RATE_LIMITER_LONG_WINDOW_MS", default_value_t = 60000)]
+    pub long_window_ms: i64,
+
+    /// Max list length to keep per key (upper bound on work per check)
+    #[arg(long, env = "RATE_LIMITER_MAX_LIST_SIZE", default_value_t = 1000)]
+    pub max_list_size: i64,
+
+    /// Optional key prefix
+    #[arg(long, env = "RATE_LIMITER_KEY_PREFIX", default_value = "")]
+    pub key_prefix: String,
+}
+
+#[derive(Parser, Debug, Clone)]
 pub struct NatsArgs {
     #[arg(long, env = "NATS_URL", required = true)]
     pub nats_url: String,

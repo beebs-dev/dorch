@@ -17,7 +17,13 @@ use axum_keycloak_auth::{
     instance::{KeycloakAuthInstance, KeycloakConfig},
     layer::KeycloakAuthLayer,
 };
-use dorch_common::{access_log, cors, response};
+use dorch_common::{
+    access_log,
+    args::KeycloakArgs,
+    cors,
+    rate_limit::{RateLimiter, middleware::RateLimitLayer},
+    response,
+};
 use owo_colors::OwoColorize;
 use reqwest::Url;
 use std::net::SocketAddr;
@@ -25,20 +31,22 @@ use tokio_util::sync::CancellationToken;
 
 pub async fn run_server(
     cancel: CancellationToken,
-    args: crate::args::ServerArgs,
+    port: u16,
+    kc: KeycloakArgs,
     app_state: App,
+    rate_limiter: RateLimiter,
 ) -> Result<()> {
     let keycloak_auth_instance = KeycloakAuthInstance::new(
         KeycloakConfig::builder()
-            .server(Url::parse(&args.kc.endpoint).unwrap())
-            .realm(args.kc.realm)
+            .server(Url::parse(&kc.endpoint).unwrap())
+            .realm(kc.realm)
             .build(),
     );
     let keycloak_layer = KeycloakAuthLayer::<String>::builder()
         .instance(keycloak_auth_instance)
         .passthrough_mode(PassthroughMode::Block)
         .persist_raw_claims(true)
-        .expected_audiences(vec![args.kc.client_id])
+        .expected_audiences(vec![kc.client_id])
         .build();
     let protected_router = Router::new()
         .route("/wad", get(internal::list_wads))
@@ -48,6 +56,7 @@ pub async fn run_server(
         .route("/search", get(internal::search))
         .with_state(app_state.clone())
         .layer(keycloak_layer)
+        .layer(RateLimitLayer::new(rate_limiter.clone()))
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::dev());
 
@@ -59,9 +68,9 @@ pub async fn run_server(
         )
         .route("/wad_urls", post(resolve_wad_public_urls))
         .with_state(app_state)
+        .layer(RateLimitLayer::new(rate_limiter))
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::dev());
-    let port = args.public_port;
     let addr: SocketAddr = format!("0.0.0.0:{}", port)
         .parse()
         .expect("Invalid address");
