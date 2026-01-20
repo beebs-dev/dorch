@@ -41,13 +41,16 @@ pub async fn run(
 ) -> Result<(), Error> {
     if !essential_init_container_names.is_empty() {
         println!(
-            "{}{}",
-            "✅ Essential init containers: ".green(),
+            "{}{}{}",
+            "✅ Essential init containers: [".green(),
             essential_init_container_names
                 .iter()
                 .map(|s| s.as_str())
                 .collect::<Vec<&str>>()
-                .join(","),
+                .join(", ")
+                .green()
+                .dimmed(),
+            "]".green()
         );
     }
     if essential_container_names.is_empty() {
@@ -57,13 +60,16 @@ pub async fn run(
         );
     } else {
         println!(
-            "{}{}",
-            "✅ Essential containers: ".green(),
+            "{}{}{}",
+            "✅ Essential containers: [".green(),
             essential_container_names
                 .iter()
                 .map(|s| s.as_str())
                 .collect::<Vec<&str>>()
-                .join(","),
+                .join(", ")
+                .green()
+                .dimmed(),
+            "]".green()
         );
     }
     let context: Arc<ContextData> = Arc::new(ContextData::new(
