@@ -1,5 +1,5 @@
 <svelte:head>
-	<title>ACCOUNT - GIB.GG</title>
+	<title>ACCOUNT - ɢɪʙ.ɢɢ</title>
 </svelte:head>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">

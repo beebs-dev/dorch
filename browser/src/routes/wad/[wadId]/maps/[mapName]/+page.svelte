@@ -8,7 +8,7 @@
 
 	const wadTitle = $derived(() => wadLabel(data.map.wad_meta));
 	const pageTitle = $derived(
-		() => `${ellipsize(wadTitle(), 64)} // ${ellipsize(data.mapName, 24)} - GIB.GG`
+		() => `${ellipsize(wadTitle(), 64)} // ${ellipsize(data.mapName, 24)} - ɢɪʙ.ɢɢ`
 	);
 
 	const mapAuthors = $derived(() => {

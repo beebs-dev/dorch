@@ -20,7 +20,7 @@
 	];
 
 	const wadTitle = $derived(() => wadLabel(data.wad.meta));
-	const pageTitle = $derived(() => `${ellipsize(wadTitle(), 64)} - GIB.GG`);
+	const pageTitle = $derived(() => `${ellipsize(wadTitle(), 64)} - ɢɪʙ.ɢɢ`);
 
 	const wadAuthors = $derived(() => {
 		const normalize = (arr: Array<string | null | undefined> | null | undefined) =>

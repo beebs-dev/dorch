@@ -71,7 +71,7 @@
 </script>
 
 <svelte:head>
-	<title>GIB.GG</title>
+	<title>ɢɪʙ.ɢɢ</title>
 	<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
 </svelte:head>
 

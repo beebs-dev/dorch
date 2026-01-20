@@ -1,3 +1,4 @@
+from tempfile import TemporaryDirectory
 import requests
 import os
 import subprocess
@@ -34,84 +35,84 @@ def _fmt_eta(seconds: float) -> str:
     return f"{m:02d}:{s:02d}"
 
 
-def download_zip(i: int, tmp_dir: str, zip_path: str):
+def download_zip(i: int, zip_path: str):
     prefix = f"{i:02x}"
     filename = f"{prefix}.zip"
     if os.path.exists(zip_path):
         print(f"File {zip_path} already exists. Skipping download.")
         return
-    os.makedirs(tmp_dir, exist_ok=True)
-    tmp_path = os.path.join(tmp_dir, filename + ".part")
-    url = f"{BASE_URL}/{filename}"
-    print(f"Downloading {url} -> {tmp_path}")
-    # Make requests a bit more robust and keep connections reused
-    with requests.Session() as session:
-        with session.get(url, stream=True, timeout=(10, 60)) as r:
-            r.raise_for_status()
+    with TemporaryDirectory() as tmp_dir:
+        tmp_path = os.path.join(tmp_dir, filename + ".part")
+        url = f"{BASE_URL}/{filename}"
+        print(f"Downloading {url} -> {tmp_path}")
+        # Make requests a bit more robust and keep connections reused
+        with requests.Session() as session:
+            with session.get(url, stream=True, timeout=(10, 60)) as r:
+                r.raise_for_status()
 
-            total = r.headers.get("Content-Length")
-            total_bytes = int(total) if total and total.isdigit() else None
+                total = r.headers.get("Content-Length")
+                total_bytes = int(total) if total and total.isdigit() else None
 
-            downloaded = 0
-            start = time.monotonic()
-            last_print = start
-            last_bytes = 0
+                downloaded = 0
+                start = time.monotonic()
+                last_print = start
+                last_bytes = 0
 
-            # tune these if you want
-            chunk_size = 1024 * 256  # 256KB
-            min_print_interval = 0.15  # seconds
+                # tune these if you want
+                chunk_size = 1024 * 256  # 256KB
+                min_print_interval = 0.15  # seconds
 
-            with open(tmp_path, "wb") as f:
-                for chunk in r.iter_content(chunk_size=chunk_size):
-                    if not chunk:
-                        continue
-                    f.write(chunk)
-                    downloaded += len(chunk)
+                with open(tmp_path, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=chunk_size):
+                        if not chunk:
+                            continue
+                        f.write(chunk)
+                        downloaded += len(chunk)
 
-                    now = time.monotonic()
-                    if now - last_print >= min_print_interval:
-                        elapsed = now - start
-                        inst_bps = (downloaded - last_bytes) / \
-                            max(now - last_print, 1e-9)
-                        avg_bps = downloaded / max(elapsed, 1e-9)
+                        now = time.monotonic()
+                        if now - last_print >= min_print_interval:
+                            elapsed = now - start
+                            inst_bps = (downloaded - last_bytes) / \
+                                max(now - last_print, 1e-9)
+                            avg_bps = downloaded / max(elapsed, 1e-9)
 
-                        if total_bytes:
-                            pct = (downloaded / total_bytes) * 100.0
-                            remaining = total_bytes - downloaded
-                            eta = remaining / max(avg_bps, 1e-9)
-                            line = (
-                                f"\r{filename}  "
-                                f"{pct:6.2f}%  "
-                                f"{_fmt_bytes(downloaded)}/{_fmt_bytes(total_bytes)}  "
-                                f"inst {_fmt_rate(inst_bps)}  avg {_fmt_rate(avg_bps)}  "
-                                f"ETA {_fmt_eta(eta)}"
-                            )
-                        else:
-                            line = (
-                                f"\r{filename}  "
-                                f"{_fmt_bytes(downloaded)}  "
-                                f"inst {_fmt_rate(inst_bps)}  avg {_fmt_rate(avg_bps)}"
-                            )
-                        print(line, flush=True)
-                        last_print = now
-                        last_bytes = downloaded
+                            if total_bytes:
+                                pct = (downloaded / total_bytes) * 100.0
+                                remaining = total_bytes - downloaded
+                                eta = remaining / max(avg_bps, 1e-9)
+                                line = (
+                                    f"\r{filename}  "
+                                    f"{pct:6.2f}%  "
+                                    f"{_fmt_bytes(downloaded)}/{_fmt_bytes(total_bytes)}  "
+                                    f"inst {_fmt_rate(inst_bps)}  avg {_fmt_rate(avg_bps)}  "
+                                    f"ETA {_fmt_eta(eta)}"
+                                )
+                            else:
+                                line = (
+                                    f"\r{filename}  "
+                                    f"{_fmt_bytes(downloaded)}  "
+                                    f"inst {_fmt_rate(inst_bps)}  avg {_fmt_rate(avg_bps)}"
+                                )
+                            print(line, flush=True)
+                            last_print = now
+                            last_bytes = downloaded
 
-            # final print line + newline
-            end = time.monotonic()
-            elapsed = end - start
-            avg_bps = downloaded / max(elapsed, 1e-9)
-            if total_bytes:
-                sys.stdout.write(
-                    f"\r{filename}  100.00%  "
-                    f"{_fmt_bytes(downloaded)}/{_fmt_bytes(total_bytes)}  "
-                    f"avg {_fmt_rate(avg_bps)}  ETA 00:00\n"
-                )
-            else:
-                sys.stdout.write(
-                    f"\r{filename}  {_fmt_bytes(downloaded)}  avg {_fmt_rate(avg_bps)}\n")
-            sys.stdout.flush()
-    os.rename(tmp_path, zip_path)
-    print(f"Downloaded {zip_path}")
+                # final print line + newline
+                end = time.monotonic()
+                elapsed = end - start
+                avg_bps = downloaded / max(elapsed, 1e-9)
+                if total_bytes:
+                    sys.stdout.write(
+                        f"\r{filename}  100.00%  "
+                        f"{_fmt_bytes(downloaded)}/{_fmt_bytes(total_bytes)}  "
+                        f"avg {_fmt_rate(avg_bps)}  ETA 00:00\n"
+                    )
+                else:
+                    sys.stdout.write(
+                        f"\r{filename}  {_fmt_bytes(downloaded)}  avg {_fmt_rate(avg_bps)}\n")
+                sys.stdout.flush()
+        shutil.move(tmp_path, zip_path)
+        print(f"Downloaded {zip_path}")
 
 
 def move_files(dir: str,
@@ -161,7 +162,7 @@ def rename_dirs(tmp_dir: str, id: str):
         old_path = os.path.join(tmp_dir, entry)
         new_path = os.path.join(tmp_dir, new_entry)
         print(f"Renaming {entry} to {new_entry}")
-        os.rename(old_path, new_path)
+        shutil.move(old_path, new_path)
         print(f"Moved {old_path} to {new_path}")
 
 
@@ -181,7 +182,6 @@ def download_and_process_zip(i: int, tmp_dir: str, out_dir: str):
     if os.path.exists(extract_dir):
         shutil.rmtree(extract_dir)
     download_zip(i,
-                 tmp_dir=tmp_dir,
                  zip_path=zip_path)
     tmp_extract_dir = os.path.join(tmp_dir, "tmp_extract")
     os.makedirs(tmp_extract_dir, exist_ok=True)
@@ -225,6 +225,39 @@ def download_wad_archive(tmp_dir: str, out_dir: str):
                 except FileNotFoundError:
                     pass
 
+
+def download_zips(out_dir: str):
+    start_range = int(os.getenv("START_RANGE", "0"))
+    end_range = int(os.getenv("END_RANGE", "255"))
+    print(
+        f"Processing WAD archive from {start_range:02x} through {end_range:02x}")
+    lock_dir_path = os.path.join(out_dir, "lock")
+    os.makedirs(lock_dir_path, exist_ok=True)
+    for i in range(start_range, end_range+1):
+        lock_path = os.path.join(lock_dir_path, f"{i:02x}.lock")
+        zip_path = os.path.join(out_dir, f"{i:02x}.zip")
+        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+        mode = 0o600
+        fd = None
+        acquired = False
+        try:
+            fd = os.open(lock_path, flags, mode)
+            acquired = True
+            os.write(fd, f"pid={os.getpid()}\n".encode())
+            download_zip(i, zip_path=zip_path)
+        except FileExistsError:
+            continue
+        finally:
+            if fd is not None:
+                os.close(fd)
+            if acquired:
+                try:
+                    os.unlink(lock_path)
+                except FileNotFoundError:
+                    pass
+
+
 if __name__ == "__main__":
-    download_wad_archive(
-        '/tmp/wads', '/media/thavlik/5e8c5ae9-0337-4306-b173-221fe135f073/wads')
+    # download_wad_archive('/tmp/wads', '/media/thavlik/5e8c5ae9-0337-4306-b173-221fe135f073/wads')
+    download_zips(
+        '/media/thavlik/5e8c5ae9-0337-4306-b173-221fe135f073/wads/zips')

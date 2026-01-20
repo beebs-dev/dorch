@@ -41,7 +41,7 @@ You must output a SINGLE JSON object in EXACTLY this shape:
   - Title must be short (max ~60 characters).
 
 - "description":
-  - 3–4 concise sentences (maximum ~120–140 words total).
+  - 2-3 concise sentences (maximum ~80–120 words total).
   - Summarize the WAD holistically:
     - Number of maps and general scale.
     - Overall monster profile and difficulty tendencies.
@@ -54,7 +54,7 @@ You must output a SINGLE JSON object in EXACTLY this shape:
   - Avoid speculation, lore, or invented narrative.
 
 - "tags":
-  - 5–10 short, lower-case tags (never more than 12).
+  - 4–8 short, lower-case tags (never more than 8).
   - Tags must reflect aggregated patterns across the WAD:
     - Theme categories: "techbase", "hell", "gothic", "industrial", "cave", "mixed_theme"
     - Scale: "short_maps", "medium_maps", "long_maps", "varied_length", "large_megawad"

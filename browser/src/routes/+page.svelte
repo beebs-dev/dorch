@@ -97,7 +97,7 @@
 </script>
 
 <svelte:head>
-	<title>ONLINE SLAUGHTER - GIB.GG</title>
+	<title>ONLINE SLAUGHTER - ɢɪʙ.ɢɢ</title>
 </svelte:head>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">

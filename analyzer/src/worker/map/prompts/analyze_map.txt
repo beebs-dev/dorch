@@ -32,7 +32,7 @@ You must output a SINGLE JSON object in EXACTLY this shape:
   - If only the WAD name or generic slot name is present (e.g. "MAP03", "E1M1") and no better title is implied, use an empty string "".
 
 - "tags":
-  - An array of 4-8 short, lower-case tags (never more than 10).
+  - An array of 3-6 short, lower-case tags (never more than 8).
   - Tags must reflect real map characteristics inferred from the data.
   - Useful categories include:
     - Theme: "techbase", "hell", "gothic", "industrial", "cave", "maze", "mixed_theme"
@@ -45,7 +45,7 @@ You must output a SINGLE JSON object in EXACTLY this shape:
   - Tags must be grounded in the map’s actual attributes. Do not guess wildly. Do not include redundant or highly similar tags.
 
 - "description":
-  - 2–3 concise sentences (maximum ~80–100 words total).
+  - 2–3 concise sentences (maximum ~60–80 words total).
   - Describe, in plain language:
     - The environment or theme.
     - The overall combat feel (e.g. dense, incidental, hitscanner-heavy, melee-heavy, boss-focused).

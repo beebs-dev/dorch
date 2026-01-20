@@ -27,7 +27,7 @@
 </script>
 
 <svelte:head>
-	<title>WAD BROWSER - GIB.GG</title>
+	<title>WAD BROWSER - ɢɪʙ.ɢɢ</title>
 </svelte:head>
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">

@@ -156,7 +156,7 @@
 			<div class="flex items-center justify-between border-b border-zinc-800/80 px-5 py-4">
 				<div>
 					<h2 class="text-base font-semibold tracking-wide text-zinc-100">Sign in</h2>
-					<p class="mt-1 text-xs text-zinc-400">Use your <span style="font-weight: bold; color: #b50d0d;">GIB.GG</span> account to create custom servers for free.</p>
+					<p class="mt-1 text-xs text-zinc-400">Use your <span style="font-weight: bold; color: #b50d0d;">ɢɪʙ.ɢɢ</span> account to create custom servers for free.</p>
 				</div>
 				<button
 					type="button"
