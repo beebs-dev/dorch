@@ -134,7 +134,10 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                                 let _ = tasks.sender.await;
                                 let _ = tasks.receiver.await;
                             }
-                            sess.sock.send_to(&[0x00, 0xd9], SocketAddr::from(([127, 0, 0, 1], args.game_port))).await.ok();
+                            // Send a fabricated disconnect packet to the game server
+                            // to help it recognize the disconnect.
+                            let game_addr = SocketAddr::from(([127, 0, 0, 1], args.game_port));
+                            sess.sock.send_to(&[0x00, 0xd9], game_addr).await.ok();
                         }
                     }
                     RoomEvent::DataReceived { payload, topic, participant, .. } => {
