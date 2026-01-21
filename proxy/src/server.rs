@@ -7,6 +7,7 @@ use std::{
 
 use crate::args::ServerArgs;
 use anyhow::{Context, Result, bail};
+use dorch_common::shutdown::shutdown_signal;
 use livekit::id::ParticipantIdentity;
 use livekit::{DataPacket, Room, RoomEvent, RoomOptions};
 use livekit_api::access_token;
@@ -179,26 +180,6 @@ pub async fn run(args: ServerArgs) -> Result<()> {
     cancel_all_sessions(&mut sessions).await;
     println!("Proxy server gracefully shut down");
     Ok(())
-}
-
-#[cfg(unix)]
-async fn shutdown_signal() {
-    use tokio::signal::unix::{SignalKind, signal};
-
-    let mut term = signal(SignalKind::terminate()).expect("install SIGTERM handler");
-    let mut int = signal(SignalKind::interrupt()).expect("install SIGINT handler");
-
-    tokio::select! {
-        _ = term.recv() => eprintln!("🛑 SIGTERM received, shutting down..."),
-        _ = int.recv()  => eprintln!("🛑 SIGINT received, shutting down..."),
-    }
-}
-
-#[cfg(not(unix))]
-async fn shutdown_signal() {
-    // Fallback: best effort
-    let _ = tokio::signal::ctrl_c().await;
-    eprintln!("🛑 ctrl-c received, shutting down...");
 }
 
 async fn ensure_player_session(
