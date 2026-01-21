@@ -57,7 +57,7 @@
 
 	const hasMaps = $derived(() => data.wad.maps.length > 0);
 
-	type ScreenshotPick = { mapName: string; image: WadImage };
+	type ScreenshotPick = { mapName: string; mapTitle?: string | null; image: WadImage };
 
 	const allScreenshotPicks = $derived(() => {
 		const picks: ScreenshotPick[] = [];
@@ -65,7 +65,7 @@
 			for (const img of m.images ?? []) {
 				if (!img?.url) continue;
 				if (isPano(img)) continue;
-				picks.push({ mapName: m.map, image: img });
+				picks.push({ mapName: m.map, mapTitle: m.title ?? null, image: img });
 			}
 		}
 		return picks;
@@ -413,7 +413,7 @@
 								)}`
 							)}
 							class="block h-full"
-							aria-label={`View ${randomScreenshot.mapName} details`}
+							aria-label={`View ${randomScreenshot.mapTitle ?? randomScreenshot.mapName} details`}
 						>
 							<img
 								src={randomScreenshot.image.url}
@@ -425,7 +425,7 @@
 								class="pointer-events-none absolute inset-0 flex items-end opacity-0 transition-opacity duration-200 group-hover:opacity-100"
 							>
 								<div class="w-full bg-zinc-950/70 px-3 py-2 text-sm font-medium text-zinc-100">
-									{randomScreenshot.mapName}
+									{randomScreenshot.mapTitle ?? randomScreenshot.mapName}
 								</div>
 							</div>
 						</a>
@@ -622,7 +622,7 @@
 								<div class="min-w-0">
 									<div class="flex flex-wrap items-baseline justify-between gap-2">
 										<div class="truncate text-sm font-semibold text-zinc-100">
-											{m.metadata?.title ?? m.map}
+											{m.title ?? m.map}
 										</div>
 										<div class="text-xs text-zinc-500">{m.map}</div>
 									</div>
@@ -661,10 +661,10 @@
 										)}
 										class="hover:text-zinc-100 hover:underline"
 									>
-										{m.map}
+										{m.title ?? m.map}
 									</a>
 								</h2>
-								<div class="text-xs text-zinc-500">{m.metadata?.title ?? ''}</div>
+								<div class="text-xs text-zinc-500">{m.map}</div>
 							</div>
 							<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 								{#each m.images ?? [] as img (img.id ?? img.url)}

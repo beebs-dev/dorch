@@ -9,7 +9,7 @@ import type { WadMeta } from '$lib/types/wadinfo';
 type WadWithMaps = {
 	id: string;
 	meta?: WadMeta | null;
-	mapNames: string[];
+	maps: Array<{ map: string; title?: string | null }>;
 };
 
 function statusFromUnknown(e: unknown): number | null {
@@ -54,10 +54,10 @@ export const load: PageServerLoad = async ({ fetch, params, setHeaders, request 
 				return {
 					id: wadId,
 					meta: wad.meta,
-					mapNames: (wad.maps ?? []).map((m) => m.map).filter(Boolean)
+					maps: (wad.maps ?? []).filter((m) => Boolean(m.map)).map((m) => ({ map: m.map, title: m.title }))
 				};
 			} catch {
-				return { id: wadId, meta: null, mapNames: [] };
+				return { id: wadId, meta: null, maps: [] };
 			}
 		})
 	);
@@ -69,7 +69,7 @@ export const load: PageServerLoad = async ({ fetch, params, setHeaders, request 
 		for (const wadId of wadPreference) {
 			const w = wads.find((x) => x.id === wadId);
 			if (!w) continue;
-			if (w.mapNames.includes(currentMap)) {
+			if (w.maps.some((m) => m.map === currentMap)) {
 				currentMapWadId = wadId;
 				break;
 			}

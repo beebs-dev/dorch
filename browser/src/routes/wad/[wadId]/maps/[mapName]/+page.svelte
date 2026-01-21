@@ -7,8 +7,9 @@
 	let { data }: { data: PageData } = $props();
 
 	const wadTitle = $derived(() => wadLabel(data.map.wad_meta));
+	const mapDisplayTitle = $derived(() => data.map.title ?? data.mapName);
 	const pageTitle = $derived(
-		() => `${ellipsize(wadTitle(), 64)} // ${ellipsize(data.mapName, 24)} - ɢɪʙ.ɢɢ`
+		() => `${ellipsize(wadTitle(), 64)} // ${ellipsize(mapDisplayTitle(), 48)} - ɢɪʙ.ɢɢ`
 	);
 
 	const mapAuthors = $derived(() => {
@@ -171,7 +172,7 @@
 				</li>
 				<li class="min-w-0" aria-current="page">
 					<h1 class="truncate text-2xl font-semibold tracking-tight text-zinc-100">
-						{data.mapName}
+						{mapDisplayTitle()}
 					</h1>
 				</li>
 			</ol>

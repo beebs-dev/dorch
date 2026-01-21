@@ -556,24 +556,25 @@
 									Open
 								</a>
 							</div>
-							{#if wad.mapNames.length}
+							{#if wad.maps.length}
 								<details class="mt-2">
 									<summary
 										class="cursor-pointer text-xs text-zinc-400 select-none hover:text-zinc-200"
 									>
-										Maps ({wad.mapNames.length})
+										Maps ({wad.maps.length})
 									</summary>
 									<div class="mt-2 flex flex-wrap gap-2">
-										{#each wad.mapNames as mapName (mapName)}
+										{#each wad.maps as m (m.map)}
 											<a
-												href={mapHref(wad.id, mapName)}
+												href={mapHref(wad.id, m.map)}
 												class={`rounded-md px-2 py-1 text-xs font-[var(--dorch-mono)] tracking-wide ring-1 ring-inset hover:bg-zinc-800/50 ${
-													isCurrentMap(mapName)
+													isCurrentMap(m.map)
 														? 'bg-red-950/30 text-zinc-100 ring-red-900/60'
 														: 'bg-zinc-950 text-zinc-200 ring-red-950/40'
 												}`}
+												title={m.title && m.title !== m.map ? m.map : undefined}
 											>
-												{mapName}
+												{m.title ?? m.map}
 											</a>
 										{/each}
 									</div>
