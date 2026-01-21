@@ -120,6 +120,7 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                             args.game_port,
                             tx_udp_to_lk.clone(),
                         ).await.context("failed to ensure player session")?;
+                        println!("participant connected: {pid}");
                     }
                     RoomEvent::ParticipantDisconnected(participant) => {
                         let pid = participant.identity().to_string();
@@ -222,25 +223,32 @@ async fn ensure_player_session(
     let (tx_to_udp, rx_to_udp) = mpsc::channel::<Arc<Vec<u8>>>(256);
     let cancel = CancellationToken::new();
     let pid = player_id.to_string();
-    let pid_clone = player_id.to_string();
-    let local_addr_clone = local_addr;
-    let sender = tokio::spawn(player_udp_sender(
-        cancel.clone(),
-        sock.clone(),
-        game_addr,
-        rx_to_udp,
-    ));
-    let receiver = player_udp_receiver(cancel.clone(), sock.clone(), pid.clone(), tx_udp_to_lk);
-    let receiver = tokio::spawn(async move {
-        let res = receiver.await;
-        println!(
-            "UDP receiver for player {} exiting (udp_local={}): {:?}",
-            pid_clone, local_addr_clone, res
-        );
-        res.context("player UDP receiver failed")
+    let sender = tokio::spawn({
+        let cancel = cancel.clone();
+        let sock = sock.clone();
+        async move {
+            let res = player_udp_sender(cancel.clone(), sock.clone(), game_addr, rx_to_udp).await;
+            println!(
+                "UDP sender for player {} exiting (udp_local={}): {:?}",
+                pid, local_addr, res
+            );
+            res
+        }
+    });
+    let receiver = tokio::spawn({
+        let pid = player_id.to_string();
+        let cancel = cancel.clone();
+        async move {
+            let res = player_udp_receiver(cancel, sock, &pid, tx_udp_to_lk).await;
+            println!(
+                "UDP receiver for player {} exiting (udp_local={}): {:?}",
+                pid, local_addr, res
+            );
+            res.context("player UDP receiver failed")
+        }
     });
     sessions.insert(
-        pid.clone(),
+        player_id.to_string(),
         PlayerSession {
             cancel,
             tx_to_udp,
@@ -249,7 +257,7 @@ async fn ensure_player_session(
         },
     );
     eprintln!(
-        "🧩 created per-player UDP session: {pid} udp_local={local_addr} udp_peer={game_addr}"
+        "🧩 created per-player UDP session: {player_id} udp_local={local_addr} udp_peer={game_addr}"
     );
     Ok(())
 }
@@ -286,7 +294,7 @@ async fn player_udp_sender(
 async fn player_udp_receiver(
     cancel: CancellationToken,
     sock: Arc<UdpSocket>,
-    player_id: String,
+    player_id: &str,
     tx_udp_to_lk: mpsc::Sender<UdpToLk>,
 ) -> Result<()> {
     let mut buf = vec![0u8; 2048];
@@ -311,7 +319,7 @@ async fn player_udp_receiver(
                     );
                 }
                 if tx_udp_to_lk.send(UdpToLk {
-                    player_id: player_id.clone(),
+                    player_id: player_id.to_string(),
                     payload,
                 }).await.is_err() {
                     eprintln!("🧩 UDP receiver for player {player_id} shutting down (udp->lk channel closed)");
