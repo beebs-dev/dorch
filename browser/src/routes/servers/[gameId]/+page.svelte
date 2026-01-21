@@ -574,7 +574,12 @@
 												}`}
 												title={m.title && m.title !== m.map ? m.map : undefined}
 											>
-												{m.title ?? m.map}
+												{#if m.title}
+													<span>{m.title}</span>
+													<span class="ml-1 text-[0.7rem] font-normal text-zinc-400">({m.map})</span>
+												{:else}
+													{m.map}
+												{/if}
 											</a>
 										{/each}
 									</div>

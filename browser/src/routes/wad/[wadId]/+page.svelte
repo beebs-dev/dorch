@@ -413,7 +413,7 @@
 								)}`
 							)}
 							class="block h-full"
-							aria-label={`View ${randomScreenshot.mapTitle ?? randomScreenshot.mapName} details`}
+							aria-label={`View ${randomScreenshot.mapTitle ? `${randomScreenshot.mapTitle} (${randomScreenshot.mapName})` : randomScreenshot.mapName} details`}
 						>
 							<img
 								src={randomScreenshot.image.url}
@@ -425,7 +425,12 @@
 								class="pointer-events-none absolute inset-0 flex items-end opacity-0 transition-opacity duration-200 group-hover:opacity-100"
 							>
 								<div class="w-full bg-zinc-950/70 px-3 py-2 text-sm font-medium text-zinc-100">
-									{randomScreenshot.mapTitle ?? randomScreenshot.mapName}
+									{#if randomScreenshot.mapTitle}
+										{randomScreenshot.mapTitle}
+										<span class="ml-2 text-xs font-normal text-zinc-300">({randomScreenshot.mapName})</span>
+									{:else}
+										{randomScreenshot.mapName}
+									{/if}
 								</div>
 							</div>
 						</a>
@@ -622,9 +627,13 @@
 								<div class="min-w-0">
 									<div class="flex flex-wrap items-baseline justify-between gap-2">
 										<div class="truncate text-sm font-semibold text-zinc-100">
-											{m.title ?? m.map}
+											{#if m.title}
+												{m.title}
+												<span class="ml-2 text-xs font-normal text-zinc-500">({m.map})</span>
+											{:else}
+												{m.map}
+											{/if}
 										</div>
-										<div class="text-xs text-zinc-500">{m.map}</div>
 									</div>
 									<div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-400">
 										<span>{m.monsters?.total ?? 0} monsters</span>
@@ -661,7 +670,12 @@
 										)}
 										class="hover:text-zinc-100 hover:underline"
 									>
-										{m.title ?? m.map}
+										{#if m.title}
+											{m.title}
+											<span class="ml-2 text-xs font-normal text-zinc-500">({m.map})</span>
+										{:else}
+											{m.map}
+										{/if}
 									</a>
 								</h2>
 								<div class="text-xs text-zinc-500">{m.map}</div>
