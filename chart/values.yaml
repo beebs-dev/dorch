@@ -7,7 +7,7 @@ cors:
 prometheus:
   enabled: false
 
-strim: # https://github.com/beebs-dev/strim
+srs:
   enabled: false
   baseUrl: ""
 

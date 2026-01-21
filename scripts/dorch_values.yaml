@@ -1,9 +1,9 @@
 prometheus:
   enabled: true
 
-strim: # https://github.com/beebs-dev/strim
+srs: # https://github.com/beebs-dev/strim
   enabled: true
-  baseUrl: rtmp://strim-strim.strim.svc.cluster.local:7080
+  baseUrl: rtmp://srs-srs-server.srs.svc.cluster.local:1935
 
 nats:
   url: "nats://nats.nats.svc.cluster.local:4222"

@@ -66,7 +66,7 @@ enum Command {
         wadinfo_base_url: String,
 
         #[arg(long, env = "STRIM_BASE_URL")]
-        strim_base_url: Option<String>,
+        srs_base_url: Option<String>,
 
         /// Optional: Names of essential containers to monitor for pod status.
         /// If not specified, defaults to "proxy,server" (spectator is not essential).
@@ -111,7 +111,7 @@ async fn run(client: Client) {
             livekit_secret,
             downloader_image,
             wadinfo_base_url,
-            strim_base_url,
+            srs_base_url,
             essential_container_names,
             essential_init_container_names,
         } => {
@@ -124,7 +124,7 @@ async fn run(client: Client) {
                 livekit_url,
                 livekit_secret,
                 wadinfo_base_url,
-                strim_base_url,
+                srs_base_url,
                 essential_container_names.into_iter().collect(),
                 essential_init_container_names.into_iter().collect(),
             )

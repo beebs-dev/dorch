@@ -35,7 +35,7 @@ pub async fn run(
     livekit_url: String,
     livekit_secret: String,
     wadinfo_base_url: String,
-    strim_base_url: Option<String>,
+    srs_base_url: Option<String>,
     essential_container_names: HashSet<String>,
     essential_init_container_names: HashSet<String>,
 ) -> Result<(), Error> {
@@ -81,7 +81,7 @@ pub async fn run(
         livekit_url,
         livekit_secret,
         wadinfo_base_url,
-        strim_base_url,
+        srs_base_url,
         essential_container_names,
         essential_init_container_names,
     ));
@@ -184,7 +184,7 @@ struct ContextData {
     livekit_url: String,
     livekit_secret: String,
     wadinfo_base_url: String,
-    strim_base_url: Option<String>,
+    srs_base_url: Option<String>,
     last_action: Mutex<HashMap<(String, String), (GameAction, Instant)>>,
     essential_container_names: HashSet<String>,
     essential_init_container_names: HashSet<String>,
@@ -205,7 +205,7 @@ impl ContextData {
         livekit_url: String,
         livekit_secret: String,
         wadinfo_base_url: String,
-        strim_base_url: Option<String>,
+        srs_base_url: Option<String>,
         essential_container_names: HashSet<String>,
         essential_init_container_names: HashSet<String>,
     ) -> Self {
@@ -221,7 +221,7 @@ impl ContextData {
                 livekit_url,
                 livekit_secret,
                 wadinfo_base_url,
-                strim_base_url,
+                srs_base_url,
                 last_action: Mutex::new(HashMap::new()),
                 essential_container_names,
                 essential_init_container_names,
@@ -237,7 +237,7 @@ impl ContextData {
                 livekit_secret,
                 downloader_image,
                 wadinfo_base_url,
-                strim_base_url,
+                srs_base_url,
                 last_action: Mutex::new(HashMap::new()),
                 essential_container_names,
                 essential_init_container_names,
@@ -431,7 +431,7 @@ async fn reconcile(instance: Arc<Game>, context: Arc<ContextData>) -> Result<Act
                 &context.livekit_url,
                 &context.livekit_secret,
                 &context.wadinfo_base_url,
-                context.strim_base_url.as_deref(),
+                context.srs_base_url.as_deref(),
             )
             .await?;
             Action::requeue(Duration::from_secs(3))

@@ -147,9 +147,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-{{- if .Values.strim.enabled }}
-        - name: STRIM_BASE_URL
-          value: {{ required "strim.baseUrl is required when strim.enabled is true" .Values.strim.baseUrl | quote }}
+{{- if .Values.srs.enabled }}
+        - name: SRS_BASE_URL
+          value: {{ required "srs.baseUrl is required when srs.enabled is true" .Values.srs.baseUrl | quote }}
 {{- end }}
 {{ include "dorch.metrics-env" . | indent 8 }}
 ---
