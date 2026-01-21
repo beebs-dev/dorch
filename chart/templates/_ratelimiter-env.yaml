@@ -1,0 +1,17 @@
+{{/*
+Rate limiter environment variables
+*/}}
+{{- define "dorch.ratelimiter-env" -}}
+- name: RATE_LIMITER_BURST_LIMIT
+  value: "{{ .Values.ratelimiter.burstLimit quote }}"
+- name: RATE_LIMITER_BURST_WINDOW_MS
+  value: "{{ .Values.ratelimiter.burstWindowMs quote }}"
+- name: RATE_LIMITER_LONG_LIMIT
+  value: "{{ .Values.ratelimiter.longLimit quote }}"
+- name: RATE_LIMITER_LONG_WINDOW_MS
+  value: "{{ .Values.ratelimiter.longWindowMs quote }}"
+- name: RATE_LIMITER_MAX_LIST_SIZE
+  value: "{{ .Values.ratelimiter.maxListSize quote }}"
+- name: RATE_LIMITER_KEY_PREFIX
+  value: "{{ .Values.ratelimiter.keyPrefix quote }}"
+{{- end -}}

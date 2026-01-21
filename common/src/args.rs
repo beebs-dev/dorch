@@ -3,7 +3,7 @@ use clap::Parser;
 #[derive(Parser, Debug, Clone)]
 pub struct RateLimiterArgs {
     /// Max requests allowed in the burst window
-    #[arg(long, env = "RATE_LIMITER_BURST_LIMIT", default_value_t = 20)]
+    #[arg(long, env = "RATE_LIMITER_BURST_LIMIT", default_value_t = 50)]
     pub burst_limit: i64,
 
     /// Burst window length in milliseconds (e.g. 5000 = 5s)
@@ -11,7 +11,7 @@ pub struct RateLimiterArgs {
     pub burst_window_ms: i64,
 
     /// Max requests allowed in the long-term window
-    #[arg(long, env = "RATE_LIMITER_LONG_LIMIT", default_value_t = 100)]
+    #[arg(long, env = "RATE_LIMITER_LONG_LIMIT", default_value_t = 250)]
     pub long_limit: i64,
 
     /// Long-term window length in milliseconds (e.g. 60000 = 60s)
