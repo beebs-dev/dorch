@@ -620,10 +620,10 @@ def _fallback_title(map_marker: str, strings: Dict[str, str]) -> Optional[str]:
 		v = strings.get(key)
 		if v:
 			return v.strip()
-	if mm in _DOOM1_TITLES:
-		return _DOOM1_TITLES[mm]
-	if mm in _DOOM2_TITLES:
-		return _DOOM2_TITLES[mm]
+	#if mm in _DOOM1_TITLES:
+	#	return _DOOM1_TITLES[mm]
+	#if mm in _DOOM2_TITLES:
+	#	return _DOOM2_TITLES[mm]
 	return None
 
 

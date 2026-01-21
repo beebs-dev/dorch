@@ -540,7 +540,7 @@ pub mod wad {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct MapStat {
         pub map: String,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "String::is_empty")]
         pub title: String,
         pub format: String, // "doom" | "hexen" | "unknown"
         pub stats: MapStats,
