@@ -362,6 +362,28 @@
 	function mapHref(wadId: string, mapName: string): string {
 		return resolve(`/wad/${encodeURIComponent(wadId)}/maps/${encodeURIComponent(mapName)}`);
 	}
+
+	function asOnOff(value: unknown): boolean | null {
+		if (typeof value === 'boolean') return value;
+		if (typeof value === 'string') {
+			const v = value.trim().toLowerCase();
+			if (v === 'on' || v === 'true' || v === '1' || v === 'yes') return true;
+			if (v === 'off' || v === 'false' || v === '0' || v === 'no') return false;
+		}
+		return null;
+	}
+
+	function onOffText(value: unknown): string {
+		const b = asOnOff(value);
+		if (b === null) return '—';
+		return b ? 'on' : 'off';
+	}
+
+	function onOffDotClasses(value: unknown): string {
+		const b = asOnOff(value);
+		if (b === null) return 'bg-zinc-500';
+		return b ? 'bg-emerald-400' : 'bg-red-400';
+	}
 </script>
 
 <svelte:head>
@@ -641,37 +663,54 @@
 				<div class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">
 					SERVER DETAILS
 				</div>
-				<div class="mt-3 grid grid-cols-1 gap-2 text-sm text-zinc-200">
-					<div class="flex items-center justify-between gap-3">
-						<span class="text-zinc-400">Cheats</span>
-						{#if info()}
-							<span class="font-[var(--dorch-mono)] tracking-wide"
-								>{info()!.sv_cheats ? 'on' : 'off'}</span
-							>
-						{:else}
-							<span class="skeleton inline-block h-4 w-12 rounded-md" aria-label="Loading cheats"></span>
-						{/if}
-					</div>
-					<div class="flex items-center justify-between gap-3">
-						<span class="text-zinc-400">Monsters</span>
-						{#if info()}
-							<span class="font-[var(--dorch-mono)] tracking-wide"
-								>{info()!.sv_monsters ? 'on' : 'off'}</span
-							>
-						{:else}
-							<span class="skeleton inline-block h-4 w-12 rounded-md" aria-label="Loading monsters"></span>
-						{/if}
-					</div>
-					<div class="flex items-center justify-between gap-3">
-						<span class="text-zinc-400">Fast Monsters</span>
-						{#if info()}
-							<span class="font-[var(--dorch-mono)] tracking-wide"
-								>{info()!.sv_fastmonsters ? 'on' : 'off'}</span
-							>
-						{:else}
-							<span class="skeleton inline-block h-4 w-12 rounded-md" aria-label="Loading fast monsters"></span>
-						{/if}
-					</div>
+				<div class="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 gap-y-2 text-sm text-zinc-200">
+					<span class="text-zinc-400">Cheats</span>
+					{#if info()}
+						<span
+							class={`inline-block h-2.5 w-2.5 rounded-full ring-2 ring-white/10 ${onOffDotClasses(
+								info()!.sv_cheats
+							)}`}
+							aria-hidden="true"
+						></span>
+						<span class="font-[var(--dorch-mono)] tracking-wide leading-none">{onOffText(info()!.sv_cheats)}</span>
+					{:else}
+						<span
+							class="col-span-2 skeleton inline-block h-4 w-16 rounded-md justify-self-end"
+							aria-label="Loading cheats"
+						></span>
+					{/if}
+
+					<span class="text-zinc-400">Monsters</span>
+					{#if info()}
+						<span
+							class={`inline-block h-2.5 w-2.5 rounded-full ring-2 ring-white/10 ${onOffDotClasses(
+								info()!.sv_monsters
+							)}`}
+							aria-hidden="true"
+						></span>
+						<span class="font-[var(--dorch-mono)] tracking-wide leading-none">{onOffText(info()!.sv_monsters)}</span>
+					{:else}
+						<span
+							class="col-span-2 skeleton inline-block h-4 w-16 rounded-md justify-self-end"
+							aria-label="Loading monsters"
+						></span>
+					{/if}
+
+					<span class="text-zinc-400">Fast Monsters</span>
+					{#if info()}
+						<span
+							class={`inline-block h-2.5 w-2.5 rounded-full ring-2 ring-white/10 ${onOffDotClasses(
+								info()!.sv_fastmonsters
+							)}`}
+							aria-hidden="true"
+						></span>
+						<span class="font-[var(--dorch-mono)] tracking-wide leading-none">{onOffText(info()!.sv_fastmonsters)}</span>
+					{:else}
+						<span
+							class="col-span-2 skeleton inline-block h-4 w-16 rounded-md justify-self-end"
+							aria-label="Loading fast monsters"
+						></span>
+					{/if}
 				</div>
 			</div>
 		</div>
