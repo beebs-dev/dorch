@@ -39,6 +39,8 @@
 	let Hls: HlsModule['default'] | null = null;
 	let hlsA: import('hls.js').default | null = null;
 	let hlsB: import('hls.js').default | null = null;
+	let rtcA: RTCPeerConnection | null = null;
+	let rtcB: RTCPeerConnection | null = null;
 
 	let switchTimer: number | null = null;
 	let currentIndex = -1;
@@ -117,10 +119,49 @@
 		else hlsA = instance;
 	}
 
+	function activeRtc(): RTCPeerConnection | null {
+		return activeSlot === 'a' ? rtcA : rtcB;
+	}
+
+	function standbyRtc(): RTCPeerConnection | null {
+		return activeSlot === 'a' ? rtcB : rtcA;
+	}
+
+	function setStandbyRtc(instance: RTCPeerConnection | null) {
+		if (activeSlot === 'a') rtcB = instance;
+		else rtcA = instance;
+	}
+
+	function destroyRtc(instance: RTCPeerConnection | null) {
+		if (!instance) return;
+		try {
+			instance.close();
+		} catch {
+			// ignore
+		}
+	}
+
+	function rtcSupported(): boolean {
+		return typeof (globalThis as any).RTCPeerConnection !== 'undefined';
+	}
+
+	function rtcApiUrl(): string {
+		return 'https://cdn.gib.gg/rtc/v1/play/';
+	}
+
+	function rtcStreamUrl(gameId: string): string {
+		return `webrtc://cdn.gib.gg/live/${encodeURIComponent(gameId)}`;
+	}
+
 	function stopAndResetVideo(video: HTMLVideoElement | null) {
 		if (!video) return;
 		try {
 			video.pause();
+		} catch {
+			// ignore
+		}
+		try {
+			video.srcObject = null;
 		} catch {
 			// ignore
 		}
@@ -147,27 +188,182 @@
 		Hls = mod.default;
 	}
 
-	async function attachStreamToVideo(
-		url: string,
+	async function attachRtcToVideo(
+		item: JumbotronItem,
 		video: HTMLVideoElement,
-		existing: import('hls.js').default | null
-	) {
+		existing: RTCPeerConnection | null,
+		opts?: { log?: boolean }
+	): Promise<{ ok: boolean; rtc: RTCPeerConnection | null }> {
+		destroyRtc(existing);
+		try {
+			video.srcObject = null;
+		} catch {
+			// ignore
+		}
+
+		const pc = new RTCPeerConnection();
+		const stream = new MediaStream();
+		pc.addTransceiver('video', { direction: 'recvonly' });
+		pc.addTransceiver('audio', { direction: 'recvonly' });
+		pc.ontrack = (evt) => {
+			// Prefer evt.streams if present; always also add evt.track.
+			for (const track of evt.streams?.[0]?.getTracks?.() ?? []) {
+				try {
+					stream.addTrack(track);
+				} catch {
+					// ignore
+				}
+			}
+			try {
+				stream.addTrack(evt.track);
+			} catch {
+				// ignore
+			}
+			try {
+				video.srcObject = stream;
+			} catch {
+				// ignore
+			}
+		};
+
+		try {
+			const offer = await pc.createOffer();
+			await pc.setLocalDescription(offer);
+
+			await new Promise<void>((resolve) => {
+				if (pc.iceGatheringState === 'complete') return resolve();
+				const onStateChange = () => {
+					if (pc.iceGatheringState === 'complete') {
+						pc.removeEventListener('icegatheringstatechange', onStateChange);
+						resolve();
+					}
+				};
+				pc.addEventListener('icegatheringstatechange', onStateChange);
+				setTimeout(() => {
+					pc.removeEventListener('icegatheringstatechange', onStateChange);
+					resolve();
+				}, 1500);
+			});
+
+			const offerSdp = pc.localDescription?.sdp;
+			if (!offerSdp) {
+				destroyRtc(pc);
+				return { ok: false, rtc: null };
+			}
+
+			const api = rtcApiUrl();
+			const streamurl = item.rtc ?? rtcStreamUrl(item.game_id);
+			const res = await fetch(api, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ api, streamurl, sdp: offerSdp })
+			});
+			if (!res.ok) {
+				destroyRtc(pc);
+				return { ok: false, rtc: null };
+			}
+
+			let json: any = null;
+			try {
+				json = await res.json();
+			} catch {
+				destroyRtc(pc);
+				return { ok: false, rtc: null };
+			}
+
+			const answerSdp: string | undefined =
+				(typeof json?.sdp === 'string' && json.sdp) ||
+				(typeof json?.data?.sdp === 'string' && json.data.sdp) ||
+				undefined;
+			if (!answerSdp) {
+				destroyRtc(pc);
+				return { ok: false, rtc: null };
+			}
+
+			await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+
+			// Try to start playback and give it a moment.
+			try {
+				await video.play();
+			} catch {
+				// ignore
+			}
+
+			const ok = await Promise.race([
+				new Promise<boolean>((resolve) => {
+					let settled = false;
+					const settle = (v: boolean) => {
+						if (settled) return;
+						settled = true;
+						cleanup();
+						resolve(v);
+					};
+					const onPlaying = () => settle(true);
+					const onError = () => settle(false);
+					const cleanup = () => {
+						video.removeEventListener('playing', onPlaying);
+						video.removeEventListener('error', onError);
+					};
+					video.addEventListener('playing', onPlaying);
+					video.addEventListener('error', onError);
+				}),
+				new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 3500))
+			]);
+
+			if (!ok) {
+				destroyRtc(pc);
+				return { ok: false, rtc: null };
+			}
+
+			if (opts?.log) console.info('[Jumbotron] using RTC');
+			return { ok: true, rtc: pc };
+		} catch {
+			destroyRtc(pc);
+			return { ok: false, rtc: null };
+		}
+	}
+
+	async function attachStreamToVideo(
+		item: JumbotronItem,
+		video: HTMLVideoElement,
+		existingHls: import('hls.js').default | null,
+		existingRtc: RTCPeerConnection | null,
+		opts?: { log?: boolean }
+	): Promise<{ hls: import('hls.js').default | null; rtc: RTCPeerConnection | null }> {
+		const hlsUrl = item.hls ?? item.url;
+		if (!hlsUrl) {
+			destroyHls(existingHls);
+			destroyRtc(existingRtc);
+			return { hls: null, rtc: null };
+		}
+
+		// Prefer RTC when supported.
+		if (rtcSupported()) {
+			const rtcRes = await attachRtcToVideo(item, video, existingRtc, opts);
+			if (rtcRes.ok && rtcRes.rtc) {
+				destroyHls(existingHls);
+				return { hls: null, rtc: rtcRes.rtc };
+			}
+		}
+
 		// Reset previous playback / attachment.
-		destroyHls(existing);
+		destroyRtc(existingRtc);
+		destroyHls(existingHls);
+		if (opts?.log) console.info('[Jumbotron] using HLS');
 
 		// Some browsers support native HLS playback (Safari). If so, keep it simple.
 		if (video.canPlayType('application/vnd.apple.mpegurl')) {
-			video.src = url;
-			return { hls: null as import('hls.js').default | null };
+			video.src = hlsUrl;
+			return { hls: null as import('hls.js').default | null, rtc: null };
 		}
 
 		await ensureHlsLoaded();
-		if (!Hls) return { hls: null };
+		if (!Hls) return { hls: null, rtc: null };
 
 		if (!Hls.isSupported()) {
 			// Last-ditch fallback.
-			video.src = url;
-			return { hls: null };
+			video.src = hlsUrl;
+			return { hls: null, rtc: null };
 		}
 
 		const hls = new Hls({
@@ -176,8 +372,8 @@
 			backBufferLength: 30
 		});
 		hls.attachMedia(video);
-		hls.loadSource(url);
-		return { hls };
+		hls.loadSource(hlsUrl);
+		return { hls, rtc: null };
 	}
 
 	async function waitForPreload(video: HTMLVideoElement, timeoutMs = 2500): Promise<void> {
@@ -204,16 +400,16 @@
 		if (!mounted) return false;
 		if (!item) return false;
 
-		const streamUrl = item.hls ?? item.url;
-		if (!streamUrl) return false;
-
 		const video = standbyVideo();
 		if (!video) return false;
 
 		stopAndResetVideo(video);
 
-		const { hls } = await attachStreamToVideo(streamUrl, video, standbyHls());
+		const { hls, rtc } = await attachStreamToVideo(item, video, standbyHls(), standbyRtc(), {
+			log: false
+		});
 		setStandbyHls(hls);
+		setStandbyRtc(rtc);
 
 		video.muted = true;
 		video.playsInline = true;
@@ -334,11 +530,16 @@
 		if (active && current) {
 			statusText = 'Loading stream…';
 			stopAndResetVideo(active);
-			const streamUrl = current.hls ?? current.url;
-			if (!streamUrl) return;
-			const { hls } = await attachStreamToVideo(streamUrl, active, activeHls());
-			if (activeSlot === 'a') hlsA = hls;
-			else hlsB = hls;
+			const { hls, rtc } = await attachStreamToVideo(current, active, activeHls(), activeRtc(), {
+				log: true
+			});
+			if (activeSlot === 'a') {
+				hlsA = hls;
+				rtcA = rtc;
+			} else {
+				hlsB = hls;
+				rtcB = rtc;
+			}
 
 			active.muted = true;
 			active.playsInline = true;
@@ -381,15 +582,21 @@
 		if (active && current) {
 			statusText = 'Loading stream…';
 			stopAndResetVideo(active);
-			const streamUrl = current.hls ?? current.url;
-			if (!streamUrl) return;
-			const { hls } = await attachStreamToVideo(streamUrl, active, activeHls());
+			const { hls, rtc } = await attachStreamToVideo(current, active, activeHls(), activeRtc(), {
+				log: true
+			});
 			if (seq !== switchSeq) {
 				destroyHls(hls);
+				destroyRtc(rtc);
 				return;
 			}
-			if (activeSlot === 'a') hlsA = hls;
-			else hlsB = hls;
+			if (activeSlot === 'a') {
+				hlsA = hls;
+				rtcA = rtc;
+			} else {
+				hlsB = hls;
+				rtcB = rtc;
+			}
 
 			active.muted = true;
 			active.playsInline = true;
@@ -423,6 +630,11 @@
 			destroyHls(hlsB);
 			hlsA = null;
 			hlsB = null;
+
+			destroyRtc(rtcA);
+			destroyRtc(rtcB);
+			rtcA = null;
+			rtcB = null;
 
 			stopAndResetVideo(videoA);
 			stopAndResetVideo(videoB);

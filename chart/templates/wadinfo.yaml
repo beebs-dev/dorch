@@ -63,6 +63,7 @@ spec:
 {{ include "dorch.metrics-env" . | indent 8 }}
 {{ include "dorch.postgres-env" . | indent 8 }}
 {{ include "dorch.redis-env" . | indent 8 }}
+{{ include "dorch.ratelimiter-env" . | indent 8 }}
 ---
 {{- if .Values.prometheus.enabled }}
 apiVersion: monitoring.coreos.com/v1
