@@ -17,9 +17,10 @@
 	const videoSrcHLS = $derived(
 		() => `https://cdn.gib.gg/live/${encodeURIComponent(data.gameId)}.m3u8`
 	);
-	const videoSrcRTC = $derived(
+	const videoSrcRTCStream = $derived(
 		() => `webrtc://cdn.gib.gg/live/${encodeURIComponent(data.gameId)}`
 	);
+	const videoSrcRTCApi = $derived(() => `https://cdn.gib.gg/rtc/v1/play/`);
 
 	let identity = $state(randomIdent());
 	let showGameId = $state(false);
@@ -110,6 +111,199 @@
 	let videoEl = $state<HTMLVideoElement | null>(null);
 	let hlsInstance: { destroy(): void } | null = null;
 	let hlsError = $state<string | null>(null);
+	let usingRtc = $state(false);
+	let rtcPc: RTCPeerConnection | null = null;
+
+	function rtcSupported(): boolean {
+		return typeof (globalThis as any).RTCPeerConnection !== 'undefined';
+	}
+
+	function destroyRtc() {
+		try {
+			rtcPc?.close();
+		} catch {
+			// ignore
+		} finally {
+			rtcPc = null;
+		}
+	}
+
+	function destroyHls() {
+		try {
+			hlsInstance?.destroy();
+		} finally {
+			hlsInstance = null;
+		}
+	}
+
+	async function tryPlayRtc(
+		el: HTMLVideoElement,
+		streamUrl: string,
+		apiUrl: string
+	): Promise<boolean> {
+		// SRS WebRTC play API: POST offer SDP + streamurl to `/rtc/v1/play/`, receive answer SDP.
+		usingRtc = false;
+		try {
+			el.srcObject = null;
+		} catch {
+			// ignore
+		}
+		el.removeAttribute('src');
+		destroyHls();
+		destroyRtc();
+		hlsError = null;
+
+		const pc = new RTCPeerConnection();
+		rtcPc = pc;
+
+		const stream = new MediaStream();
+		pc.addTransceiver('video', { direction: 'recvonly' });
+		pc.addTransceiver('audio', { direction: 'recvonly' });
+		pc.ontrack = (evt) => {
+			for (const track of evt.streams?.[0]?.getTracks?.() ?? []) {
+				try {
+					stream.addTrack(track);
+				} catch {
+					// ignore
+				}
+			}
+			// Some browsers do not populate evt.streams.
+			try {
+				stream.addTrack(evt.track);
+			} catch {
+				// ignore
+			}
+			try {
+				el.srcObject = stream;
+			} catch {
+				// ignore
+			}
+		};
+
+		const onPlaying = new Promise<boolean>((resolve) => {
+			let settled = false;
+			const settle = (ok: boolean) => {
+				if (settled) return;
+				settled = true;
+				cleanup();
+				resolve(ok);
+			};
+			const cleanup = () => {
+				el.removeEventListener('playing', handlePlaying);
+				el.removeEventListener('error', handleError);
+			};
+			const handlePlaying = () => settle(true);
+			const handleError = () => settle(false);
+			el.addEventListener('playing', handlePlaying);
+			el.addEventListener('error', handleError);
+		});
+
+		try {
+			const offer = await pc.createOffer();
+			await pc.setLocalDescription(offer);
+
+			// Wait for ICE gathering so the SDP includes candidates (SRS expects this).
+			await new Promise<void>((resolve) => {
+				if (pc.iceGatheringState === 'complete') return resolve();
+				const onStateChange = () => {
+					if (pc.iceGatheringState === 'complete') {
+						pc.removeEventListener('icegatheringstatechange', onStateChange);
+						resolve();
+					}
+				};
+				pc.addEventListener('icegatheringstatechange', onStateChange);
+				setTimeout(() => {
+					pc.removeEventListener('icegatheringstatechange', onStateChange);
+					resolve();
+				}, 1500);
+			});
+
+			const offerSdp = pc.localDescription?.sdp;
+			if (!offerSdp) return false;
+
+			const res = await fetch(apiUrl, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ api: apiUrl, streamurl: streamUrl, sdp: offerSdp })
+			});
+			if (!res.ok) return false;
+
+			let json: any = null;
+			try {
+				json = await res.json();
+			} catch {
+				return false;
+			}
+
+			const answerSdp: string | undefined =
+				(typeof json?.sdp === 'string' && json.sdp) ||
+				(typeof json?.data?.sdp === 'string' && json.data.sdp) ||
+				undefined;
+			if (!answerSdp) return false;
+
+			await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+
+			// Try to start playback (muted is already set on the element).
+			try {
+				await el.play();
+			} catch {
+				// ignore
+			}
+		} catch {
+			return false;
+		}
+
+		const timeoutMs = 4000;
+		const ok = await Promise.race([
+			onPlaying,
+			new Promise<boolean>((resolve) => setTimeout(() => resolve(false), timeoutMs))
+		]);
+
+		if (ok) {
+			usingRtc = true;
+			console.info('[LIVE VIEW] using RTC');
+			return true;
+		}
+
+		// Ensure we don't leak connections if we ended up falling back.
+		destroyRtc();
+		return ok;
+	}
+
+	async function setupHls(el: HTMLVideoElement, src: string, destroyedRef: () => boolean) {
+		usingRtc = false;
+		destroyHls();
+		destroyRtc();
+		hlsError = null;
+		console.info('[LIVE VIEW] using HLS');
+
+		// Native HLS support (Safari, iOS).
+		if (el.canPlayType('application/vnd.apple.mpegurl')) {
+			el.src = src;
+			return;
+		}
+
+		const mod = await import('hls.js');
+		const Hls = mod.default;
+		if (destroyedRef()) return;
+
+		if (!Hls.isSupported()) {
+			// Some browsers can still play HLS without canPlayType matching.
+			el.src = src;
+			return;
+		}
+
+		const hls = new Hls({ liveSyncDuration: 12, liveMaxLatencyDuration: 30 });
+		hlsInstance = hls;
+		hls.on(Hls.Events.ERROR, (_evt: unknown, data: any) => {
+			// Keep this very lightweight; the video can keep trying.
+			if (data?.fatal) {
+				hlsError = data?.details ? String(data.details) : 'HLS error';
+			}
+		});
+		hls.loadSource(src);
+		hls.attachMedia(el);
+	}
 
 	onMount(() => {
 		let destroyed = false;
@@ -117,43 +311,20 @@
 		(async () => {
 			if (!videoEl) return;
 
-			const src = videoSrcHLS();
-
-			// Native HLS support (Safari, iOS).
-			if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-				videoEl.src = src;
-				return;
+			// Prefer RTC if the browser has WebRTC APIs.
+			if (rtcSupported()) {
+				const ok = await tryPlayRtc(videoEl, videoSrcRTCStream(), videoSrcRTCApi());
+				if (destroyed) return;
+				if (ok) return;
 			}
 
-			const mod = await import('hls.js');
-			const Hls = mod.default;
-			if (destroyed) return;
-
-			if (!Hls.isSupported()) {
-				// Some browsers can still play HLS without canPlayType matching.
-				videoEl.src = src;
-				return;
-			}
-
-			const hls = new Hls({ liveSyncDuration: 12, liveMaxLatencyDuration: 30 });
-			hlsInstance = hls;
-			hls.on(Hls.Events.ERROR, (_evt: unknown, data: any) => {
-				// Keep this very lightweight; the video can keep trying.
-				if (data?.fatal) {
-					hlsError = data?.details ? String(data.details) : 'HLS error';
-				}
-			});
-			hls.loadSource(src);
-			hls.attachMedia(videoEl);
+			await setupHls(videoEl, videoSrcHLS(), () => destroyed);
 		})();
 
 		return () => {
 			destroyed = true;
-			try {
-				hlsInstance?.destroy();
-			} finally {
-				hlsInstance = null;
-			}
+			destroyHls();
+			destroyRtc();
 		};
 	});
 

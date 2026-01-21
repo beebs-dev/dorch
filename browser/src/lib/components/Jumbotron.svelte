@@ -4,8 +4,11 @@
 
 	type JumbotronItem = {
 		game_id: string;
-		hls: string;
-		rtc: string;
+		// Back-compat: some APIs provide a single HLS `url`.
+		// Newer callers can provide explicit `hls` / `rtc`.
+		hls?: string;
+		rtc?: string;
+		url?: string;
 		name?: string;
 		player_count?: number;
 		max_players?: number;
@@ -201,12 +204,15 @@
 		if (!mounted) return false;
 		if (!item) return false;
 
+		const streamUrl = item.hls ?? item.url;
+		if (!streamUrl) return false;
+
 		const video = standbyVideo();
 		if (!video) return false;
 
 		stopAndResetVideo(video);
 
-		const { hls } = await attachStreamToVideo(item.hls, video, standbyHls());
+		const { hls } = await attachStreamToVideo(streamUrl, video, standbyHls());
 		setStandbyHls(hls);
 
 		video.muted = true;
@@ -328,7 +334,9 @@
 		if (active && current) {
 			statusText = 'Loading stream…';
 			stopAndResetVideo(active);
-			const { hls } = await attachStreamToVideo(current.hls, active, activeHls());
+			const streamUrl = current.hls ?? current.url;
+			if (!streamUrl) return;
+			const { hls } = await attachStreamToVideo(streamUrl, active, activeHls());
 			if (activeSlot === 'a') hlsA = hls;
 			else hlsB = hls;
 
@@ -373,7 +381,9 @@
 		if (active && current) {
 			statusText = 'Loading stream…';
 			stopAndResetVideo(active);
-			const { hls } = await attachStreamToVideo(current.hls, active, activeHls());
+			const streamUrl = current.hls ?? current.url;
+			if (!streamUrl) return;
+			const { hls } = await attachStreamToVideo(streamUrl, active, activeHls());
 			if (seq !== switchSeq) {
 				destroyHls(hls);
 				return;
