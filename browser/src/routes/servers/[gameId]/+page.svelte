@@ -452,7 +452,7 @@
 						{#if status() === 'Active'}
 							<DorchPlayButton
 								href={joinUrl()}
-								label="J O I N"
+								label="JOIN"
 								ariaLabel="Join"
 								className="inline-flex rounded-xl px-8 py-4 text-xl"
 							/>
@@ -462,7 +462,11 @@
 								aria-label="Join (starting)"
 								title="Server is still starting"
 							>
+							{#if status() === 'Active'}
 								J O I N
+							{:else}
+								{statusText(status())}
+							{/if}
 							</div>
 						{/if}
 						<div
