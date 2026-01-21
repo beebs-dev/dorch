@@ -187,9 +187,9 @@
 				</li>
 				<li class="min-w-0" aria-current="page">
 					<h1 class="truncate text-2xl font-semibold tracking-tight text-zinc-100">
-						{mapDisplayTitle()}
+						{data.mapName}
 						{#if mapDisplayTitle() !== data.mapName}
-							<span class="ml-2 text-base font-normal text-zinc-500">({data.mapName})</span>
+							<span class="ml-2 text-base font-normal text-zinc-500">({mapDisplayTitle()})</span>
 						{/if}
 					</h1>
 				</li>

@@ -575,11 +575,11 @@
 														? 'bg-red-950/30 text-zinc-100 ring-red-900/60'
 														: 'bg-zinc-950 text-zinc-200 ring-red-950/40'
 												}`}
-												title={m.title && m.title !== m.map ? m.map : undefined}
+												title={m.title && m.title !== m.map ? m.title : undefined}
 											>
 												{#if m.title}
-													<span>{m.title}</span>
-													<span class="ml-1 text-[0.7rem] font-normal text-zinc-400">({m.map})</span>
+													<span>{m.map}</span>
+													<span class="ml-1 text-[0.7rem] font-normal text-zinc-400">({m.title})</span>
 												{:else}
 													{m.map}
 												{/if}

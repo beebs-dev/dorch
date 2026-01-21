@@ -429,7 +429,7 @@
 								)}`
 							)}
 							class="block h-full"
-							aria-label={`View ${randomScreenshot.mapTitle ? `${randomScreenshot.mapTitle} (${randomScreenshot.mapName})` : randomScreenshot.mapName} details`}
+							aria-label={`View ${randomScreenshot.mapTitle ? `${randomScreenshot.mapName} (${randomScreenshot.mapTitle})` : randomScreenshot.mapName} details`}
 						>
 							<img
 								src={randomScreenshot.image.url}
@@ -442,8 +442,8 @@
 							>
 								<div class="w-full bg-zinc-950/70 px-3 py-2 text-sm font-medium text-zinc-100">
 									{#if randomScreenshot.mapTitle}
-										{randomScreenshot.mapTitle}
-										<span class="ml-2 text-xs font-normal text-zinc-300">({randomScreenshot.mapName})</span>
+										{randomScreenshot.mapName}
+										<span class="ml-2 text-xs font-normal text-zinc-300">({randomScreenshot.mapTitle})</span>
 									{:else}
 										{randomScreenshot.mapName}
 									{/if}
@@ -643,11 +643,9 @@
 								<div class="min-w-0">
 									<div class="flex flex-wrap items-baseline justify-between gap-2">
 										<div class="truncate text-sm font-semibold text-zinc-100">
+											{m.map}
 											{#if mapDisplayTitle(m) !== m.map}
-												{mapDisplayTitle(m)}
-												<span class="ml-2 text-xs font-normal text-zinc-500">({m.map})</span>
-											{:else}
-												{m.map}
+												<span class="ml-2 text-xs font-normal text-zinc-500">({mapDisplayTitle(m)})</span>
 											{/if}
 										</div>
 									</div>
@@ -686,11 +684,9 @@
 										)}
 										class="hover:text-zinc-100 hover:underline"
 									>
+										{m.map}
 										{#if mapDisplayTitle(m) !== m.map}
-											{mapDisplayTitle(m)}
-											<span class="ml-2 text-xs font-normal text-zinc-500">({m.map})</span>
-										{:else}
-											{m.map}
+											<span class="ml-2 text-xs font-normal text-zinc-500">({mapDisplayTitle(m)})</span>
 										{/if}
 									</a>
 								</h2>
