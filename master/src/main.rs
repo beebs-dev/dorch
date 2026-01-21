@@ -1,14 +1,9 @@
-use std::sync::Arc;
-
 use crate::{app::App, args::Commands};
 use anyhow::{Context, Result};
 use async_nats::ConnectOptions;
 use clap::Parser;
 use dorch_auth::client::Client as AuthClient;
-use dorch_common::{
-    rate_limit::{RateLimiter, RateLimiterConfig, middleware::RateLimitLayer},
-    shutdown::shutdown_signal,
-};
+use dorch_common::{rate_limit::RateLimiter, shutdown::shutdown_signal};
 use kube::client::Client;
 use owo_colors::OwoColorize;
 use tokio_util::sync::CancellationToken;

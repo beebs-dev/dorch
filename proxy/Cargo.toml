@@ -22,6 +22,7 @@ nix = { workspace = true }
 bytes = { workspace = true }
 livekit = "0.7"
 livekit-api = "0.4"
+hex = "0.4.3"
 
 [features]
 default = ["metrics"]        # Enable metrics by default

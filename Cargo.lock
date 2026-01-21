@@ -1859,6 +1859,7 @@ dependencies = [
  "clap",
  "dorch-common",
  "dorch-types",
+ "hex",
  "livekit",
  "livekit-api",
  "nix",

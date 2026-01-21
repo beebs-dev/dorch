@@ -1,20 +1,15 @@
-use crate::{args, keycloak::Keycloak};
+use crate::keycloak::Keycloak;
 use anyhow::{Error, Result};
-use async_nats::ConnectOptions;
-use axum::Extension;
-use axum::RequestPartsExt;
-use axum::extract::FromRequestParts;
-use axum::http::request::Parts;
+use axum::{Extension, RequestPartsExt, extract::FromRequestParts, http::request::Parts};
 use axum_keycloak_auth::decode::KeycloakToken;
 use bytes::Bytes;
 use deadpool_redis::Pool;
-use dorch_common::args::KeycloakArgs;
-use dorch_common::args::RedisArgs;
-use dorch_common::redis::listen_for_work;
-use dorch_common::response;
-use owo_colors::OwoColorize;
+use dorch_common::{
+    args::{KeycloakArgs, RedisArgs},
+    redis::listen_for_work,
+    response,
+};
 use std::sync::Arc;
-use tokio::join;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;

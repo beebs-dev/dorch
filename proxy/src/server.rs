@@ -14,6 +14,13 @@ use livekit_api::access_token;
 use tokio::{net::UdpSocket, sync::mpsc};
 use tokio_util::sync::CancellationToken;
 
+const HUFFMAN_UNENCODED_MARKER: u8 = 0xFF;
+const CLC_QUIT: u8 = 4;
+
+pub fn build_clc_quit_datagram() -> [u8; 2] {
+    [HUFFMAN_UNENCODED_MARKER, CLC_QUIT]
+}
+
 fn udp_debug_enabled() -> bool {
     std::env::var_os("DORCH_UDP_DEBUG").is_some()
 }
@@ -46,6 +53,8 @@ struct PlayerSession {
     tx_to_udp: mpsc::Sender<Arc<Vec<u8>>>, // LK -> UDP
     tasks: Arc<Mutex<Option<PlayerSessionTasks>>>,
     created_at: Instant,
+    last_payload: Arc<Vec<u8>>,
+    sock: Arc<UdpSocket>,
 }
 
 /// Packets from UDP receivers back to the LK publisher
@@ -127,6 +136,8 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                         let pid = participant.identity().to_string();
                         eprintln!("participant disconnected: {pid}");
                         if let Some(sess) = sessions.remove(&pid) {
+                            println!("last payload: {}", hex::encode(sess.last_payload.as_slice()));
+                            sess.sock.send(&build_clc_quit_datagram()).await.ok();
                             sess.cancel.cancel();
                             let task = sess.tasks.lock().unwrap().take();
                             if let Some(tasks) = task {
@@ -159,16 +170,14 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                             args.game_port,
                             tx_udp_to_lk.clone(),
                         ).await.context("failed to ensure player session")?;
-
-                        sessions
-                            .get(&pid)
-                            .unwrap()
-                            .tx_to_udp
-                            .send(payload)
+                        let sess = sessions.get_mut(&pid).unwrap();
+                        sess.last_payload = payload.clone();
+                        sess.tx_to_udp.send(payload)
                             .await
                             .context("failed to send LK->UDP payload")?;
                     }
                     RoomEvent::Disconnected { reason } => {
+                        // print the last payload as hex for debugging
                         bail!("disconnected from room: reason={reason:?}");
                     }
                     _ => {}
@@ -219,6 +228,7 @@ async fn ensure_player_session(
     let receiver = tokio::spawn({
         let pid = player_id.to_string();
         let cancel = cancel.clone();
+        let sock = sock.clone();
         async move {
             let res = player_udp_receiver(cancel, sock, &pid, tx_udp_to_lk).await;
             println!(
@@ -235,6 +245,8 @@ async fn ensure_player_session(
             tx_to_udp,
             tasks: Arc::new(Mutex::new(Some(PlayerSessionTasks { sender, receiver }))),
             created_at: Instant::now(),
+            sock,
+            last_payload: Arc::new(Vec::new()),
         },
     );
     eprintln!(
