@@ -14,13 +14,6 @@ use livekit_api::access_token;
 use tokio::{net::UdpSocket, sync::mpsc};
 use tokio_util::sync::CancellationToken;
 
-const HUFFMAN_UNENCODED_MARKER: u8 = 0xFF;
-const CLC_QUIT: u8 = 4;
-
-pub fn build_clc_quit_datagram() -> [u8; 2] {
-    [HUFFMAN_UNENCODED_MARKER, CLC_QUIT]
-}
-
 fn udp_debug_enabled() -> bool {
     std::env::var_os("DORCH_UDP_DEBUG").is_some()
 }
@@ -136,14 +129,15 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                         let pid = participant.identity().to_string();
                         eprintln!("participant disconnected: {pid}");
                         if let Some(sess) = sessions.remove(&pid) {
-                            println!("last payload: {}", hex::encode(sess.last_payload.as_slice()));
-                            sess.sock.send(&build_clc_quit_datagram()).await.ok();
+                            println!("{pid} last payload: {}", hex::encode(sess.last_payload.as_slice()));
                             sess.cancel.cancel();
                             let task = sess.tasks.lock().unwrap().take();
                             if let Some(tasks) = task {
                                 let _ = tasks.sender.await;
                                 let _ = tasks.receiver.await;
                             }
+                            sess.sock.send_to(&[0x00, 0xd9], SocketAddr::from(([127, 0, 0, 1], args.game_port))).await.ok();
+                            println!("sent disconnect packet to game server for player {pid}");
                         }
                     }
                     RoomEvent::DataReceived { payload, topic, participant, .. } => {
