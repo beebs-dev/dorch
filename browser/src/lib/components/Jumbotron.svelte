@@ -4,7 +4,8 @@
 
 	type JumbotronItem = {
 		game_id: string;
-		url: string;
+		hls: string;
+		rtc: string;
 		name?: string;
 		player_count?: number;
 		max_players?: number;
@@ -205,7 +206,7 @@
 
 		stopAndResetVideo(video);
 
-		const { hls } = await attachStreamToVideo(item.url, video, standbyHls());
+		const { hls } = await attachStreamToVideo(item.hls, video, standbyHls());
 		setStandbyHls(hls);
 
 		video.muted = true;
@@ -327,7 +328,7 @@
 		if (active && current) {
 			statusText = 'Loading stream…';
 			stopAndResetVideo(active);
-			const { hls } = await attachStreamToVideo(current.url, active, activeHls());
+			const { hls } = await attachStreamToVideo(current.hls, active, activeHls());
 			if (activeSlot === 'a') hlsA = hls;
 			else hlsB = hls;
 
@@ -372,7 +373,7 @@
 		if (active && current) {
 			statusText = 'Loading stream…';
 			stopAndResetVideo(active);
-			const { hls } = await attachStreamToVideo(current.url, active, activeHls());
+			const { hls } = await attachStreamToVideo(current.hls, active, activeHls());
 			if (seq !== switchSeq) {
 				destroyHls(hls);
 				return;

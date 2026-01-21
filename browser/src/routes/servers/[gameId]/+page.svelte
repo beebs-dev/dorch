@@ -15,8 +15,7 @@
 
 	const pageTitle = $derived(() => `${info()?.name ?? data.gameId} - ɢɪʙ.ɢɢ`);
 	const videoSrc = $derived(
-		() =>
-			`https://gibstrim.nyc3.digitaloceanspaces.com/${encodeURIComponent(data.gameId)}/index.m3u8`
+		() => `https://cdn.gib.gg/live/${encodeURIComponent(data.gameId)}.m3u8`
 	);
 
 	let identity = $state(randomIdent());

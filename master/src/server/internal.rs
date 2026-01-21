@@ -386,10 +386,8 @@ pub async fn list_jumbotron_mc3u8_urls(State(state): State<App>) -> impl IntoRes
                 max_players: info.max_players,
                 monster_kill_count: info.monster_kill_count,
                 monster_total: info.monster_count,
-                url: format!(
-                    "https://gibstrim.nyc3.digitaloceanspaces.com/{}/index.m3u8",
-                    g.game_id
-                ),
+                hls: format!("https://cdn.gib.gg/live/{}.m3u8", g.game_id),
+                rtc: format!("webrtc://cdn.gib.gg/live/{}", g.game_id),
             })
         })
         .collect::<Result<Vec<JumbotronItem>>>()

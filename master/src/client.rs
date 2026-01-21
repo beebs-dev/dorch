@@ -80,7 +80,8 @@ pub struct GameSummary {
 #[derive(Serialize, Default, Clone)]
 pub struct JumbotronItem {
     pub game_id: Uuid,
-    pub url: String,
+    pub hls: String,
+    pub rtc: String,
     pub name: String,
     pub player_count: i32,
     pub max_players: i32,
