@@ -16,9 +16,10 @@ export const load: PageServerLoad = async ({ fetch, params, setHeaders, request 
 
 	const wadinfo = createWadinfoClient(fetch, { forwardedFor });
 	try {
-		const [map, images] = await Promise.all([
+		const [map, images, wad] = await Promise.all([
 			wadinfo.getWadMap(wadId, mapName),
-			wadinfo.listWadMapImages(wadId, mapName).catch(() => [])
+			wadinfo.listWadMapImages(wadId, mapName).catch(() => []),
+			wadinfo.getWad(wadId).catch(() => null)
 		]);
 
 		const merged = {
@@ -27,7 +28,13 @@ export const load: PageServerLoad = async ({ fetch, params, setHeaders, request 
 		};
 
 		setHeaders({ 'cache-control': 'private, max-age=0, s-maxage=30' });
-		return { wadId, mapName, map: merged };
+		return {
+			wadId,
+			mapName,
+			map: merged,
+			wadMapCount: wad?.maps?.length ?? null,
+			wadMetaTitle: wad?.meta?.title ?? null
+		};
 	} catch (e) {
 		const status = statusFromUnknown(e);
 		if (status !== null) throw error(status, 'Failed to fetch map');

@@ -7,7 +7,22 @@
 	let { data }: { data: PageData } = $props();
 
 	const wadTitle = $derived(() => wadLabel(data.map.wad_meta));
-	const mapDisplayTitle = $derived(() => (data.map.title?.length ?? 0) > 0 ? data.map.title : data.mapName);
+	function stripWadSuffix(title: string): string {
+		return title.trim().replace(/\.wad$/i, '').trim();
+	}
+
+	const mapDisplayTitle = $derived(() => {
+		const mapTitle = data.map.title?.trim();
+		if (mapTitle) return mapTitle;
+		if (data.wadMapCount === 1) {
+			const raw = data.wadMetaTitle ?? data.map.wad_meta?.title;
+			if (raw) {
+				const cleaned = stripWadSuffix(raw);
+				if (cleaned) return cleaned;
+			}
+		}
+		return data.mapName;
+	});
 	const pageTitle = $derived(
 		() => `${ellipsize(wadTitle(), 64)} // ${ellipsize(mapDisplayTitle(), 48)} - ɢɪʙ.ɢɢ`
 	);
@@ -172,11 +187,9 @@
 				</li>
 				<li class="min-w-0" aria-current="page">
 					<h1 class="truncate text-2xl font-semibold tracking-tight text-zinc-100">
-						{#if data.map.title}
-							{data.map.title}
+						{mapDisplayTitle()}
+						{#if mapDisplayTitle() !== data.mapName}
 							<span class="ml-2 text-base font-normal text-zinc-500">({data.mapName})</span>
-						{:else}
-							{data.mapName}
 						{/if}
 					</h1>
 				</li>

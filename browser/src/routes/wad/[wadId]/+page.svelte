@@ -57,6 +57,21 @@
 
 	const hasMaps = $derived(() => data.wad.maps.length > 0);
 
+	function normalizedSingleMapWadTitle(): string | null {
+		if (data.wad.maps.length !== 1) return null;
+		const raw = data.wad.meta.title;
+		if (!raw) return null;
+		const trimmed = raw.trim();
+		if (!trimmed) return null;
+		const noSuffix = trimmed.replace(/\.wad$/i, '');
+		return noSuffix.trim() || null;
+	}
+
+	function mapDisplayTitle(m: PageData['wad']['maps'][number]): string {
+		if (m.title && m.title.trim().length > 0) return m.title;
+		return normalizedSingleMapWadTitle() ?? m.map;
+	}
+
 	type ScreenshotPick = { mapName: string; mapTitle?: string | null; image: WadImage };
 
 	const allScreenshotPicks = $derived(() => {
@@ -65,7 +80,8 @@
 			for (const img of m.images ?? []) {
 				if (!img?.url) continue;
 				if (isPano(img)) continue;
-				picks.push({ mapName: m.map, mapTitle: m.title ?? null, image: img });
+				const title = mapDisplayTitle(m);
+				picks.push({ mapName: m.map, mapTitle: title !== m.map ? title : null, image: img });
 			}
 		}
 		return picks;
@@ -627,8 +643,8 @@
 								<div class="min-w-0">
 									<div class="flex flex-wrap items-baseline justify-between gap-2">
 										<div class="truncate text-sm font-semibold text-zinc-100">
-											{#if m.title}
-												{m.title}
+											{#if mapDisplayTitle(m) !== m.map}
+												{mapDisplayTitle(m)}
 												<span class="ml-2 text-xs font-normal text-zinc-500">({m.map})</span>
 											{:else}
 												{m.map}
@@ -670,15 +686,17 @@
 										)}
 										class="hover:text-zinc-100 hover:underline"
 									>
-										{#if m.title}
-											{m.title}
+										{#if mapDisplayTitle(m) !== m.map}
+											{mapDisplayTitle(m)}
 											<span class="ml-2 text-xs font-normal text-zinc-500">({m.map})</span>
 										{:else}
 											{m.map}
 										{/if}
 									</a>
 								</h2>
-								<div class="text-xs text-zinc-500">{m.map}</div>
+								{#if mapDisplayTitle(m) === m.map}
+									<div class="text-xs text-zinc-500">{m.map}</div>
+								{/if}
 							</div>
 							<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 								{#each m.images ?? [] as img (img.id ?? img.url)}

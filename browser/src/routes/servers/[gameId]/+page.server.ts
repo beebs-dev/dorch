@@ -12,6 +12,10 @@ type WadWithMaps = {
 	maps: Array<{ map: string; title?: string | null }>;
 };
 
+function stripWadSuffix(title: string): string {
+	return title.trim().replace(/\.wad$/i, '').trim();
+}
+
 function statusFromUnknown(e: unknown): number | null {
 	if (!e || typeof e !== 'object') return null;
 	const status = (e as Record<string, unknown>).status;
@@ -51,10 +55,19 @@ export const load: PageServerLoad = async ({ fetch, params, setHeaders, request 
 		wadIds.map(async (wadId) => {
 			try {
 				const wad = await wadinfo.getWad(wadId);
+				const singleMapFallbackTitle = wad.maps?.length === 1 && wad.meta?.title ? stripWadSuffix(wad.meta.title) : '';
 				return {
 					id: wadId,
 					meta: wad.meta,
-					maps: (wad.maps ?? []).filter((m) => Boolean(m.map)).map((m) => ({ map: m.map, title: m.title }))
+					maps: (wad.maps ?? [])
+						.filter((m) => Boolean(m.map))
+						.map((m) => ({
+							map: m.map,
+							title:
+								m.title && m.title.trim().length > 0
+									? m.title
+									: singleMapFallbackTitle || undefined
+						}))
 				};
 			} catch {
 				return { id: wadId, meta: null, maps: [] };
