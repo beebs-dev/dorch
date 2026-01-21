@@ -172,6 +172,12 @@ pub async fn update_game_info(
         push_string(
             &mut set_args,
             &mut del_args,
+            "map_title",
+            zandronum.map_title,
+        );
+        push_string(
+            &mut set_args,
+            &mut del_args,
             "current_map",
             zandronum.current_map,
         );

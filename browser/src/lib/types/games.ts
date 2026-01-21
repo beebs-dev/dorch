@@ -6,6 +6,7 @@ export type WadReference = {
 };
 
 export type GameInfo = {
+	map_title?: string | null;
 	game_id: Uuid;
 	private: boolean;
 	name: string;

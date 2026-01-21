@@ -9,6 +9,8 @@ pub struct GameInfo {
     pub player_count: i32,
     pub skill: i32,
     pub current_map: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub map_title: Option<String>,
     #[serde(default)]
     pub server_started_at: Option<i64>,
     #[serde(default)]
@@ -47,6 +49,8 @@ pub enum Settable<T> {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ZandronumGameInfoUpdate {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub map_title: Option<Settable<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_players: Option<Settable<i32>>,
     #[serde(skip_serializing_if = "Option::is_none")]

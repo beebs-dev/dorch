@@ -165,6 +165,8 @@ impl GameInfoStore {
             .cloned()
             .context("Missing 'current_map' in game info hash")?;
 
+        let map_title = hash.get("map_title").cloned();
+
         let server_started_at = parse_opt_i64(&hash, "server_started_at")?;
         let map_started_at = parse_opt_i64(&hash, "map_started_at")?;
         let max_players: i32 = hash
@@ -224,6 +226,7 @@ impl GameInfoStore {
             player_count,
             skill,
             current_map,
+            map_title,
             server_started_at,
             map_started_at,
             monster_kill_count,
