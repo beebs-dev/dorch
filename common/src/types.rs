@@ -540,6 +540,8 @@ pub mod wad {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct MapStat {
         pub map: String,
+        #[serde(default)]
+        pub title: String,
         pub format: String, // "doom" | "hexen" | "unknown"
         pub stats: MapStats,
         pub monsters: MonstersSummary,
