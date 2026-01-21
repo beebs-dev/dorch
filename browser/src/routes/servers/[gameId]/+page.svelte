@@ -14,8 +14,11 @@
 	const currentMapWadId = $derived(() => data.currentMapWadId);
 
 	const pageTitle = $derived(() => `${info()?.name ?? data.gameId} - ɢɪʙ.ɢɢ`);
-	const videoSrc = $derived(
+	const videoSrcHLS = $derived(
 		() => `https://cdn.gib.gg/live/${encodeURIComponent(data.gameId)}.m3u8`
+	);
+	const videoSrcRTC = $derived(
+		() => `webrtc://cdn.gib.gg/live/${encodeURIComponent(data.gameId)}`
 	);
 
 	let identity = $state(randomIdent());
@@ -114,7 +117,7 @@
 		(async () => {
 			if (!videoEl) return;
 
-			const src = videoSrc();
+			const src = videoSrcHLS();
 
 			// Native HLS support (Safari, iOS).
 			if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
