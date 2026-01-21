@@ -46,7 +46,6 @@ struct PlayerSession {
     tx_to_udp: mpsc::Sender<Arc<Vec<u8>>>, // LK -> UDP
     tasks: Arc<Mutex<Option<PlayerSessionTasks>>>,
     created_at: Instant,
-    last_payload: Arc<Vec<u8>>,
     sock: Arc<UdpSocket>,
 }
 
@@ -127,9 +126,8 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                     }
                     RoomEvent::ParticipantDisconnected(participant) => {
                         let pid = participant.identity().to_string();
-                        eprintln!("participant disconnected: {pid}");
+                        eprintln!("⛓️‍💥 participant disconnected: {pid}");
                         if let Some(sess) = sessions.remove(&pid) {
-                            println!("{pid} last payload: {}", hex::encode(sess.last_payload.as_slice()));
                             sess.cancel.cancel();
                             let task = sess.tasks.lock().unwrap().take();
                             if let Some(tasks) = task {
@@ -137,7 +135,6 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                                 let _ = tasks.receiver.await;
                             }
                             sess.sock.send_to(&[0x00, 0xd9], SocketAddr::from(([127, 0, 0, 1], args.game_port))).await.ok();
-                            println!("sent disconnect packet to game server for player {pid}");
                         }
                     }
                     RoomEvent::DataReceived { payload, topic, participant, .. } => {
@@ -165,7 +162,6 @@ pub async fn run(args: ServerArgs) -> Result<()> {
                             tx_udp_to_lk.clone(),
                         ).await.context("failed to ensure player session")?;
                         let sess = sessions.get_mut(&pid).unwrap();
-                        sess.last_payload = payload.clone();
                         sess.tx_to_udp.send(payload)
                             .await
                             .context("failed to send LK->UDP payload")?;
@@ -213,7 +209,7 @@ async fn ensure_player_session(
         async move {
             let res = player_udp_sender(cancel.clone(), sock.clone(), game_addr, rx_to_udp).await;
             println!(
-                "UDP sender for player {} exiting (udp_local={}): {:?}",
+                "⛔ UDP sender for player {} exiting (udp_local={}): {:?}",
                 pid, local_addr, res
             );
             res
@@ -226,7 +222,7 @@ async fn ensure_player_session(
         async move {
             let res = player_udp_receiver(cancel, sock, &pid, tx_udp_to_lk).await;
             println!(
-                "UDP receiver for player {} exiting (udp_local={}): {:?}",
+                "⛔ UDP receiver for player {} exiting (udp_local={}): {:?}",
                 pid, local_addr, res
             );
             res.context("player UDP receiver failed")
@@ -240,7 +236,6 @@ async fn ensure_player_session(
             tasks: Arc::new(Mutex::new(Some(PlayerSessionTasks { sender, receiver }))),
             created_at: Instant::now(),
             sock,
-            last_payload: Arc::new(Vec::new()),
         },
     );
     eprintln!(
