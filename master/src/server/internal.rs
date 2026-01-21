@@ -568,8 +568,14 @@ pub async fn list_games(State(state): State<App>) -> impl IntoResponse {
 }
 
 fn game_to_summary(g: dorch_types::Game, info: Option<GameInfo>) -> Result<GameSummary> {
+    let status = g
+        .status
+        .as_ref()
+        .map(|s| s.phase.to_string())
+        .unwrap_or_else(|| dorch_types::GamePhase::Pending.to_string());
     Ok(GameSummary {
         game_id: Uuid::parse_str(&g.spec.game_id).context("Invalid game ID")?,
+        status,
         iwad: Uuid::parse_str(&g.spec.iwad).context("Invalid IWAD ID")?,
         files: g
             .spec
@@ -590,6 +596,13 @@ fn game_to_summary(g: dorch_types::Game, info: Option<GameInfo>) -> Result<GameS
             .transpose()
             .context("Invalid creator user ID")?
             .unwrap_or_else(Uuid::nil),
+        spec: crate::client::GameSpecSummary {
+            name: g.spec.name.clone(),
+            max_players: g.spec.max_players,
+            skill: g.spec.skill,
+            warp: g.spec.warp.clone(),
+            private: g.spec.private.unwrap_or(false),
+        },
         info,
     })
 }

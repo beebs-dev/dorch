@@ -1,21 +1,2 @@
-modify the wadinfo dispatch subcommands to be this struction:
-
-`wadinfo dispatch-images` becomes `wadinfo dispatch images`
-`wadinfo dispatch-analysis` becomes `wadinfo dispatch analysis`
-
-Then implement an http server for both that listens on port 80
-
-Both servers have these endpoints:
-
-POST /images/clear
-- deletes all rows from the wad_dispatch_images tables
-
-POST /images/prune
-- scans an S3 bucket for folders to create a list of wad IDs that have images
-- deletes any rows from the wad_dispatch_images table that doesn't have a corresponding folder in the bucket
-
-Do the same for analysis dispatch. So, POST /analysis/clear deletes all rows in wad_dispatch_analysis, and so on.
-
-Include PostgresArgs in the cli args and connect directly to postgres for this.
-Include --bucket, --s3-region, and --s3-endpoint in the cli args.
-Accept AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY via env vars only.
+when a game server is being created, the Game k8s resource will exist but the info will not be populated in redis. Currently, this makes `master` return 404.
+I want the master to return partial information constructed from the Game resource, with an addition "status" field that mirrors the Game's `status.phase`. Then I want the front end (browser/) to show an intermediate state for the server, with subtle animated loading indicators in the place of any data that is unavailable. Include the `Status: ${status}` with a little colored indicator in the first card for the server details, next to the server name, skill, etc.

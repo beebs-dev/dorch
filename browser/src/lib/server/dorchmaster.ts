@@ -1,5 +1,5 @@
 import { env } from '$env/dynamic/private';
-import type { ListGamesResponse } from '$lib/types/games';
+import type { GameSummary, ListGamesResponse } from '$lib/types/games';
 
 export type JumbotronItem = {
 	game_id: string;
@@ -77,6 +77,14 @@ export function createDorchMasterClient(fetchFn: typeof fetch, opts?: { forwarde
 	return {
 		async listGames(): Promise<ListGamesResponse> {
 			return requestJson<ListGamesResponse>(fetchFn, '/game', undefined, { forwardedFor });
+		},
+		async getGame(gameId: string): Promise<GameSummary> {
+			return requestJson<GameSummary>(
+				fetchFn,
+				`/game/${encodeURIComponent(gameId)}`,
+				undefined,
+				{ forwardedFor }
+			);
 		},
 		async getJumbotron(): Promise<JumbotronResponse> {
 			// dorch-master returns: { items: [{ game_id, url }, ...] }

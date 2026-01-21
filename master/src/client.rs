@@ -66,6 +66,11 @@ pub struct SearchGamesRequest {
 pub struct GameSummary {
     pub game_id: Uuid,
 
+    /// Mirrors the Kubernetes Game resource's `status.phase`.
+    ///
+    /// Examples: "Pending", "Starting", "Active", "Terminating", "Error".
+    pub status: String,
+
     pub iwad: Uuid,
 
     #[serde(default, skip_serializing_if = "Uuid::is_nil")]
@@ -74,7 +79,27 @@ pub struct GameSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub files: Option<Vec<Uuid>>,
 
+    /// A partial view of the Game resource's spec. Useful while the server is still
+    /// provisioning and Redis game info has not yet been populated.
+    pub spec: GameSpecSummary,
+
     pub info: Option<GameInfo>,
+}
+
+#[derive(Serialize, Default, Clone)]
+pub struct GameSpecSummary {
+    pub name: String,
+
+    pub max_players: i32,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skill: Option<i32>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warp: Option<String>,
+
+    #[serde(default)]
+    pub private: bool,
 }
 
 #[derive(Serialize, Default, Clone)]

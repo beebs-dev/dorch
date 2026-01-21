@@ -42,8 +42,16 @@ export type GameInfo = {
 
 export type GameSummary = {
 	game_id: Uuid;
+	status: string;
 	iwad: Uuid;
 	files?: Uuid[] | null;
+	spec: {
+		name: string;
+		max_players: number;
+		skill?: number | null;
+		warp?: string | null;
+		private: boolean;
+	};
 	info?: GameInfo | null;
 };
 

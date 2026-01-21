@@ -9,11 +9,13 @@
 	let { data }: { data: PageData } = $props();
 
 	const game = $derived(() => data.game);
+	const spec = $derived(() => data.game.spec);
+	const status = $derived(() => data.game.status);
 	const info = $derived(() => data.game.info);
 	const currentMap = $derived(() => data.currentMap);
 	const currentMapWadId = $derived(() => data.currentMapWadId);
 
-	const pageTitle = $derived(() => `${info()?.name ?? data.gameId} - ɢɪʙ.ɢɢ`);
+	const pageTitle = $derived(() => `${info()?.name ?? spec().name ?? data.gameId} - ɢɪʙ.ɢɢ`);
 	const videoSrcHLS = $derived(
 		() => `https://cdn.gib.gg/live/${encodeURIComponent(data.gameId)}.m3u8`
 	);
@@ -106,6 +108,27 @@
 			default:
 				return 'text-zinc-400';
 		}
+	}
+
+	function statusDotColor(phase: string | undefined): string {
+		switch (phase) {
+			case 'Active':
+				return '#34d399'; // emerald-400
+			case 'Starting':
+				return '#fbbf24'; // amber-400
+			case 'Pending':
+				return '#60a5fa'; // blue-400
+			case 'Terminating':
+				return '#fb7185'; // rose-400
+			case 'Error':
+				return '#f87171'; // red-400
+			default:
+				return '#a1a1aa'; // zinc-400
+		}
+	}
+
+	function statusText(phase: string | undefined): string {
+		return phase && phase.length ? phase : 'Unknown';
 	}
 
 	let videoEl = $state<HTMLVideoElement | null>(null);
@@ -363,7 +386,7 @@
 					</li>
 					<li class="min-w-0" aria-current="page">
 						<h1 class="truncate text-2xl font-semibold tracking-tight text-zinc-100">
-							{info()?.name ?? 'Game'}
+							{info()?.name ?? spec().name ?? 'Game'}
 						</h1>
 					</li>
 				</ol>
@@ -386,10 +409,23 @@
 				<div class="flex items-start justify-between gap-4">
 					<div class="min-w-0">
 						<div class="mt-1 truncate text-lg font-semibold text-zinc-100">
-							{info()?.name ?? '(unknown)'}
+							{info()?.name ?? spec().name ?? '(unknown)'}
 						</div>
-						<div class="mt-1 text-sm {difficultyColor(info()?.skill)}">
-							{difficultyLabel(info()?.skill)}
+						<div class="mt-1 text-sm {difficultyColor(info()?.skill ?? spec().skill ?? undefined)}">
+							{#if info() || spec().skill != null}
+								{difficultyLabel(info()?.skill ?? spec().skill ?? undefined)}
+							{:else}
+								<span class="skeleton inline-block h-4 w-44 rounded-md align-middle" aria-label="Loading difficulty"></span>
+							{/if}
+						</div>
+						<div class="mt-2 flex items-center gap-2 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">
+							<span
+								class="inline-block h-2.5 w-2.5 rounded-full ring-2 ring-white/10"
+								style={`background-color: ${statusDotColor(status())}`}
+								aria-label="Status"
+								title={`Status: ${statusText(status())}`}
+							></span>
+							<span>Status: {statusText(status())}</span>
 						</div>
 						<div class="mt-2 flex flex-wrap items-center gap-2 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">
 							<span>GAME ID:</span>
@@ -413,12 +449,22 @@
 						</div>
 					</div>
 					<div class="shrink-0">
-						<DorchPlayButton
-							href={joinUrl()}
-							label="J O I N"
-							ariaLabel="Join"
-							className="inline-flex rounded-xl px-8 py-4 text-xl"
-						/>
+						{#if status() === 'Active'}
+							<DorchPlayButton
+								href={joinUrl()}
+								label="J O I N"
+								ariaLabel="Join"
+								className="inline-flex rounded-xl px-8 py-4 text-xl"
+							/>
+						{:else}
+							<div
+								class="inline-flex cursor-not-allowed items-center justify-center rounded-xl px-8 py-4 text-xl text-zinc-300 ring-1 ring-red-950/60 ring-inset bg-zinc-900/50"
+								aria-label="Join (starting)"
+								title="Server is still starting"
+							>
+								J O I N
+							</div>
+						{/if}
 						<div
 							class="mt-2 text-center text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-500"
 						>
@@ -431,7 +477,11 @@
 					<div class="rounded-lg bg-zinc-900/40 p-3 ring-1 ring-red-950/40 ring-inset">
 						<div class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">PLAYERS</div>
 						<div class="mt-1 text-lg font-[var(--dorch-mono)] tracking-wide text-zinc-100">
-							{info()?.player_count ?? 0}/{info()?.max_players ?? 0}
+							{#if info()}
+								{info()!.player_count}/{info()!.max_players}
+							{:else}
+								<span class="skeleton inline-block h-5 w-24 rounded-md align-middle" aria-label="Loading player counts"></span>
+							{/if}
 						</div>
 					</div>
 					<div class="rounded-lg bg-zinc-900/40 p-3 ring-1 ring-red-950/40 ring-inset">
@@ -440,7 +490,7 @@
 							{#if info()}
 								{info()!.monster_kill_count}/{info()!.monster_count}
 							{:else}
-								—
+								<span class="skeleton inline-block h-5 w-24 rounded-md align-middle" aria-label="Loading kill counts"></span>
 							{/if}
 						</div>
 					</div>
@@ -471,7 +521,11 @@
 								</div>
 							{/if}
 						{:else}
-							<div class="text-sm text-zinc-400">Unknown</div>
+							{#if info()}
+								<div class="text-sm text-zinc-400">Unknown</div>
+							{:else}
+								<span class="skeleton inline-block h-5 w-28 rounded-md" aria-label="Loading current map"></span>
+							{/if}
 						{/if}
 					</div>
 				</div>
@@ -577,24 +631,65 @@
 				<div class="mt-3 grid grid-cols-1 gap-2 text-sm text-zinc-200">
 					<div class="flex items-center justify-between gap-3">
 						<span class="text-zinc-400">Cheats</span>
-						<span class="font-[var(--dorch-mono)] tracking-wide"
-							>{info()?.sv_cheats ? 'on' : 'off'}</span
-						>
+						{#if info()}
+							<span class="font-[var(--dorch-mono)] tracking-wide"
+								>{info()!.sv_cheats ? 'on' : 'off'}</span
+							>
+						{:else}
+							<span class="skeleton inline-block h-4 w-12 rounded-md" aria-label="Loading cheats"></span>
+						{/if}
 					</div>
 					<div class="flex items-center justify-between gap-3">
 						<span class="text-zinc-400">Monsters</span>
-						<span class="font-[var(--dorch-mono)] tracking-wide"
-							>{info()?.sv_monsters ? 'on' : 'off'}</span
-						>
+						{#if info()}
+							<span class="font-[var(--dorch-mono)] tracking-wide"
+								>{info()!.sv_monsters ? 'on' : 'off'}</span
+							>
+						{:else}
+							<span class="skeleton inline-block h-4 w-12 rounded-md" aria-label="Loading monsters"></span>
+						{/if}
 					</div>
 					<div class="flex items-center justify-between gap-3">
 						<span class="text-zinc-400">Fast Monsters</span>
-						<span class="font-[var(--dorch-mono)] tracking-wide"
-							>{info()?.sv_fastmonsters ? 'on' : 'off'}</span
-						>
+						{#if info()}
+							<span class="font-[var(--dorch-mono)] tracking-wide"
+								>{info()!.sv_fastmonsters ? 'on' : 'off'}</span
+							>
+						{:else}
+							<span class="skeleton inline-block h-4 w-12 rounded-md" aria-label="Loading fast monsters"></span>
+						{/if}
 					</div>
 				</div>
 			</div>
 		</div>
 	</div>
 </section>
+
+<style>
+	.skeleton {
+		background: linear-gradient(
+			90deg,
+			rgba(63, 63, 70, 0.25) 0%,
+			rgba(63, 63, 70, 0.5) 40%,
+			rgba(63, 63, 70, 0.25) 80%
+		);
+		background-size: 200% 100%;
+		animation: dorch-skeleton 1.25s ease-in-out infinite;
+	}
+
+	@keyframes dorch-skeleton {
+		0% {
+			background-position: 200% 0;
+		}
+		100% {
+			background-position: -200% 0;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.skeleton {
+			animation: none;
+			background-position: 0 0;
+		}
+	}
+</style>

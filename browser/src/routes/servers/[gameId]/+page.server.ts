@@ -38,16 +38,13 @@ export const load: PageServerLoad = async ({ fetch, params, setHeaders, request 
 
 	let game: GameSummary | null = null;
 	try {
-		const resp = await dorch.listGames();
-		game = (resp.games ?? []).find((g) => g.game_id === gameId) ?? null;
+		game = await dorch.getGame(gameId);
 	} catch (e) {
 		const status = statusFromUnknown(e);
-		throw error(status ?? 502, 'Failed to fetch game list');
+		throw error(status ?? 502, 'Failed to fetch game');
 	}
 
-	if (!game) {
-		throw error(404, 'Game not found');
-	}
+	if (!game) throw error(404, 'Game not found');
 
 	const wadIds = uniquePreserveOrder([game.iwad, ...(game.files ?? [])]);
 	const wads: WadWithMaps[] = await Promise.all(
