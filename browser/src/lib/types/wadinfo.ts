@@ -102,6 +102,7 @@ export interface MapStat {
 	map: string;
 	format?: string;
 	stats?: MapStats;
+	title?: string | null;
 	monsters?: MapMonsters;
 	items?: MapItems;
 	mechanics?: MapMechanics;
