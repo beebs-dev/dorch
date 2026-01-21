@@ -173,7 +173,7 @@
 										{#if row.thumbnailUrl}
 											<img
 												src={row.thumbnailUrl}
-												alt={row.game.info?.current_map ?? 'Map'}
+												alt={row.game.info?.map_title ?? row.game.info?.current_map ?? 'Map'}
 												class="h-10 w-16 shrink-0 rounded-md object-cover ring-1 ring-red-950/60 ring-inset"
 												loading="lazy"
 											/>
@@ -184,7 +184,7 @@
 										{/if}
 										<div class="min-w-0">
 											<div class="truncate text-sm font-semibold text-zinc-100">
-												{row.game.info?.current_map ?? 'UNKNOWN'}
+												{row.game.info?.map_title ?? row.game.info?.current_map ?? 'UNKNOWN'}
 											</div>
 											<div class="truncate text-xs text-zinc-400">
 												{#if row.game.files?.length}
