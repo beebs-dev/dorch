@@ -249,7 +249,7 @@ screenshot:
 archiver:
   image: thavlik/dorch-archiver:latest
   imagePullPolicy: Always
-  replicas: 8
+  replicas: 0
   logLevel: debug
   init:
     image: thavlik/dorch-archiver-init:latest
