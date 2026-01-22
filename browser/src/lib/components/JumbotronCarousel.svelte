@@ -426,10 +426,7 @@
 	}
 </script>
 
-<div class="jc-root overflow-hidden rounded-2xl bg-zinc-950 ring-1 ring-red-950/60 ring-inset">
-	<div
-		class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(244,63,94,0.18),transparent_55%),radial-gradient(circle_at_80%_65%,rgba(168,85,247,0.18),transparent_55%),linear-gradient(to_bottom,rgba(0,0,0,0.0),rgba(0,0,0,0.35))]"
-	></div>
+<div class="jc-root">
 
 	{#if !items.length}
 		<div class="jc-empty grid place-items-center">
@@ -547,11 +544,12 @@
 	.jc-root {
 		position: relative;
 		isolation: isolate;
+		overflow: visible;
 		/* Card sizing (active vs inactive) */
-		--jc-active-w: min(860px, 78vw);
+		--jc-active-w: min(860px, 40vw);
 		--jc-active-h: calc(var(--jc-active-w) * 9 / 16);
-		--jc-inactive-w: calc(var(--jc-active-w) * 0.7);
-		--jc-inactive-h: calc(var(--jc-active-h) * 0.7);
+		--jc-inactive-w: calc(var(--jc-active-w) * 0.75);
+		--jc-inactive-h: calc(var(--jc-active-h) * 0.75);
 		min-height: clamp(220px, 26vw, 360px);
 	}
 
@@ -565,6 +563,7 @@
 		/* IMPORTANT: stage must be tall enough for the active card, or everything gets clipped */
 		height: clamp(220px, var(--jc-active-h), 520px);
 		width: 100%;
+		overflow: visible;
 	}
 
 	.jc-card {
@@ -583,6 +582,7 @@
 		border-radius: 16px;
 		overflow: hidden;
 		background: rgba(0, 0, 0, 0.25);
+        border: 1px solid rgba(255, 255, 255, 0.06);
 		box-shadow:
 			0 25px 70px rgba(0, 0, 0, 0.55),
 			0 0 0 1px rgba(255, 255, 255, 0.08) inset;
