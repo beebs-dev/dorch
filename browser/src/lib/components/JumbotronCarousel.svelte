@@ -55,12 +55,22 @@
 
 	function rotate(delta: -1 | 1) {
 		if (items.length < 2) return;
+		lastMoveDir = delta;
 		activeIndex = wrapIndex(activeIndex + delta, items.length);
 	}
 
 	function setActiveByOffset(offset: number) {
 		if (!items.length) return;
+		if (offset === 0) return;
+		lastMoveDir = (offset > 0 ? 1 : -1) as -1 | 1;
 		activeIndex = wrapIndex(activeIndex + offset, items.length);
+	}
+
+	$: if (mounted) {
+		if (activeIndex !== prevActiveIndex) {
+			prevActiveIndex = activeIndex;
+			void syncRendered(lastMoveDir);
+		}
 	}
 
 	function visibleOffsets(n: number): number[] {
@@ -71,28 +81,106 @@
 	}
 
 	let offsets: number[] = [];
-	let visible: Array<{ offset: number; index: number; item: JumbotronItem; active: boolean }> = [];
+
+	type RenderPhase = 'normal' | 'enter' | 'exit';
+	type RenderedCard = {
+		key: string;
+		item: JumbotronItem;
+		offset: number;
+		active: boolean;
+		phase: RenderPhase;
+		extraXPercent: number;
+		opacity: number;
+	};
+
+	let rendered: RenderedCard[] = [];
+	let lastMoveDir: -1 | 1 = 1;
+	let prevActiveIndex = 0;
+	let renderSeq = 0;
+	const CARD_TWEEN_MS = 620;
 
 	$: offsets = visibleOffsets(visibleCount);
-	$: visible = offsets
-		.map((offset: number) => {
-			const index = items.length ? wrapIndex(activeIndex + offset, items.length) : 0;
-			const item = items[index];
-			return {
-				offset,
-				index,
-				item,
-				active: offset === 0
-			};
-		})
-		.filter(
-			(x: {
-				offset: number;
-				index: number;
-				item: JumbotronItem | undefined;
-				active: boolean;
-			}): x is { offset: number; index: number; item: JumbotronItem; active: boolean } => Boolean(x.item)
+
+	function desiredVisibleCards(): Array<{ key: string; item: JumbotronItem; offset: number; active: boolean }> {
+		if (!items.length) return [];
+		return offsets
+			.map((offset: number) => {
+				const index = wrapIndex(activeIndex + offset, items.length);
+				const item = items[index];
+				return item
+					? {
+							key: item.game_id,
+							item,
+							offset,
+							active: offset === 0
+						}
+					: null;
+			})
+			.filter((x): x is { key: string; item: JumbotronItem; offset: number; active: boolean } => Boolean(x));
+	}
+
+	async function syncRendered(dir: -1 | 1) {
+		const seq = ++renderSeq;
+		const desired = desiredVisibleCards();
+		const desiredByKey = new Map(desired.map((d) => [d.key, d]));
+		const nextRendered: RenderedCard[] = [];
+
+		for (const card of rendered) {
+			if (card.phase === 'exit') {
+				nextRendered.push(card);
+				continue;
+			}
+
+			const d = desiredByKey.get(card.key);
+			if (d) {
+				nextRendered.push({
+					...card,
+					item: d.item,
+					offset: d.offset,
+					active: d.active,
+					phase: 'normal',
+					extraXPercent: 0,
+					opacity: 1
+				});
+			} else {
+				nextRendered.push({
+					...card,
+					active: false,
+					phase: 'exit',
+					extraXPercent: dir === 1 ? -160 : 160,
+					opacity: 0
+				});
+			}
+		}
+
+		const existingKeys = new Set(nextRendered.map((c) => c.key));
+		for (const d of desired) {
+			if (existingKeys.has(d.key)) continue;
+			nextRendered.push({
+				key: d.key,
+				item: d.item,
+				offset: d.offset,
+				active: d.active,
+				phase: 'enter',
+				extraXPercent: dir === 1 ? 160 : -160,
+				opacity: 0
+			});
+		}
+
+		rendered = nextRendered;
+		await tick();
+		if (seq !== renderSeq) return;
+
+		rendered = rendered.map((c) =>
+			c.phase === 'enter' ? { ...c, phase: 'normal', extraXPercent: 0, opacity: 1 } : c
 		);
+
+		const cleanupSeq = seq;
+		setTimeout(() => {
+			if (cleanupSeq !== renderSeq) return;
+			rendered = rendered.filter((c) => c.phase !== 'exit');
+		}, CARD_TWEEN_MS + 40);
+	}
 
 	function registerVideo(node: HTMLVideoElement, params: { gameId: string }) {
 		videoEls.set(params.gameId, node);
@@ -396,6 +484,16 @@
 		mounted = true;
 		// Start on the first item (if any).
 		activeIndex = wrapIndex(activeIndex, items.length);
+		prevActiveIndex = activeIndex;
+		rendered = desiredVisibleCards().map((d) => ({
+			key: d.key,
+			item: d.item,
+			offset: d.offset,
+			active: d.active,
+			phase: 'normal',
+			extraXPercent: 0,
+			opacity: 1
+		}));
 		void activateStream(activeItem);
 		return () => {
 			mounted = false;
@@ -413,16 +511,17 @@
 		videoEls.clear();
 	});
 
-	function itemStyle(offset: number) {
+	function itemStyle(card: RenderedCard) {
+		const offset = card.offset;
 		const abs = Math.abs(offset);
 		// Translate in element-width percentages so it stays responsive.
 		// Since inactive cards are physically smaller, bump the offset step a bit so they still "peek"
 		// from behind the active card.
 		const step = 88; // percent of element width
 		const x = offset * step;
-		const z = 30 - abs;
+		const z = card.active ? 40 : 30 - abs;
 		const dim = offset === 0 ? 1 : 0.72;
-		return `--x:${x}%; --z:${z}; --dim:${dim};`;
+		return `--x:${x}%; --extra-x:${card.extraXPercent}%; --o:${card.opacity}; --z:${z}; --dim:${dim};`;
 	}
 </script>
 
@@ -436,17 +535,22 @@
 		</div>
 	{:else}
 		<div class="jc-stage" aria-roledescription="carousel">
-			{#each visible as v (v.item.game_id)}
+			{#each rendered as v (v.key)}
 				<a
 					href={resolve(`/servers/${encodeURIComponent(v.item.game_id)}`)}
 					class="jc-card"
 					data-active={v.active ? 'true' : 'false'}
+					data-phase={v.phase}
 					data-ready={v.active && activeReady ? 'true' : 'false'}
-					style={itemStyle(v.offset)}
+					style={itemStyle(v)}
 					aria-label={v.active
 						? `Open server ${v.item.name ?? v.item.game_id}`
 						: `Select stream ${v.item.name ?? v.item.game_id}`}
 					onclick={(e) => {
+						if (v.phase === 'exit') {
+							e.preventDefault();
+							return;
+						}
 						if (!v.active) {
 							e.preventDefault();
 							setActiveByOffset(v.offset);
@@ -572,11 +676,14 @@
 		left: 50%;
 		top: 50%;
 		--x: 0%;
+		--extra-x: 0%;
+		--o: 1;
 		--z: 1;
 		--dim: 1;
-		transform: translate(-50%, -50%) translateX(var(--x, 0%));
+		transform: translate(-50%, -50%) translateX(var(--x, 0%)) translateX(var(--extra-x, 0%));
 		transform-origin: center;
 		z-index: var(--z);
+		opacity: var(--o, 1);
 		/* Inactive thumbnails are 30% smaller than the active item. */
 		width: var(--jc-inactive-w);
 		height: var(--jc-inactive-h);
@@ -589,6 +696,7 @@
 			0 0 0 1px rgba(255, 255, 255, 0.08) inset;
 		transition:
 			transform 620ms cubic-bezier(0.4, 0, 0.2, 1),
+			opacity 620ms cubic-bezier(0.4, 0, 0.2, 1),
 			width 620ms cubic-bezier(0.4, 0, 0.2, 1),
 			height 620ms cubic-bezier(0.4, 0, 0.2, 1),
 			filter 620ms cubic-bezier(0.4, 0, 0.2, 1),
@@ -597,6 +705,10 @@
 		will-change: transform, width, height, filter;
 		cursor: pointer;
 		filter: brightness(var(--dim));
+	}
+
+	.jc-card[data-phase='exit'] {
+		pointer-events: none;
 	}
 
 	.jc-card[data-active='true'] {
