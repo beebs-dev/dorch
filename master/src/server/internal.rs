@@ -16,7 +16,7 @@ use axum::{
 };
 use bytes::Bytes;
 use dorch_common::{
-    access_log, annotations,
+    access_log, annotations, cli,
     rate_limit::{RateLimiter, middleware::RateLimitLayer},
     response,
     types::{GameInfo, GameInfoUpdate, Settable},
@@ -413,8 +413,8 @@ pub async fn list_jumbotron_mc3u8_urls(State(state): State<App>) -> impl IntoRes
     (StatusCode::OK, Json(resp)).into_response()
 }
 
-async fn count_games(state: &App, creator_id: Uuid) -> Result<(usize, usize)> {
-    let list = Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
+async fn count_games(api: &Api<Game>, creator_id: Uuid) -> Result<(usize, usize)> {
+    let list = api
         .list(&Default::default())
         .await
         .context("Failed to list games for counting")?;
@@ -489,10 +489,15 @@ fn game_resource(game_id: Uuid, req: NewGameRequest, namespace: String) -> Game 
     game
 }
 
-pub async fn ensure_capacity(state: &App, creator_id: Uuid) -> Option<impl IntoResponse> {
-    match count_games(&state, creator_id).await {
+pub async fn ensure_capacity(
+    api: &Api<Game>,
+    creator_id: Uuid,
+    max_servers: Option<usize>,
+    max_servers_per_user: Option<usize>,
+) -> Option<impl IntoResponse> {
+    match count_games(api, creator_id).await {
         Ok((count, user_count)) => {
-            if let Some(max) = state.max_servers
+            if let Some(max) = max_servers
                 && count >= max
             {
                 return Some(response::too_many_requests(anyhow!(
@@ -500,7 +505,7 @@ pub async fn ensure_capacity(state: &App, creator_id: Uuid) -> Option<impl IntoR
                     max
                 )));
             }
-            if let Some(max) = state.max_servers_per_user
+            if let Some(max) = max_servers_per_user
                 && user_count >= max
             {
                 return Some(response::too_many_requests(anyhow!(
@@ -521,13 +526,19 @@ pub async fn new_game(
     Path(game_id): Path<Uuid>,
     Json(req): Json<NewGameRequest>,
 ) -> impl IntoResponse {
-    if let Some(resp) = ensure_capacity(&state, req.creator_id).await {
+    let api = Api::<Game>::namespaced(state.client.clone(), &state.namespace);
+    if let Some(resp) = ensure_capacity(
+        &api,
+        req.creator_id,
+        state.max_servers,
+        state.max_servers_per_user,
+    )
+    .await
+    {
         return resp.into_response();
     }
-    let exists = match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
-        .get(&game_resource_name(game_id))
-        .await
-    {
+    let resource_name = game_resource_name(game_id);
+    match api.get(&resource_name).await {
         Ok(game) => {
             if game
                 .annotations()
@@ -539,9 +550,42 @@ pub async fn new_game(
                     game_id
                 ));
             }
-            true
+            let desired = game_resource(game_id, req, state.namespace.clone());
+            if let Err(e) = api
+                .patch(
+                    &resource_name,
+                    &PatchParams::apply("dorch-master"),
+                    &Patch::Apply(&desired),
+                )
+                .await
+            {
+                return response::error(anyhow!(
+                    "Failed to create or update game {}: {:?}",
+                    game_id,
+                    e
+                ));
+            }
+            println!(
+                "{}{}{}{}",
+                "✅ Updated game • game_id=".green(),
+                game_id.green().dimmed(),
+                " • name=".green(),
+                desired.spec.name.green().dimmed()
+            );
         }
-        Err(kube::Error::Api(ae)) if ae.code == 404 => false,
+        Err(kube::Error::Api(ae)) if ae.code == 404 => {
+            let desired = game_resource(game_id, req, state.namespace.clone());
+            if let Err(e) = api.create(&Default::default(), &desired).await {
+                return response::error(anyhow!("Failed to create new game {}: {:?}", game_id, e));
+            }
+            println!(
+                "{}{}{}{}",
+                "✅ Created new game • game_id=".green(),
+                game_id.green().dimmed(),
+                " • name=".green(),
+                desired.spec.name.green().dimmed()
+            );
+        }
         Err(e) => {
             return response::error(anyhow!(
                 "Failed to check existing game {}: {:?}",
@@ -550,41 +594,6 @@ pub async fn new_game(
             ));
         }
     };
-    let game = game_resource(game_id, req, state.namespace.clone());
-    let game = match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
-        .patch(
-            game.metadata.name.as_deref().unwrap(),
-            &PatchParams::apply("dorch-master"),
-            &Patch::Apply(&game),
-        )
-        .await
-    {
-        Ok(g) => g,
-        Err(e) => {
-            return response::error(anyhow!(
-                "Failed to create or update game {}: {:?}",
-                game_id,
-                e
-            ));
-        }
-    };
-    if exists {
-        println!(
-            "{}{}{}{}",
-            "✅ Updated game • game_id=".green(),
-            game_id.green().dimmed(),
-            " • name=".green(),
-            game.spec.name.green().dimmed()
-        );
-    } else {
-        println!(
-            "{}{}{}{}",
-            "✅ Created new game • game_id=".green(),
-            game_id.green().dimmed(),
-            " • name=".green(),
-            game.spec.name.green().dimmed()
-        );
-    }
     (StatusCode::OK, Json(NewGameResponse { game_id })).into_response()
 }
 
