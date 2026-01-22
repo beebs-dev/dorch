@@ -199,6 +199,7 @@ master:
     limits:
       memory: "64Mi"
   maxServers: 5
+  maxServersPerUser: 1
 
 auth:
   image: thavlik/dorch-auth:latest

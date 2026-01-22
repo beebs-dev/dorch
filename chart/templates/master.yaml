@@ -99,6 +99,8 @@ spec:
           value: {{ join "," .Values.cors.accessControlAllowOrigins }}
         - name: MAX_SERVERS
           value: "{{ .Values.master.maxServers }}"
+        - name: MAX_SERVERS_PER_USER
+          value: "{{ .Values.master.maxServersPerUser }}"
 {{ include "dorch.keycloak-env" . | indent 8 }}
 {{ include "dorch.metrics-env" . | indent 8 }}
 {{ include "dorch.nats-env" . | indent 8 }}
