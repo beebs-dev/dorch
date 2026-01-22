@@ -46,6 +46,8 @@ async fn run_servers(args: args::ServerArgs) -> Result<()> {
         store,
         auth,
         args.game_resource_prefix,
+        args.max_servers,
+        args.max_servers_per_user,
     );
     tokio::spawn({
         let cancel = cancel.clone();

@@ -227,8 +227,8 @@ def download_wad_archive(tmp_dir: str, out_dir: str):
 
 
 def download_zips(out_dir: str):
-    start_range = int(os.getenv("START_RANGE", "0"))
-    end_range = int(os.getenv("END_RANGE", "255"))
+    start_range = 0x51 #int(os.getenv("START_RANGE", "0"))
+    end_range = 0xff #int(os.getenv("END_RANGE", "255"))
     print(
         f"Processing WAD archive from {start_range:02x} through {end_range:02x}")
     lock_dir_path = os.path.join(out_dir, "lock")

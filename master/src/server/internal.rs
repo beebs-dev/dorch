@@ -21,10 +21,13 @@ use dorch_common::{
     response,
     types::{GameInfo, GameInfoUpdate, Settable},
 };
-use dorch_types::{Game, GamePhase};
-use kube::{Api, api::ObjectMeta};
+use dorch_types::{Game, GamePhase, GameSpec};
+use kube::{
+    Api, ResourceExt,
+    api::{ObjectMeta, Patch, PatchParams},
+};
 use owo_colors::OwoColorize;
-use std::{net::SocketAddr, time::Instant};
+use std::{collections::BTreeMap, net::SocketAddr, time::Instant};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -39,8 +42,11 @@ pub async fn run_server(
         .route("/readyz", get(health));
     let router = Router::new()
         .route("/jumbotron", get(list_jumbotron_mc3u8_urls))
-        .route("/game", get(list_games).post(new_game))
-        .route("/game/{game_id}", get(get_game).delete(delete_game))
+        .route("/game", get(list_games))
+        .route(
+            "/game/{game_id}",
+            get(get_game).delete(delete_game).post(new_game),
+        )
         .route("/game/{game_id}/info", post(update_game_info))
         .route(
             "/game/{game_id}/liveshot",
@@ -407,17 +413,54 @@ pub async fn list_jumbotron_mc3u8_urls(State(state): State<App>) -> impl IntoRes
     (StatusCode::OK, Json(resp)).into_response()
 }
 
-pub async fn new_game(
-    State(state): State<App>,
-    Json(req): Json<NewGameRequest>,
-) -> impl IntoResponse {
-    let game_id = Uuid::new_v4();
+async fn count_games(state: &App, creator_id: Uuid) -> Result<(usize, usize)> {
+    let list = Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
+        .list(&Default::default())
+        .await
+        .context("Failed to list games for counting")?;
+    let count = list
+        .items
+        .iter()
+        .filter(|game| {
+            game.status
+                .as_ref()
+                .map(|p| p.phase == GamePhase::Active)
+                .unwrap_or(false)
+        })
+        .count();
+    let user_count = list
+        .items
+        .iter()
+        .filter(|game| {
+            game.status
+                .as_ref()
+                .map(|p| p.phase == GamePhase::Active)
+                .unwrap_or(false)
+                && game
+                    .metadata
+                    .annotations
+                    .as_ref()
+                    .and_then(|anns| anns.get(annotations::CREATED_BY_USER))
+                    .map(|s| s.parse::<Uuid>().ok())
+                    .flatten()
+                    .unwrap_or_else(Uuid::nil)
+                    == creator_id
+        })
+        .count();
+    Ok((count, user_count))
+}
+
+fn game_resource_name(game_id: Uuid) -> String {
+    format!("game-{}", game_id)
+}
+
+fn game_resource(game_id: Uuid, req: NewGameRequest, namespace: String) -> Game {
     let game_id_str = game_id.to_string();
-    let game = dorch_types::Game {
+    let game = Game {
         metadata: ObjectMeta {
-            name: Some(format!("game-{}", game_id_str)),
-            namespace: Some(state.namespace.clone()),
-            annotations: Some(std::collections::BTreeMap::from([
+            name: Some(game_resource_name(game_id)),
+            namespace: Some(namespace),
+            annotations: Some(BTreeMap::from([
                 (
                     annotations::CREATED_BY.to_string(),
                     "dorch-master".to_string(),
@@ -430,7 +473,8 @@ pub async fn new_game(
             ])),
             ..Default::default()
         },
-        spec: dorch_types::GameSpec {
+        spec: GameSpec {
+            name: req.name,
             game_id: game_id_str,
             files: req.files,
             private: Some(req.private),
@@ -442,17 +486,103 @@ pub async fn new_game(
         },
         ..Default::default()
     };
-    if let Err(e) = Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
-        .create(&Default::default(), &game)
+    game
+}
+
+pub async fn ensure_capacity(state: &App, creator_id: Uuid) -> Option<impl IntoResponse> {
+    match count_games(&state, creator_id).await {
+        Ok((count, user_count)) => {
+            if let Some(max) = state.max_servers
+                && count >= max
+            {
+                return Some(response::too_many_requests(anyhow!(
+                    "Maximum number of active game servers reached ({})",
+                    max
+                )));
+            }
+            if let Some(max) = state.max_servers_per_user
+                && user_count >= max
+            {
+                return Some(response::too_many_requests(anyhow!(
+                    "User is already at the maximum number of active game servers ({})",
+                    max
+                )));
+            }
+            None
+        }
+        Err(e) => {
+            return Some(response::error(e.context("Failed to count active games")));
+        }
+    }
+}
+
+pub async fn new_game(
+    State(state): State<App>,
+    Path(game_id): Path<Uuid>,
+    Json(req): Json<NewGameRequest>,
+) -> impl IntoResponse {
+    if let Some(resp) = ensure_capacity(&state, req.creator_id).await {
+        return resp.into_response();
+    }
+    let exists = match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
+        .get(&game_resource_name(game_id))
         .await
     {
-        return response::error(anyhow!("Failed to create game: {:?}", e));
+        Ok(game) => {
+            if let Some(creator_id) = game.annotations().get(annotations::CREATED_BY_USER)
+                && creator_id != &req.creator_id.to_string()
+            {
+                return response::forbidden(anyhow!(
+                    "Game with ID {} already exists and was created by a different user",
+                    game_id
+                ));
+            }
+            true
+        }
+        Err(kube::Error::Api(ae)) if ae.code == 404 => false,
+        Err(e) => {
+            return response::error(anyhow!(
+                "Failed to check existing game {}: {:?}",
+                game_id,
+                e
+            ));
+        }
+    };
+    let game = game_resource(game_id, req, state.namespace.clone());
+    let game = match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
+        .patch(
+            game.metadata.name.as_deref().unwrap(),
+            &PatchParams::apply("dorch-operator"),
+            &Patch::Apply(&game),
+        )
+        .await
+    {
+        Ok(g) => g,
+        Err(e) => {
+            return response::error(anyhow!(
+                "Failed to create or update game {}: {:?}",
+                game_id,
+                e
+            ));
+        }
+    };
+    if exists {
+        println!(
+            "{}{}{}{}",
+            "✅ Updated game • game_id=".green(),
+            game_id.green().dimmed(),
+            " • name=".green(),
+            game.spec.name.green().dimmed()
+        );
+    } else {
+        println!(
+            "{}{}{}{}",
+            "✅ Created new game • game_id=".green(),
+            game_id.green().dimmed(),
+            " • name=".green(),
+            game.spec.name.green().dimmed()
+        );
     }
-    println!(
-        "{} {}",
-        "✅ Created new game with ID".green(),
-        format!("{}", game_id).green().dimmed()
-    );
     (StatusCode::OK, Json(NewGameResponse { game_id })).into_response()
 }
 
@@ -639,7 +769,7 @@ pub async fn delete_game(State(state): State<App>, Path(game_id): Path<Uuid>) ->
 
 pub async fn get_game_internal(state: App, game_id: Uuid) -> Result<Option<GameSummary>> {
     let game = match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
-        .get(format!("{}-{}", state.game_resource_prefix, game_id).as_str())
+        .get(&game_resource_name(game_id))
         .await
     {
         Ok(game) => game,

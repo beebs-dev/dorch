@@ -54,8 +54,7 @@ pub async fn run_server(
         .expected_audiences(vec![kc.client_id])
         .build();
     let protected_router = Router::new()
-        .route("/game", post(new_game))
-        .route("/game/{game_id}", delete(delete_game))
+        .route("/game/{game_id}", delete(delete_game).post(new_game))
         .route("/game/{game_id}/join", post(join_game))
         .with_state(app_state.clone())
         .layer(keycloak_layer)
@@ -122,11 +121,12 @@ pub async fn list_games(State(state): State<App>) -> impl IntoResponse {
 
 pub async fn new_game(
     State(state): State<App>,
+    Path(game_id): Path<Uuid>,
     UserId(user_id): UserId,
     Json(mut req): Json<NewGameRequest>,
 ) -> impl IntoResponse {
     req.creator_id = user_id;
-    internal::new_game(State(state), Json(req)).await
+    internal::new_game(State(state), Path(game_id), Json(req)).await
 }
 
 pub async fn join_game(

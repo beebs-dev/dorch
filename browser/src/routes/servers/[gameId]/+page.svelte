@@ -484,7 +484,7 @@
 							aria-label="Status"
 							title={`STATUS: ${statusText(status())}`}
 						></span>
-						<span>{statusText(status())}</span>
+						<span class="font-[var(--dorch-mono)] text-zinc-200">{statusText(status())}</span>
 					</div>
 					<div class="flex items-center gap-2">
 						<span>GAME ID:</span>

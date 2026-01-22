@@ -274,6 +274,13 @@ pub mod response {
         err_resp(e, StatusCode::TOO_MANY_REQUESTS)
     }
 
+    pub fn conflict<T>(e: T) -> Response
+    where
+        T: Into<Error> + Display + Debug,
+    {
+        err_resp(e, StatusCode::CONFLICT)
+    }
+
     pub fn error<T>(e: T) -> Response
     where
         T: Into<Error> + Display + Debug,

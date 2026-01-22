@@ -43,4 +43,11 @@ pub struct ServerArgs {
     /// For example, if the prefix is "game", a game with ID "1234" will correspond to a Kubernetes resource named "game-1234".
     #[arg(long, env = "GAME_RESOURCE_PREFIX", default_value = "game")]
     pub game_resource_prefix: String,
+
+    /// If set, globally limit the number of active game servers.
+    #[arg(long, env = "MAX_SERVERS")]
+    pub max_servers: Option<usize>,
+
+    #[arg(long, env = "MAX_SERVERS_PER_USER")]
+    pub max_servers_per_user: Option<usize>,
 }

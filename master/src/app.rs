@@ -12,6 +12,8 @@ pub struct AppInner {
     pub store: GameInfoStore,
     pub auth: AuthClient,
     pub game_resource_prefix: String,
+    pub max_servers: Option<usize>,
+    pub max_servers_per_user: Option<usize>,
 }
 
 #[derive(Clone)]
@@ -36,6 +38,8 @@ impl App {
         store: GameInfoStore,
         auth: AuthClient,
         game_resource_prefix: String,
+        max_servers: Option<usize>,
+        max_servers_per_user: Option<usize>,
     ) -> Self {
         Self {
             inner: Arc::new(AppInner {
@@ -46,6 +50,8 @@ impl App {
                 store,
                 auth,
                 game_resource_prefix,
+                max_servers,
+                max_servers_per_user,
             }),
         }
     }
