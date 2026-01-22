@@ -29,6 +29,7 @@
 	let activeItem: JumbotronItem | null = null;
 	let activeGameId: string | null = null;
 	let activeReady = false;
+	let animating = false;
 
 	// Active stream attachment (only one stream attached at a time).
 	type HlsModule = typeof import('hls.js');
@@ -36,7 +37,7 @@
 	let hls: import('hls.js').default | null = null;
 	let rtc: RTCPeerConnection | null = null;
 
-	const videoEls = new Map<string, HTMLVideoElement>();
+	let activeVideoEl: HTMLVideoElement | null = null;
 
 	function wrapIndex(index: number, len: number): number {
 		if (len <= 0) return 0;
@@ -48,30 +49,21 @@
 	$: activeGameId = activeItem?.game_id ?? null;
 	$: if (mounted) {
 		// Whenever we switch active items, show the thumbnail until the stream is actually playing.
-		// (Depend on activeGameId so this re-runs when the active slide changes.)
-		if (activeGameId) activeReady = false;
-		else activeReady = false;
+		activeIndex;
+		activeReady = false;
 	}
 
 	function rotate(delta: -1 | 1) {
-		if (items.length < 2) return;
-		lastMoveDir = delta;
-		activeIndex = wrapIndex(activeIndex + delta, items.length);
+		void rotateSteps(delta, 1);
 	}
 
 	function setActiveByOffset(offset: number) {
-		if (!items.length) return;
 		if (offset === 0) return;
-		lastMoveDir = (offset > 0 ? 1 : -1) as -1 | 1;
-		activeIndex = wrapIndex(activeIndex + offset, items.length);
+		const dir = (offset > 0 ? 1 : -1) as -1 | 1;
+		void rotateSteps(dir, Math.min(Math.abs(offset), 6));
 	}
 
-	$: if (mounted) {
-		if (activeIndex !== prevActiveIndex) {
-			prevActiveIndex = activeIndex;
-			void syncRendered(lastMoveDir);
-		}
-	}
+
 
 	function visibleOffsets(n: number): number[] {
 		const clamped = Math.max(0, Math.floor(n));
@@ -81,11 +73,12 @@
 	}
 
 	let offsets: number[] = [];
+	$: offsets = visibleOffsets(visibleCount);
 
 	type RenderPhase = 'normal' | 'enter' | 'exit';
 	type RenderedCard = {
-		key: string;
-		item: JumbotronItem;
+		id: number;
+		itemIndex: number;
 		offset: number;
 		active: boolean;
 		phase: RenderPhase;
@@ -94,103 +87,96 @@
 	};
 
 	let rendered: RenderedCard[] = [];
-	let lastMoveDir: -1 | 1 = 1;
-	let prevActiveIndex = 0;
-	let renderSeq = 0;
+	let instanceSeq = 0;
 	const CARD_TWEEN_MS = 620;
 
-	$: offsets = visibleOffsets(visibleCount);
-
-	function desiredVisibleCards(): Array<{ key: string; item: JumbotronItem; offset: number; active: boolean }> {
+	function buildInitialRendered(): RenderedCard[] {
 		if (!items.length) return [];
-		return offsets
-			.map((offset: number) => {
-				const index = wrapIndex(activeIndex + offset, items.length);
-				const item = items[index];
-				return item
-					? {
-							key: item.game_id,
-							item,
-							offset,
-							active: offset === 0
-						}
-					: null;
-			})
-			.filter((x): x is { key: string; item: JumbotronItem; offset: number; active: boolean } => Boolean(x));
-	}
-
-	async function syncRendered(dir: -1 | 1) {
-		const seq = ++renderSeq;
-		const desired = desiredVisibleCards();
-		const desiredByKey = new Map(desired.map((d) => [d.key, d]));
-		const nextRendered: RenderedCard[] = [];
-
-		for (const card of rendered) {
-			if (card.phase === 'exit') {
-				nextRendered.push(card);
-				continue;
-			}
-
-			const d = desiredByKey.get(card.key);
-			if (d) {
-				nextRendered.push({
-					...card,
-					item: d.item,
-					offset: d.offset,
-					active: d.active,
-					phase: 'normal',
-					extraXPercent: 0,
-					opacity: 1
-				});
-			} else {
-				nextRendered.push({
-					...card,
-					active: false,
-					phase: 'exit',
-					extraXPercent: dir === 1 ? -160 : 160,
-					opacity: 0
-				});
-			}
-		}
-
-		const existingKeys = new Set(nextRendered.map((c) => c.key));
-		for (const d of desired) {
-			if (existingKeys.has(d.key)) continue;
-			nextRendered.push({
-				key: d.key,
-				item: d.item,
-				offset: d.offset,
-				active: d.active,
-				phase: 'enter',
-				extraXPercent: dir === 1 ? 160 : -160,
-				opacity: 0
+		const out: RenderedCard[] = [];
+		for (const offset of offsets) {
+			const itemIndex = wrapIndex(activeIndex + offset, items.length);
+			out.push({
+				id: ++instanceSeq,
+				itemIndex,
+				offset,
+				active: offset === 0,
+				phase: 'normal',
+				extraXPercent: 0,
+				opacity: 1
 			});
 		}
-
-		rendered = nextRendered;
-		await tick();
-		if (seq !== renderSeq) return;
-
-		rendered = rendered.map((c) =>
-			c.phase === 'enter' ? { ...c, phase: 'normal', extraXPercent: 0, opacity: 1 } : c
-		);
-
-		const cleanupSeq = seq;
-		setTimeout(() => {
-			if (cleanupSeq !== renderSeq) return;
-			rendered = rendered.filter((c) => c.phase !== 'exit');
-		}, CARD_TWEEN_MS + 40);
+		return out;
 	}
 
-	function registerVideo(node: HTMLVideoElement, params: { gameId: string }) {
-		videoEls.set(params.gameId, node);
-		return {
-			destroy() {
-				const current = videoEls.get(params.gameId);
-				if (current === node) videoEls.delete(params.gameId);
+	async function rotateSteps(delta: -1 | 1, steps = 1) {
+		if (items.length < 2) return;
+		if (!mounted) return;
+		if (animating) return;
+		animating = true;
+		try {
+			for (let step = 0; step < steps; step++) {
+				activeReady = false;
+				activeIndex = wrapIndex(activeIndex + delta, items.length);
+
+				const exitOffset = delta === 1 ? -visibleCount : visibleCount;
+				const enterOffset = delta === 1 ? visibleCount : -visibleCount;
+
+				// Mark the far-side card exiting, shift everything else.
+				rendered = rendered.map((card) => {
+					if (card.phase === 'exit') return card;
+					if (card.offset === exitOffset) {
+						return {
+							...card,
+							active: false,
+							phase: 'exit',
+							extraXPercent: delta === 1 ? -160 : 160,
+							opacity: 0
+						};
+					}
+					const newOffset = card.offset - delta;
+					return {
+						...card,
+						offset: newOffset,
+						active: newOffset === 0,
+						phase: 'normal',
+						extraXPercent: 0,
+						opacity: 1
+					};
+				});
+
+				// Add entering card (can duplicate an existing game when item count is small).
+				const enteringIndex = wrapIndex(activeIndex + enterOffset, items.length);
+				rendered = [
+					...rendered,
+					{
+						id: ++instanceSeq,
+						itemIndex: enteringIndex,
+						offset: enterOffset,
+						active: enterOffset === 0,
+						phase: 'enter',
+						extraXPercent: delta === 1 ? 160 : -160,
+						opacity: 0
+					}
+				];
+
+				await tick();
+
+				// Trigger enter animation.
+				rendered = rendered.map((c) =>
+					c.phase === 'enter' ? { ...c, phase: 'normal', extraXPercent: 0, opacity: 1 } : c
+				);
+
+				// Cleanup exited cards after the tween.
+				await new Promise<void>((r) => setTimeout(() => r(), CARD_TWEEN_MS + 40));
+				rendered = rendered.filter((c) => c.phase !== 'exit');
 			}
-		};
+		} finally {
+			animating = false;
+		}
 	}
+
+	// NOTE: We intentionally use a single active <video> element.
+	// This allows us to render duplicate thumbnails (same game) during wrap-around animations.
 
 	function rtcSupported(): boolean {
 		return typeof (globalThis as any).RTCPeerConnection !== 'undefined';
@@ -446,11 +432,9 @@
 		const seq = ++switchingSeq;
 		if (!mounted) return;
 
-		// Stop and detach the previous active stream (if still mounted).
-		if (lastActiveGameId) {
-			const prevVideo = videoEls.get(lastActiveGameId);
-			stopAndResetVideo(prevVideo ?? null);
-		}
+		// We intentionally use a single active <video> element.
+		// This allows duplicate thumbnails (same game) to be on screen during wrap-around.
+		stopAndResetVideo(activeVideoEl);
 		destroyHls(hls);
 		destroyRtc(rtc);
 		hls = null;
@@ -458,19 +442,17 @@
 
 		lastActiveGameId = item?.game_id ?? null;
 		if (!item) return;
-		const gameId = item.game_id;
 
 		// Wait until the active element exists in the DOM.
-		for (let i = 0; i < 5; i++) {
-			if (videoEls.get(gameId)) break;
+		for (let i = 0; i < 8; i++) {
+			if (activeVideoEl) break;
 			await tick();
 		}
-		const video = videoEls.get(gameId);
-		if (!video) return;
+		if (!activeVideoEl) return;
 
-		await attachStreamToVideo(item, video);
+		await attachStreamToVideo(item, activeVideoEl);
 		if (seq !== switchingSeq) return;
-		await safePlay(video);
+		await safePlay(activeVideoEl);
 	}
 
 	$: if (mounted) {
@@ -482,22 +464,10 @@
 
 	onMount(() => {
 		mounted = true;
-		// Start on the first item (if any).
+		// Start on the first item (if any) and build the initial window.
 		activeIndex = wrapIndex(activeIndex, items.length);
-		prevActiveIndex = activeIndex;
-		rendered = desiredVisibleCards().map((d) => ({
-			key: d.key,
-			item: d.item,
-			offset: d.offset,
-			active: d.active,
-			phase: 'normal',
-			extraXPercent: 0,
-			opacity: 1
-		}));
+		rendered = buildInitialRendered();
 		void activateStream(activeItem);
-		return () => {
-			mounted = false;
-		};
 	});
 
 	onDestroy(() => {
@@ -506,9 +476,8 @@
 		destroyRtc(rtc);
 		hls = null;
 		rtc = null;
-		// Stop any remaining videos in view.
-		for (const v of videoEls.values()) stopAndResetVideo(v);
-		videoEls.clear();
+		stopAndResetVideo(activeVideoEl);
+		activeVideoEl = null;
 	});
 
 	function itemStyle(card: RenderedCard) {
@@ -535,75 +504,80 @@
 		</div>
 	{:else}
 		<div class="jc-stage" aria-roledescription="carousel">
-			{#each rendered as v (v.key)}
-				<a
-					href={resolve(`/servers/${encodeURIComponent(v.item.game_id)}`)}
-					class="jc-card"
-					data-active={v.active ? 'true' : 'false'}
-					data-phase={v.phase}
-					data-ready={v.active && activeReady ? 'true' : 'false'}
-					style={itemStyle(v)}
-					aria-label={v.active
-						? `Open server ${v.item.name ?? v.item.game_id}`
-						: `Select stream ${v.item.name ?? v.item.game_id}`}
-					onclick={(e) => {
-						if (v.phase === 'exit') {
-							e.preventDefault();
-							return;
-						}
-						if (!v.active) {
-							e.preventDefault();
-							setActiveByOffset(v.offset);
-						}
-					}}
-				>
-					<div class="jc-media">
-						<video
-							class="jc-video"
-							use:registerVideo={{ gameId: v.item.game_id }}
-							onplaying={() => {
-								if (v.active && v.item.game_id === activeGameId) activeReady = true;
-							}}
-							playsinline
-							muted
-							autoplay
-							loop
-							preload={v.active ? 'auto' : 'none'}
-						></video>
-						{#if v.item.thumbnail}
-							<img
-								src={v.item.thumbnail}
-								alt={v.item.name ?? v.item.game_id}
-								class="jc-thumb"
-								loading="lazy"
-							/>
-						{:else}
-							<div class="jc-thumb jc-thumb-fallback"></div>
+			{#each rendered as card (card.id)}
+				{@const item = items[card.itemIndex]}
+				{#if item}
+					<a
+						href={resolve(`/servers/${encodeURIComponent(item.game_id)}`)}
+						class="jc-card"
+						data-active={card.active ? 'true' : 'false'}
+						data-phase={card.phase}
+						data-ready={card.active && activeReady ? 'true' : 'false'}
+						style={itemStyle(card)}
+						aria-label={card.active
+							? `Open server ${item.name ?? item.game_id}`
+							: `Select stream ${item.name ?? item.game_id}`}
+						onclick={(e) => {
+							if (card.phase === 'exit') {
+								e.preventDefault();
+								return;
+							}
+							if (!card.active) {
+								e.preventDefault();
+								setActiveByOffset(card.offset);
+							}
+						}}
+					>
+						<div class="jc-media">
+							{#if card.active}
+								<video
+									class="jc-video"
+									bind:this={activeVideoEl}
+									onplaying={() => {
+										if (item.game_id === activeGameId) activeReady = true;
+									}}
+									playsinline
+									muted
+									autoplay
+									loop
+									preload="auto"
+								></video>
+							{/if}
+							{#if item.thumbnail}
+								<img
+									src={item.thumbnail}
+									alt={item.name ?? item.game_id}
+									class="jc-thumb"
+									loading="lazy"
+								/>
+							{:else}
+								<div class="jc-thumb jc-thumb-fallback"></div>
+							{/if}
+							<div class="jc-gloss"></div>
+						</div>
+
+						{#if card.active}
+							<div class="jc-badge">
+								<span class="jc-live-dot"></span>
+								LIVE
+								<span class="jc-badge-name">{item.name ?? item.game_id}</span>
+							</div>
+
+							<div class="jc-meta">
+								{#if item.max_players != null}
+									<div class="jc-pill jc-pill-sky">
+										{item.player_count ?? 0} / {item.max_players} players
+									</div>
+								{/if}
+								{#if item.monster_total != null}
+									<div class="jc-pill jc-pill-red">
+										{item.monster_kill_count ?? 0} / {item.monster_total} kills
+									</div>
+								{/if}
+							</div>
 						{/if}
-						<div class="jc-gloss"></div>
-					</div>
-
-					{#if v.active}
-						<div class="jc-badge">
-							<span class="jc-live-dot"></span>
-							LIVE
-							<span class="jc-badge-name">{v.item.name ?? v.item.game_id}</span>
-						</div>
-
-						<div class="jc-meta">
-							{#if v.item.max_players != null}
-								<div class="jc-pill jc-pill-sky">
-									{v.item.player_count ?? 0} / {v.item.max_players} players
-								</div>
-							{/if}
-							{#if v.item.monster_total != null}
-								<div class="jc-pill jc-pill-red">
-									{v.item.monster_kill_count ?? 0} / {v.item.monster_total} kills
-								</div>
-							{/if}
-						</div>
-					{/if}
-				</a>
+					</a>
+				{/if}
 			{/each}
 
 			{#if items.length > 1}
