@@ -513,7 +513,7 @@
 						<div class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">PLAYERS</div>
 						<div class="mt-1 text-lg font-[var(--dorch-mono)] tracking-wide text-zinc-100">
 							{#if status() == 'Active' && info()?.player_count != null && info()?.max_players != null}
-								{info()!.player_count}/{info()!.max_players}
+								{info()!.player_count} / {info()!.max_players}
 							{:else}
 								<span
 									class="skeleton inline-block h-5 w-24 rounded-md align-middle"
@@ -526,7 +526,7 @@
 						<div class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">KILLS</div>
 						<div class="mt-1 text-lg font-[var(--dorch-mono)] tracking-wide text-zinc-100">
 							{#if status() == 'Active' && info()?.monster_kill_count != null && info()?.monster_count != null}
-								{info()!.monster_kill_count}/{info()!.monster_count}
+								{info()!.monster_kill_count} / {info()!.monster_count}
 							{:else}
 								<span
 									class="skeleton inline-block h-5 w-24 rounded-md align-middle"

@@ -1,14 +1,10 @@
-when the button is pressed, open a floating non-modal "Party" dialog in the bottom right corner of the page.
+let's redo the jumbotron on the home page to make it more like twitch.tv's jumbotron
 
-I want the dialog to have three tabs: "Chat", "Members", and settings (icon button)
+Instead of only showing one stream at a time:
 
-Chat tab:
-Just leave a blank area for chat history and put a text box at the bottom and a submit arrow to the right. We'll flesh it out more later. But still make it look like a chat interface.
 
-Members tab:
-The model here is an array of member items. Each member item has the schema {"id":"uuid of user",displayName:"display name of user"}
-Enumerate the members according to their display names, in alphabetical order
-
-Settings:
-This tab button should be an icon button of a gear
-It has a text box for modifying one field: Name
+- I want the current (active) stream to be like it is now - playing the video - but smaller width-wise to create room
+- I want to show the previous and next N (default=1) servers' thumbnails behind and off to the sides
+- When the previous/next buttons are pressed, I want the active stream to transition to its thumbnail then move to become an "inactive" stream off to the side
+- It should feel and function like a carousel, where the previous and next N streams are visible even if they're not active.
+- The thumbnails should use the /servers/{game_id}/thumb?wad=X&map=Y endpoint to grab their thumbnails

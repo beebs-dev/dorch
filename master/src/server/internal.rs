@@ -16,7 +16,7 @@ use axum::{
 };
 use bytes::Bytes;
 use dorch_common::{
-    access_log, annotations, cli,
+    access_log, annotations,
     rate_limit::{RateLimiter, middleware::RateLimitLayer},
     response,
     types::{GameInfo, GameInfoUpdate, Settable},
@@ -391,6 +391,11 @@ pub async fn list_jumbotron_mc3u8_urls(State(state): State<App>) -> impl IntoRes
             let info = g
                 .info
                 .ok_or_else(|| anyhow!("unreachable branch: GameSummary has None info"))?;
+            let wad_id = g
+                .files
+                .as_ref()
+                .and_then(|files| files.iter().last())
+                .unwrap_or(&g.iwad);
             Ok(JumbotronItem {
                 game_id: g.game_id,
                 name: info.name,
@@ -398,6 +403,10 @@ pub async fn list_jumbotron_mc3u8_urls(State(state): State<App>) -> impl IntoRes
                 max_players: info.max_players,
                 monster_kill_count: info.monster_kill_count,
                 monster_total: info.monster_count,
+                thumbnail: format!(
+                    "https://gib.gg/servers/{}/thumb?wad={}&map={}",
+                    g.game_id, wad_id, info.current_map
+                ),
                 hls: format!("https://cdn.gib.gg/live/{}.m3u8", g.game_id),
                 rtc: format!("webrtc://cdn.gib.gg/live/{}", g.game_id),
             })

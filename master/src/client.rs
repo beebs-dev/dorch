@@ -107,6 +107,7 @@ pub struct JumbotronItem {
     pub game_id: Uuid,
     pub hls: String,
     pub rtc: String,
+    pub thumbnail: String,
     pub name: String,
     pub player_count: i32,
     pub max_players: i32,
