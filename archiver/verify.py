@@ -22,6 +22,7 @@ def extract_wad_archive(out_dirs: List[str]):
     end_range = int(os.getenv("END_RANGE", "256"))
     print(
         f"Ensuring chunks from {start_range:02x} to {end_range-1:02x} exist")
+    missing = 0
     for i in range(start_range, end_range):
         found = False
         for out_dir in out_dirs:
@@ -29,8 +30,9 @@ def extract_wad_archive(out_dirs: List[str]):
                 found = True
                 break
         if not found:
+            missing += 1
             print(f"Chunk {i:02x} is missing in all output directories.")
-
+    print(f"Total missing chunks: {missing}")
 
 if __name__ == "__main__":
     extract_wad_archive(['/home/thavlik/Repositories/wads_extra',
