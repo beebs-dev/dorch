@@ -28,6 +28,7 @@
 	let switchingSeq = 0;
 	let activeItem: JumbotronItem | null = null;
 	let activeGameId: string | null = null;
+	let activeReady = false;
 
 	// Active stream attachment (only one stream attached at a time).
 	type HlsModule = typeof import('hls.js');
@@ -45,6 +46,12 @@
 	$: activeIndex = wrapIndex(activeIndex, items.length);
 	$: activeItem = items.length ? items[activeIndex] : null;
 	$: activeGameId = activeItem?.game_id ?? null;
+	$: if (mounted) {
+		// Whenever we switch active items, show the thumbnail until the stream is actually playing.
+		// (Depend on activeGameId so this re-runs when the active slide changes.)
+		if (activeGameId) activeReady = false;
+		else activeReady = false;
+	}
 
 	function rotate(delta: -1 | 1) {
 		if (items.length < 2) return;
@@ -409,12 +416,13 @@
 	function itemStyle(offset: number) {
 		const abs = Math.abs(offset);
 		// Translate in element-width percentages so it stays responsive.
-		const step = 62; // percent of element width
+		// Since inactive cards are physically smaller, bump the offset step a bit so they still "peek"
+		// from behind the active card.
+		const step = 88; // percent of element width
 		const x = offset * step;
-		const scale = offset === 0 ? 1 : 0.78;
 		const z = 30 - abs;
 		const dim = offset === 0 ? 1 : 0.72;
-		return `--x:${x}%; --s:${scale}; --z:${z}; --dim:${dim};`;
+		return `--x:${x}%; --z:${z}; --dim:${dim};`;
 	}
 </script>
 
@@ -436,6 +444,7 @@
 					href={resolve(`/servers/${encodeURIComponent(v.item.game_id)}`)}
 					class="jc-card"
 					data-active={v.active ? 'true' : 'false'}
+					data-ready={v.active && activeReady ? 'true' : 'false'}
 					style={itemStyle(v.offset)}
 					aria-label={v.active
 						? `Open server ${v.item.name ?? v.item.game_id}`
@@ -451,6 +460,9 @@
 						<video
 							class="jc-video"
 							use:registerVideo={{ gameId: v.item.game_id }}
+							onplaying={() => {
+								if (v.active && v.item.game_id === activeGameId) activeReady = true;
+							}}
 							playsinline
 							muted
 							autoplay
@@ -535,6 +547,11 @@
 	.jc-root {
 		position: relative;
 		isolation: isolate;
+		/* Card sizing (active vs inactive) */
+		--jc-active-w: min(860px, 78vw);
+		--jc-active-h: calc(var(--jc-active-w) * 9 / 16);
+		--jc-inactive-w: calc(var(--jc-active-w) * 0.7);
+		--jc-inactive-h: calc(var(--jc-active-h) * 0.7);
 		min-height: clamp(220px, 26vw, 360px);
 	}
 
@@ -545,18 +562,24 @@
 
 	.jc-stage {
 		position: relative;
-		height: clamp(220px, 26vw, 360px);
+		/* IMPORTANT: stage must be tall enough for the active card, or everything gets clipped */
+		height: clamp(220px, var(--jc-active-h), 520px);
 		width: 100%;
 	}
 
 	.jc-card {
+		display: block;
 		position: absolute;
 		left: 50%;
 		top: 50%;
-		transform: translate(-50%, -50%) translateX(var(--x)) scale(var(--s));
+		--x: 0%;
+		--z: 1;
+		--dim: 1;
+		transform: translate(-50%, -50%) translateX(var(--x, 0%));
 		z-index: var(--z);
-		width: min(860px, 78vw);
-		aspect-ratio: 16 / 9;
+		/* Inactive thumbnails are 30% smaller than the active item. */
+		width: var(--jc-inactive-w);
+		height: var(--jc-inactive-h);
 		border-radius: 16px;
 		overflow: hidden;
 		background: rgba(0, 0, 0, 0.25);
@@ -569,6 +592,11 @@
 		will-change: transform;
 		cursor: pointer;
 		filter: brightness(var(--dim));
+	}
+
+	.jc-card[data-active='true'] {
+		width: var(--jc-active-w);
+		height: var(--jc-active-h);
 	}
 
 	.jc-card:focus-visible {
@@ -590,7 +618,7 @@
 		object-fit: cover;
 	}
 
-	/* Only the centered slide shows the video. */
+	/* Only the centered slide *can* show the video, and only after it's playing. */
 	.jc-card .jc-video {
 		opacity: 0;
 		transition: opacity 220ms ease;
@@ -600,10 +628,10 @@
 		transition: opacity 220ms ease;
 	}
 
-	.jc-card[data-active='true'] .jc-video {
+	.jc-card[data-active='true'][data-ready='true'] .jc-video {
 		opacity: 1;
 	}
-	.jc-card[data-active='true'] .jc-thumb {
+	.jc-card[data-active='true'][data-ready='true'] .jc-thumb {
 		opacity: 0;
 	}
 
