@@ -529,8 +529,10 @@ pub async fn new_game(
         .await
     {
         Ok(game) => {
-            if let Some(creator_id) = game.annotations().get(annotations::CREATED_BY_USER)
-                && creator_id != &req.creator_id.to_string()
+            if game
+                .annotations()
+                .get(annotations::CREATED_BY_USER)
+                .is_none_or(|a| a != &req.creator_id.to_string())
             {
                 return response::forbidden(anyhow!(
                     "Game with ID {} already exists and was created by a different user",
