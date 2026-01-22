@@ -174,9 +174,9 @@ wadinfo:
       logLevel: debug
       resources:
         requests: 
-          memory: "32Mi"
-        limits:
           memory: "64Mi"
+        limits:
+          memory: "96Mi"
     analysis:
       image: thavlik/dorch-wadinfo:latest
       imagePullPolicy: Always
@@ -229,9 +229,9 @@ party:
     logLevel: debug
     resources:
       requests: 
-        memory: "32Mi"
-      limits:
         memory: "64Mi"
+      limits:
+        memory: "128Mi"
 
 screenshot:
   image: thavlik/dorch-archiver:latest
