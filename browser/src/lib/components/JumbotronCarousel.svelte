@@ -575,6 +575,7 @@
 		--z: 1;
 		--dim: 1;
 		transform: translate(-50%, -50%) translateX(var(--x, 0%));
+		transform-origin: center;
 		z-index: var(--z);
 		/* Inactive thumbnails are 30% smaller than the active item. */
 		width: var(--jc-inactive-w);
@@ -587,9 +588,13 @@
 			0 25px 70px rgba(0, 0, 0, 0.55),
 			0 0 0 1px rgba(255, 255, 255, 0.08) inset;
 		transition:
-			transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
-			filter 520ms cubic-bezier(0.22, 1, 0.36, 1);
-		will-change: transform;
+			transform 620ms cubic-bezier(0.4, 0, 0.2, 1),
+			width 620ms cubic-bezier(0.4, 0, 0.2, 1),
+			height 620ms cubic-bezier(0.4, 0, 0.2, 1),
+			filter 620ms cubic-bezier(0.4, 0, 0.2, 1),
+			box-shadow 620ms cubic-bezier(0.4, 0, 0.2, 1),
+			border-color 620ms cubic-bezier(0.4, 0, 0.2, 1);
+		will-change: transform, width, height, filter;
 		cursor: pointer;
 		filter: brightness(var(--dim));
 	}
@@ -748,8 +753,11 @@
 	}
 
 	@media (max-width: 640px) {
-		.jc-card {
-			width: 92vw;
+		.jc-root {
+			--jc-active-w: 92vw;
+			--jc-active-h: calc(var(--jc-active-w) * 9 / 16);
+			--jc-inactive-w: calc(var(--jc-active-w) * 0.75);
+			--jc-inactive-h: calc(var(--jc-active-h) * 0.75);
 		}
 	}
 
