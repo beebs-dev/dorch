@@ -3,7 +3,12 @@ import type { GameSummary, ListGamesResponse } from '$lib/types/games';
 
 export type JumbotronItem = {
 	game_id: string;
-	url: string;
+	// Back-compat: older dorch-master responses provide a single HLS `url`.
+	// Newer responses may provide `hls` / `rtc` + `thumbnail`.
+	url?: string;
+	hls?: string;
+	rtc?: string;
+	thumbnail?: string;
 	name?: string;
 	player_count?: number;
 	max_players?: number;

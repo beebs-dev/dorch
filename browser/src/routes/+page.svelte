@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import Jumbotron from '$lib/components/Jumbotron.svelte';
+	import JumbotronCarousel from '$lib/components/JumbotronCarousel.svelte';
 	import { resolve } from '$app/paths';
 	import { goto, invalidateAll } from '$app/navigation';
 
@@ -102,7 +102,7 @@
 
 <section class="mx-auto w-full max-w-6xl px-4 py-6">
 	<div class="mb-6">
-		<Jumbotron items={jumbotronItems()} intervalMs={5000} />
+		<JumbotronCarousel items={jumbotronItems()} visibleCount={1} />
 	</div>
 
 	<div class="flex flex-wrap items-end justify-between gap-4">
