@@ -1,10 +1,33 @@
-let's redo the jumbotron on the home page to make it more like twitch.tv's jumbotron
+Redo the home page Jumbotron so it behaves like Twitch's rotating carousel.
 
-Instead of only showing one stream at a time:
+Functional Requirements:
+1. The Jumbotron now displays multiple JumbotronItem objects at once:
+   - One "active" item in the center. This is the only one rendered as a <video> element and is smaller than before to create horizontal padding.
+   - The previous N and next N items (default N=1) should be visible as “inactive” items using their `thumbnail` field. These should sit behind and slightly offset left/right of the active item. Think of Twitch's jumbotron where the adjacent streams peek from the sides.
 
+2. Interaction:
+   - Prev/Next buttons should cause a carousel rotation.
+   - On rotation, the current active item should animate:
+       a) scale down to thumbnail size
+       b) slide to its new left/right position
+       c) stop playback when no longer active
+   - The newly-selected thumbnail should:
+       a) slide into the center
+       b) scale up to active size
+       c) replace the thumbnail with the video player and start playback
 
-- I want the current (active) stream to be like it is now - playing the video - but smaller width-wise to create room
-- I want to show the previous and next N (default=1) servers' thumbnails behind and off to the sides
-- When the previous/next buttons are pressed, I want the active stream to transition to its thumbnail then move to become an "inactive" stream off to the side
-- It should feel and function like a carousel, where the previous and next N streams are visible even if they're not active.
-- The thumbnails should use the /servers/{game_id}/thumb?wad=X&map=Y endpoint to grab their thumbnails
+3. Layout:
+   - Implement with Svelte component structure. Ideally:
+       <JumbotronCarousel {items} visibleCount={N}>
+           internally manage activeIndex, and derived previous/next slices.
+       </JumbotronCarousel>
+   - Each inactive item uses its `thumbnail` URL (already provided in JumbotronItem.thumbnail).
+   - Use Svelte transitions/animations for movement & scaling (e.g., `spring`, `tweened`, or CSS transitions).
+   - Loop the carousel (wrap around indices).
+
+4. Implementation guidance:
+   - Maintain clean reactive state for activeIndex and inactive items.
+   - Use CSS transforms (scale, translateX) for smooth animations.
+   - Keep item stacking logical: active stream top-most, inactive streams slightly behind with lower z-index.
+   - Make the carousel responsive (e.g., use flexbox or grid with fixed aspect ratio containers).
+   - Ensure hydration-safe Svelte code (no SSRed DOM access during initialization).
