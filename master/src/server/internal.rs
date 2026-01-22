@@ -552,7 +552,7 @@ pub async fn new_game(
     let game = match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
         .patch(
             game.metadata.name.as_deref().unwrap(),
-            &PatchParams::apply("dorch-operator"),
+            &PatchParams::apply("dorch-master"),
             &Patch::Apply(&game),
         )
         .await
