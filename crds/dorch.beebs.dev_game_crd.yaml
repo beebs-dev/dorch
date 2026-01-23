@@ -95,6 +95,7 @@ spec:
                   If true, doom1.wad will be prepended to the file list automatically.
                   This allows users to create modded games using Doom 1 assets while
                   respecting IWAD licensing.
+                nullable: true
                 type: boolean
               warp:
                 nullable: true
@@ -105,7 +106,6 @@ spec:
             - max_players
             - name
             - s3_secret_name
-            - use_doom1_assets
             type: object
           status:
             description: Status object for the [`Game`] resource.

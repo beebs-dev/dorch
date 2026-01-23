@@ -34,7 +34,8 @@ pub struct GameSpec {
     /// If true, doom1.wad will be prepended to the file list automatically.
     /// This allows users to create modded games using Doom 1 assets while
     /// respecting IWAD licensing.
-    pub use_doom1_assets: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub use_doom1_assets: Option<bool>,
 
     /// If true, the game will only be visible to the creator.
     #[serde(default, skip_serializing_if = "Option::is_none")]

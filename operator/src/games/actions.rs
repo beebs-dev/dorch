@@ -120,7 +120,7 @@ fn game_pod(
         },
     ];
     let mut wad_list = Vec::new();
-    if instance.spec.use_doom1_assets {
+    if instance.spec.use_doom1_assets == Some(true) {
         // SHA1: 5b2e249b9c5133ec987b3ea77596381dc0d6bc1d
         // SHA256: 1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771
         wad_list.push("22a0ca23-f044-4319-a7a6-f3b60276d0ce".to_string());
