@@ -521,6 +521,9 @@ impl Database {
             let authors: Vec<String> = analysis
                 .try_get("authors")
                 .context("get authors from wad_analysis row")?;
+            let origin: String = analysis
+                .try_get("origin")
+                .context("get origin from wad_analysis row")?;
             let authors = escape_nul_in_vec(&authors).unwrap_or(authors);
             let tags: Vec<String> = conn
                 .query(&list_analysis_tags, &[&wad_id])
@@ -535,6 +538,7 @@ impl Database {
                 release_date,
                 authors,
                 tags,
+                origin,
             })
         } else {
             None

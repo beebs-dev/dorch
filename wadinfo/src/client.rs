@@ -196,6 +196,7 @@ pub struct AbridgedWadAnalysis {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authors: Vec<String>,
     pub tags: Vec<String>,
+    pub origin: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
