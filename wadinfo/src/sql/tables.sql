@@ -345,7 +345,6 @@ create table if not exists wad_map_images (
 create index if not exists idx_wad_map_images_wad_map
   on wad_map_images (wad_id, map_name);
 
-
 create table if not exists wad_analysis (
   wad_id      uuid primary key references wads(wad_id) on delete cascade,
   title       text,
@@ -353,14 +352,9 @@ create table if not exists wad_analysis (
   description text not null,
   authors     text[] not null default '{}',
   created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
+  updated_at  timestamptz not null default now(),
+  origin      text
 );
-
-alter table wad_analysis
-  add column if not exists authors text[] not null default '{}';
-
-alter table wad_analysis
-  add column if not exists release_date text;
 
 create table if not exists wad_analysis_tags (
   wad_id      uuid references wads(wad_id) on delete cascade,
@@ -376,11 +370,9 @@ create table if not exists wad_map_analysis (
   authors     text[] not null default '{}',
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
+  origin      text,
   primary key (wad_id, map_name)
 );
-
-alter table wad_map_analysis
-  add column if not exists authors text[] not null default '{}';
 
 create table if not exists wad_map_analysis_tags (
   wad_id      uuid references wads(wad_id) on delete cascade,

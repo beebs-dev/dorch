@@ -37,7 +37,7 @@ pub async fn run(args: args::MapArgs) -> Result<()> {
     });
     let analyzer = Analyzer::new(
         prompts::ANALYZE_MAP.to_string(),
-        args.model,
+        args.model.clone(),
         args.openai_api_key,
         args.openai_base_url,
     );
@@ -78,9 +78,13 @@ pub async fn run(args: args::MapArgs) -> Result<()> {
         .context("Failed to create Redis locker")?;
     dorch_common::signal_ready();
     println!("{}", "🚀 Starting map analyzer".green());
-    App::new(analyzer, cancel, DeriveMap::new(wadinfo, locker))
-        .run(consumer)
-        .await
+    App::new(
+        analyzer,
+        cancel,
+        DeriveMap::new(wadinfo, locker, args.model),
+    )
+    .run(consumer)
+    .await
 }
 
 #[derive(Clone, Deserialize)]
@@ -100,11 +104,20 @@ pub struct MapContext {
 pub struct DeriveMap {
     wadinfo: dorch_wadinfo::client::Client,
     locker: async_redis_lock::Locker,
+    model_name: String,
 }
 
 impl DeriveMap {
-    pub fn new(wadinfo: dorch_wadinfo::client::Client, locker: async_redis_lock::Locker) -> Self {
-        Self { wadinfo, locker }
+    pub fn new(
+        wadinfo: dorch_wadinfo::client::Client,
+        locker: async_redis_lock::Locker,
+        model_name: String,
+    ) -> Self {
+        Self {
+            wadinfo,
+            locker,
+            model_name,
+        }
     }
 }
 
@@ -178,6 +191,7 @@ impl Worker<ReadWad, RawMapAnalysis, MapContext> for DeriveMap {
             description: analysis.description,
             authors: analysis.authors,
             tags: analysis.tags,
+            origin: self.model_name.clone(),
         };
         println!(
             "{}{}{}{}{}{}{}{}{}{}{}",

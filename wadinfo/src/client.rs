@@ -184,6 +184,7 @@ pub struct WadAnalysis {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authors: Vec<String>,
     pub tags: Vec<String>,
+    pub origin: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -216,6 +217,7 @@ pub struct MapAnalysis {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authors: Vec<String>,
     pub tags: Vec<String>,
+    pub origin: String,
 }
 
 #[derive(Clone)]

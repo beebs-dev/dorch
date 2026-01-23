@@ -41,7 +41,7 @@ pub async fn run(args: args::WadArgs) -> Result<()> {
     });
     let analyzer = Analyzer::new(
         prompts::ANALYZE_WAD.to_string(),
-        args.model,
+        args.model.clone(),
         args.openai_api_key,
         args.openai_base_url,
     );
@@ -82,9 +82,13 @@ pub async fn run(args: args::WadArgs) -> Result<()> {
         .context("Failed to create Redis locker")?;
     dorch_common::signal_ready();
     println!("{}", "🚀 Starting wad analyzer".green());
-    App::new(analyzer, cancel, DeriveWad::new(wadinfo, js, locker))
-        .run(consumer)
-        .await
+    App::new(
+        analyzer,
+        cancel,
+        DeriveWad::new(wadinfo, js, locker, args.model),
+    )
+    .run(consumer)
+    .await
 }
 
 #[derive(Clone, Deserialize)]
@@ -107,6 +111,7 @@ pub struct DeriveWad {
     wadinfo: dorch_wadinfo::client::Client,
     js: async_nats::jetstream::Context,
     locker: async_redis_lock::Locker,
+    model_name: String,
 }
 
 impl DeriveWad {
@@ -114,11 +119,13 @@ impl DeriveWad {
         wadinfo: dorch_wadinfo::client::Client,
         js: async_nats::jetstream::Context,
         locker: async_redis_lock::Locker,
+        model_name: String,
     ) -> Self {
         Self {
             wadinfo,
             js,
             locker,
+            model_name,
         }
     }
 }
@@ -262,6 +269,7 @@ impl Worker<ReadWad, RawWadAnalysis, WadContext> for DeriveWad {
             description: analysis.description,
             authors: analysis.authors,
             tags: analysis.tags,
+            origin: self.model_name.clone(),
         };
         println!(
             "{}{}{}{}{}{}{}{}{}{}{}",

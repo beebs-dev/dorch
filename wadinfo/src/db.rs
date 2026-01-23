@@ -338,6 +338,7 @@ impl Database {
             let description = row.try_get("description")?;
             let map_name: String = row.try_get("map_name")?;
             let map_title = row.try_get("map_title")?;
+            let origin = row.try_get("origin")?;
             let authors: Vec<String> = row.try_get("authors")?;
             let authors = escape_nul_in_vec(&authors).unwrap_or(authors);
             let tags: Vec<String> = tx
@@ -354,6 +355,7 @@ impl Database {
                 wad_id,
                 authors,
                 tags,
+                origin,
             });
         }
         Ok(items)
@@ -433,6 +435,7 @@ impl Database {
                 &analysis.release_date,
                 &analysis.description,
                 &authors,
+                &analysis.origin,
             ],
         )
         .await
