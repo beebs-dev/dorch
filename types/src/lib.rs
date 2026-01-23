@@ -1,3 +1,4 @@
+use k8s_openapi::api::core::v1::ResourceRequirements;
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -41,6 +42,9 @@ pub struct GameSpec {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub debug_udp: Option<bool>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resources: Option<ResourceRequirements>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default, JsonSchema)]

@@ -316,85 +316,95 @@ fn game_pod(
                 ]),
                 ..Default::default()
             }]),
-            containers: vec![
-                Container {
-                    name: "server".to_string(),
-                    image: Some(server_image.to_string()),
-                    image_pull_policy: Some("Always".to_string()),
-                    command: Some(vec!["/server.sh".to_string()]),
-                    volume_mounts: Some(vec![VolumeMount {
-                        name: "data".to_string(),
-                        mount_path: DATA_ROOT.to_string(),
-                        ..Default::default()
-                    }]),
-                    ports: Some(vec![ContainerPort {
-                        container_port: game_port,
-                        protocol: Some("UDP".to_string()),
-                        ..Default::default()
-                    }]),
-                    env: Some(server_env.clone()),
-                    ..Default::default()
-                },
-                Container {
-                    name: "spectator".to_string(),
-                    image: Some(spectator_image.to_string()),
-                    image_pull_policy: Some("Always".to_string()),
-                    command: Some(vec!["/spectator.sh".to_string()]),
-                    volume_mounts: Some(vec![VolumeMount {
-                        name: "data".to_string(),
-                        mount_path: DATA_ROOT.to_string(),
-                        ..Default::default()
-                    }]),
-                    env: Some({
-                        let mut env = Vec::with_capacity(server_env.len() + 2);
-                        env.extend(server_env.into_iter());
-                        env.push(EnvVar {
-                            name: "SERVER_ADDR".to_string(),
-                            value: Some(format!("localhost:{}", game_port)),
+            containers: {
+                let mut containers = vec![
+                    Container {
+                        name: "server".to_string(),
+                        image: Some(server_image.to_string()),
+                        image_pull_policy: Some("Always".to_string()),
+                        command: Some(vec!["/server.sh".to_string()]),
+                        volume_mounts: Some(vec![VolumeMount {
+                            name: "data".to_string(),
+                            mount_path: DATA_ROOT.to_string(),
                             ..Default::default()
-                        });
-                        if let Some(srs_base_url) = srs_base_url {
+                        }]),
+                        ports: Some(vec![ContainerPort {
+                            container_port: game_port,
+                            protocol: Some("UDP".to_string()),
+                            ..Default::default()
+                        }]),
+                        env: Some(server_env.clone()),
+                        ..Default::default()
+                    },
+                    Container {
+                        name: "proxy".to_string(),
+                        image: Some(proxy_image.to_string()),
+                        image_pull_policy: Some("Always".to_string()),
+                        env: Some(proxy_env),
+                        ..Default::default()
+                    },
+                ];
+                if instance.spec.private.is_none_or(|private| private == false) {
+                    // Only add spectator if the server is public
+                    containers.push(Container {
+                        name: "spectator".to_string(),
+                        image: Some(spectator_image.to_string()),
+                        image_pull_policy: Some("Always".to_string()),
+                        command: Some(vec!["/spectator.sh".to_string()]),
+                        volume_mounts: Some(vec![VolumeMount {
+                            name: "data".to_string(),
+                            mount_path: DATA_ROOT.to_string(),
+                            ..Default::default()
+                        }]),
+                        env: Some({
+                            let mut env = Vec::with_capacity(server_env.len() + 2);
+                            env.extend(server_env.into_iter());
                             env.push(EnvVar {
-                                name: "RTMP_ENDPOINT".to_string(),
-                                value: Some(format!(
-                                    "{}/live/{}",
-                                    srs_base_url, instance.spec.game_id,
-                                )),
+                                name: "SERVER_ADDR".to_string(),
+                                value: Some(format!("localhost:{}", game_port)),
                                 ..Default::default()
                             });
-                        }
-                        env
-                    }),
-                    ..Default::default()
-                },
-                Container {
-                    name: "proxy".to_string(),
-                    image: Some(proxy_image.to_string()),
-                    image_pull_policy: Some("Always".to_string()),
-                    env: Some(proxy_env),
-                    ..Default::default()
-                },
-            ],
-            resources: Some(ResourceRequirements {
-                requests: Some({
-                    let mut m = std::collections::BTreeMap::new();
-                    m.insert("cpu".to_string(), Quantity("1000m".to_string()));
-                    m.insert("memory".to_string(), Quantity("256Mi".to_string()));
-                    m
-                }),
-                limits: Some({
-                    let mut m = std::collections::BTreeMap::new();
-                    //m.insert("cpu".to_string(), Quantity("2000m".to_string()));
-                    m.insert("memory".to_string(), Quantity("512Mi".to_string()));
-                    m
-                }),
-                ..Default::default()
-            }),
-            restart_policy: Some("Never".to_string()),
+                            if let Some(srs_base_url) = srs_base_url {
+                                env.push(EnvVar {
+                                    name: "RTMP_ENDPOINT".to_string(),
+                                    value: Some(format!(
+                                        "{}/live/{}",
+                                        srs_base_url, instance.spec.game_id,
+                                    )),
+                                    ..Default::default()
+                                });
+                            }
+                            env
+                        }),
+                        ..Default::default()
+                    });
+                }
+                containers
+            },
+            resources: instance.spec.resources.clone().or_else(default_resources),
+            restart_policy: Some("Never".to_string()), // let controller handle restarts
             ..Default::default()
         }),
         status: None,
     }
+}
+
+fn default_resources() -> Option<ResourceRequirements> {
+    Some(ResourceRequirements {
+        requests: Some({
+            let mut m = std::collections::BTreeMap::new();
+            m.insert("cpu".to_string(), Quantity("1000m".to_string()));
+            m.insert("memory".to_string(), Quantity("256Mi".to_string()));
+            m
+        }),
+        limits: Some({
+            let mut m = std::collections::BTreeMap::new();
+            //m.insert("cpu".to_string(), Quantity("2000m".to_string()));
+            m.insert("memory".to_string(), Quantity("512Mi".to_string()));
+            m
+        }),
+        ..Default::default()
+    })
 }
 
 pub async fn create_pod(
