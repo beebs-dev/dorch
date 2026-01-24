@@ -38,8 +38,8 @@
 	let rtc: RTCPeerConnection | null = null;
 
 	let activeVideoEl: HTMLVideoElement | null = null;
-	let recoverTimer: number | null = null;
-	let startupWatchdogTimer: number | null = null;
+	//let recoverTimer: number | null = null;
+	//let startupWatchdogTimer: number | null = null;
 	let activating = false;
 	let debugEnabled = false;
 
@@ -381,7 +381,7 @@
 					video.addEventListener('playing', onPlaying);
 					video.addEventListener('error', onError);
 				}),
-				new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 3500))
+				//new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 3500))
 			]);
 
 			if (!ok) {
@@ -484,35 +484,35 @@
 		hls.attachMedia(video);
 	}
 
-	function clearStartupWatchdog() {
-		if (startupWatchdogTimer != null) {
-			clearTimeout(startupWatchdogTimer);
-			startupWatchdogTimer = null;
-		}
-	}
+	//function clearStartupWatchdog() {
+	//	if (startupWatchdogTimer != null) {
+	//		clearTimeout(startupWatchdogTimer);
+	//		startupWatchdogTimer = null;
+	//	}
+	//}
 
 	function scheduleRecover(_reason: string) {
 		if (!mounted) return;
 		if (!activeItem || !activeGameId) return;
 		// Avoid fighting a stream attach that's already in progress.
 		if (activating) return;
-		if (recoverTimer != null) return;
+		//if (recoverTimer != null) return;
 		// eslint-disable-next-line no-console
 		console.warn('[JumbotronCarousel] recover scheduled:', _reason, { gameId: activeGameId });
 		const expectedGameId = activeGameId;
-		recoverTimer = window.setTimeout(() => {
-			recoverTimer = null;
-			if (!mounted) return;
-			if (activeGameId !== expectedGameId) return;
-			void activateStream(activeItem);
-		}, 750);
+		//recoverTimer = window.setTimeout(() => {
+		//	recoverTimer = null;
+		//	if (!mounted) return;
+		//	if (activeGameId !== expectedGameId) return;
+		//	void activateStream(activeItem);
+		//}, 750);
 	}
 
 	let lastActiveGameId: string | null = null;
 	async function activateStream(item: JumbotronItem | null) {
 		const seq = ++switchingSeq;
 		if (!mounted) return;
-		clearStartupWatchdog();
+		//clearStartupWatchdog();
 		activating = true;
 		activeReady = false;
 		dbg('activateStream start', { seq, gameId: item?.game_id ?? null });
@@ -547,21 +547,21 @@
 			});
 
 			// Startup watchdog: if we never reach a playable state, retry.
-			startupWatchdogTimer = window.setTimeout(() => {
-				startupWatchdogTimer = null;
-				if (!mounted) return;
-				if (seq !== switchingSeq) return;
-				const v = activeVideoEl;
-				if (!v) return;
-				if (v.error || v.readyState < 2) {
-					dbg('startup watchdog retry', {
-						seq,
-						gameId: activeGameId,
-						reason: v.error ? 'video.error' : `readyState ${v.readyState}`
-					});
-					void activateStream(activeItem);
-				}
-			}, 5500);
+			// startupWatchdogTimer = window.setTimeout(() => {
+			// 	startupWatchdogTimer = null;
+			// 	if (!mounted) return;
+			// 	if (seq !== switchingSeq) return;
+			// 	const v = activeVideoEl;
+			// 	if (!v) return;
+			// 	if (v.error || v.readyState < 2) {
+			// 		dbg('startup watchdog retry', {
+			// 			seq,
+			// 			gameId: activeGameId,
+			// 			reason: v.error ? 'video.error' : `readyState ${v.readyState}`
+			// 		});
+			// 		void activateStream(activeItem);
+			// 	}
+			// }, 5500);
 		} finally {
 			if (seq === switchingSeq) activating = false;
 			dbg('activateStream done', { seq, stillCurrent: seq === switchingSeq });
@@ -592,11 +592,11 @@
 
 	onDestroy(() => {
 		mounted = false;
-		clearStartupWatchdog();
-		if (recoverTimer != null) {
-			clearTimeout(recoverTimer);
-			recoverTimer = null;
-		}
+		//clearStartupWatchdog();
+		//if (recoverTimer != null) {
+		//	clearTimeout(recoverTimer);
+		//	recoverTimer = null;
+		//}
 		destroyHls(hls);
 		destroyRtc(rtc);
 		hls = null;
