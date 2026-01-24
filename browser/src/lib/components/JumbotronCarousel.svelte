@@ -55,11 +55,9 @@
 	$: activeIndex = wrapIndex(activeIndex, items.length);
 	$: activeItem = items.length ? items[activeIndex] : null;
 	$: activeGameId = activeItem?.game_id ?? null;
-	$: if (mounted) {
-		// Whenever we switch active items, show the thumbnail until the stream is actually playing.
-		activeIndex;
-		activeReady = false;
-	}
+	// NOTE: We intentionally do NOT reset `activeReady` in a reactive statement.
+	// Doing so can race with the video "playing" event and cause the UI to stay on the thumbnail.
+	// Instead, we reset it explicitly in `rotateSteps()` and `activateStream()`.
 
 	function rotate(delta: -1 | 1) {
 		void rotateSteps(delta, 1);
@@ -256,6 +254,33 @@
 		existing: RTCPeerConnection | null
 	): Promise<{ ok: boolean; rtc: RTCPeerConnection | null }> {
 		destroyRtc(existing);
+
+		// Register readiness listeners *before* we call play(), otherwise we can miss
+		// the very fast "playing" event on initial attachment.
+		const readiness = new Promise<boolean>((resolve) => {
+			let settled = false;
+			const settle = (v: boolean) => {
+				if (settled) return;
+				settled = true;
+				cleanup();
+				resolve(v);
+			};
+			const onPlaying = () => {
+				console.log('RTC playing event');
+				settle(true);
+			};
+			const onError = () => {
+				console.log('RTC error event');
+				settle(false);
+			};
+			const cleanup = () => {
+				video.removeEventListener('playing', onPlaying);
+				video.removeEventListener('error', onError);
+			};
+			video.addEventListener('playing', onPlaying);
+			video.addEventListener('error', onError);
+		});
+
 		try {
 			video.srcObject = null;
 		} catch {
@@ -296,6 +321,8 @@
 			} catch {
 				// ignore
 			}
+			// Some browsers need a play() attempt after srcObject/track updates.
+			void safePlay(video);
 		};
 
 		try {
@@ -356,29 +383,7 @@
 			await safePlay(video);
 
 			const ok = await Promise.race([
-				new Promise<boolean>((resolve) => {
-					let settled = false;
-					const settle = (v: boolean) => {
-						if (settled) return;
-						settled = true;
-						cleanup();
-						resolve(v);
-					};
-					const onPlaying = () => {
-						console.log('RTC playing event');
-						settle(true);
-					};
-					const onError = () => {
-						console.log('RTC error event');
-						settle(false);
-					};
-					const cleanup = () => {
-						video.removeEventListener('playing', onPlaying);
-						video.removeEventListener('error', onError);
-					};
-					video.addEventListener('playing', onPlaying);
-					video.addEventListener('error', onError);
-				}),
+				readiness
 				//new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 3500))
 			]);
 
