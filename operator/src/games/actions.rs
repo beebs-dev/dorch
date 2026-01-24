@@ -99,6 +99,11 @@ fn game_pod(
             ..Default::default()
         },
         EnvVar {
+            name: "SERVER_NAME".to_string(),
+            value: Some(instance.spec.name.clone()),
+            ..Default::default()
+        },
+        EnvVar {
             name: "MAX_PLAYERS".to_string(),
             value: Some(instance.spec.max_players.to_string()),
             ..Default::default()
