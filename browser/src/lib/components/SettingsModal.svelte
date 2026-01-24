@@ -387,7 +387,7 @@
 
 					<section>
 						<h3 class="text-xs font-semibold tracking-wide text-zinc-300">doom2.wad Override</h3>
-						<p class="mt-1 text-xs text-zinc-500">Select a local file to override doom2.wad. If unspecified, freedoom2.wad will be used.</p>
+						<p class="mt-1 text-xs text-zinc-500">Select a local file to override doom2.wad. If unspecified, freedoom2.wad will be used. This file is only stored by your browser and never uploaded.</p>
 
 						<div class="mt-2 flex flex-wrap items-center gap-3">
 							<div class="inline-flex items-center gap-2 rounded-md bg-zinc-950 px-3 py-2 ring-1 ring-zinc-800">
