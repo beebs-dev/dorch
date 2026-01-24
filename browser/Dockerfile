@@ -10,6 +10,7 @@ WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY browser/ .
+COPY common/src/rate_limit/rate_limit.lua .
 
 ENV NODE_ENV=production
 RUN npm run build
