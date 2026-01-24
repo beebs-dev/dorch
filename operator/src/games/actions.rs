@@ -76,6 +76,14 @@ pub async fn pending(client: Client, instance: &Game, reason: String) -> Result<
     Ok(())
 }
 
+fn spectator_iwad_override(iwad: &str) -> Option<&'static str> {
+    const FREEDOOM2: &str = "17bdc0a8-8a81-4b00-90d1-972bf406fa10"; // freedoom2.wad
+    match iwad {
+        FREEDOOM2 => Some("DOOM2.WAD"),
+        _ => None,
+    }
+}
+
 fn game_pod(
     instance: &Game,
     proxy_image: &str,
@@ -237,88 +245,99 @@ fn game_pod(
                     mount_path: DATA_ROOT.to_string(),
                     ..Default::default()
                 }]),
-                env: Some(vec![
-                    EnvVar {
-                        name: "DATA_ROOT".to_string(),
-                        value: Some(DATA_ROOT.to_string()),
-                        ..Default::default()
-                    },
-                    EnvVar {
-                        name: "WADINFO_BASE_URL".to_string(),
-                        value: Some(wadinfo_base_url.to_string()),
-                        ..Default::default()
-                    },
-                    EnvVar {
-                        name: "DOWNLOAD_LIST".to_string(),
-                        value: Some({
-                            let mut downloads: Vec<String> = Vec::new();
-                            downloads.push(instance.spec.iwad.to_string());
-                            downloads.extend(wad_list.iter().cloned());
-                            downloads.join(",")
-                        }),
-                        ..Default::default()
-                    },
-                    EnvVar {
-                        name: "S3_BUCKET".to_string(),
-                        value_from: Some(EnvVarSource {
-                            secret_key_ref: Some(SecretKeySelector {
-                                name: instance.spec.s3_secret_name.clone(),
-                                key: "bucket".to_string(),
+                env: Some({
+                    let iwad_override = spectator_iwad_override(&instance.spec.iwad);
+                    let mut env = vec![
+                        EnvVar {
+                            name: "DATA_ROOT".to_string(),
+                            value: Some(DATA_ROOT.to_string()),
+                            ..Default::default()
+                        },
+                        EnvVar {
+                            name: "WADINFO_BASE_URL".to_string(),
+                            value: Some(wadinfo_base_url.to_string()),
+                            ..Default::default()
+                        },
+                        EnvVar {
+                            name: "DOWNLOAD_LIST".to_string(),
+                            value: Some({
+                                let mut downloads: Vec<String> = Vec::new();
+                                downloads.push(instance.spec.iwad.to_string());
+                                downloads.extend(wad_list.iter().cloned());
+                                downloads.join(",")
+                            }),
+                            ..Default::default()
+                        },
+                        EnvVar {
+                            name: "S3_BUCKET".to_string(),
+                            value_from: Some(EnvVarSource {
+                                secret_key_ref: Some(SecretKeySelector {
+                                    name: instance.spec.s3_secret_name.clone(),
+                                    key: "bucket".to_string(),
+                                    ..Default::default()
+                                }),
                                 ..Default::default()
                             }),
                             ..Default::default()
-                        }),
-                        ..Default::default()
-                    },
-                    EnvVar {
-                        name: "S3_REGION".to_string(),
-                        value_from: Some(EnvVarSource {
-                            secret_key_ref: Some(SecretKeySelector {
-                                name: instance.spec.s3_secret_name.clone(),
-                                key: "region".to_string(),
+                        },
+                        EnvVar {
+                            name: "S3_REGION".to_string(),
+                            value_from: Some(EnvVarSource {
+                                secret_key_ref: Some(SecretKeySelector {
+                                    name: instance.spec.s3_secret_name.clone(),
+                                    key: "region".to_string(),
+                                    ..Default::default()
+                                }),
                                 ..Default::default()
                             }),
                             ..Default::default()
-                        }),
-                        ..Default::default()
-                    },
-                    EnvVar {
-                        name: "S3_ENDPOINT".to_string(),
-                        value_from: Some(EnvVarSource {
-                            secret_key_ref: Some(SecretKeySelector {
-                                name: instance.spec.s3_secret_name.clone(),
-                                key: "endpoint".to_string(),
+                        },
+                        EnvVar {
+                            name: "S3_ENDPOINT".to_string(),
+                            value_from: Some(EnvVarSource {
+                                secret_key_ref: Some(SecretKeySelector {
+                                    name: instance.spec.s3_secret_name.clone(),
+                                    key: "endpoint".to_string(),
+                                    ..Default::default()
+                                }),
                                 ..Default::default()
                             }),
                             ..Default::default()
-                        }),
-                        ..Default::default()
-                    },
-                    EnvVar {
-                        name: "AWS_ACCESS_KEY_ID".to_string(),
-                        value_from: Some(EnvVarSource {
-                            secret_key_ref: Some(SecretKeySelector {
-                                name: instance.spec.s3_secret_name.clone(),
-                                key: "access_key_id".to_string(),
+                        },
+                        EnvVar {
+                            name: "AWS_ACCESS_KEY_ID".to_string(),
+                            value_from: Some(EnvVarSource {
+                                secret_key_ref: Some(SecretKeySelector {
+                                    name: instance.spec.s3_secret_name.clone(),
+                                    key: "access_key_id".to_string(),
+                                    ..Default::default()
+                                }),
                                 ..Default::default()
                             }),
                             ..Default::default()
-                        }),
-                        ..Default::default()
-                    },
-                    EnvVar {
-                        name: "AWS_SECRET_ACCESS_KEY".to_string(),
-                        value_from: Some(EnvVarSource {
-                            secret_key_ref: Some(SecretKeySelector {
-                                name: instance.spec.s3_secret_name.clone(),
-                                key: "secret_access_key".to_string(),
+                        },
+                        EnvVar {
+                            name: "AWS_SECRET_ACCESS_KEY".to_string(),
+                            value_from: Some(EnvVarSource {
+                                secret_key_ref: Some(SecretKeySelector {
+                                    name: instance.spec.s3_secret_name.clone(),
+                                    key: "secret_access_key".to_string(),
+                                    ..Default::default()
+                                }),
                                 ..Default::default()
                             }),
                             ..Default::default()
-                        }),
-                        ..Default::default()
-                    },
-                ]),
+                        },
+                    ];
+                    if let Some(iwad_override) = iwad_override {
+                        env.push(EnvVar {
+                            name: "IWAD_OVERRIDE".to_string(),
+                            value: Some(iwad_override.to_string()),
+                            ..Default::default()
+                        });
+                    }
+                    env
+                }),
                 ..Default::default()
             }]),
             containers: {
@@ -369,6 +388,15 @@ fn game_pod(
                                 value: Some(format!("localhost:{}", game_port)),
                                 ..Default::default()
                             });
+                            if let Some(iwad_override) =
+                                spectator_iwad_override(&instance.spec.iwad)
+                            {
+                                env.push(EnvVar {
+                                    name: "IWAD_OVERRIDE".to_string(),
+                                    value: Some(format!("{}/{}", DATA_ROOT, iwad_override)),
+                                    ..Default::default()
+                                });
+                            }
                             if let Some(srs_base_url) = srs_base_url {
                                 env.push(EnvVar {
                                     name: "RTMP_ENDPOINT".to_string(),

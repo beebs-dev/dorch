@@ -2,14 +2,29 @@
 set -euo pipefail
 
 echo "wadinfo base url: $WADINFO_BASE_URL"
-echo "S3 Endpoint: $S3_ENDPOINT"
-echo "S3 Region:   $S3_REGION"
-echo "S3 Bucket:   $S3_BUCKET"
-echo "Wad IDs:     $DOWNLOAD_LIST" # comma-separated WAD IDs
-echo "Data Root:   $DATA_ROOT"
+echo "S3 Endpoint:      $S3_ENDPOINT"
+echo "S3 Region:        $S3_REGION"
+echo "S3 Bucket:        $S3_BUCKET"
+echo "Wad IDs:          $DOWNLOAD_LIST" # comma-separated WAD IDs
+echo "Data Root:        $DATA_ROOT"
+echo "IWAD Override:    $IWAD_OVERRIDE"
 
 mkdir -p "$DATA_ROOT"
 cd "$DATA_ROOT"
+
+download_iwad_override() {
+    if [[ -z "${IWAD_OVERRIDE:-}" ]]; then
+        echo "No IWAD_OVERRIDE provided; skipping." >&2
+        return 0
+    fi
+    url="s3://$S3_BUCKET/iwads/$IWAD_OVERRIDE"
+    dst="$DATA_ROOT/$IWAD_OVERRIDE"
+    aws s3 cp "$url" "$dst" \
+        --endpoint-url "$S3_ENDPOINT" \
+        --region "$S3_REGION" \
+        --no-progress
+    echo "Downloaded IWAD override to $dst"
+}
 
 download_all() {
     if [[ -z "${DOWNLOAD_LIST:-}" ]]; then
@@ -74,6 +89,7 @@ download_all() {
     done
 }
 
+download_iwad_override
 download_all
 
 echo "Download complete. Files in $DATA_ROOT:"
