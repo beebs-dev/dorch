@@ -217,10 +217,7 @@ pub async fn update_game_info(
             &mut set_args,
             &mut del_args,
             "skill",
-            zandronum.skill.map(|s| match s {
-                Settable::Set(value) => Settable::Set(value + 1),
-                Settable::Unset => Settable::Unset,
-            }),
+            zandronum.skill.map(|s| s.map(|v| v + 1)),
         );
         push_to_string(
             &mut set_args,

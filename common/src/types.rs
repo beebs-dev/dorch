@@ -47,6 +47,15 @@ pub enum Settable<T> {
     Unset,
 }
 
+impl<T> Settable<T> {
+    pub fn map(self, f: impl FnOnce(T) -> T) -> Self {
+        match self {
+            Settable::Set(value) => Settable::Set(f(value)),
+            Settable::Unset => Settable::Unset,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ZandronumGameInfoUpdate {
     #[serde(skip_serializing_if = "Option::is_none")]
