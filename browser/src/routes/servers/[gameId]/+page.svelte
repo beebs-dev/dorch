@@ -104,10 +104,12 @@
 			case 1:
 				return 'text-green-400';
 			case 2:
-				return 'text-yellow-400';
+				return 'text-lime-400';
 			case 3:
-				return 'text-orange-400';
+				return 'text-yellow-400';
 			case 4:
+				return 'text-orange-400';
+			case 5:
 				return 'text-red-400';
 			default:
 				return 'text-zinc-400';

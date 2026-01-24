@@ -323,8 +323,8 @@ client:
 browser:
   image: docker.io/thavlik/dorch-browser:latest
   imagePullPolicy: Always
-  replicas: 1
+  replicas: 3
   logLevel: warning
   resources:
     limits:
-      memory: "64Mi"
+      memory: "256Mi"
