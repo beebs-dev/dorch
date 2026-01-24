@@ -41,7 +41,7 @@ pub async fn run_server(
         .route("/healthz", get(health))
         .route("/readyz", get(health));
     let router = Router::new()
-        .route("/jumbotron", get(list_jumbotron_mc3u8_urls))
+        .route("/jumbotron", get(list_jumbotron_urls))
         .route("/game", get(list_games))
         .route(
             "/game/{game_id}",
@@ -370,20 +370,21 @@ pub async fn update_game_info(
     StatusCode::OK.into_response()
 }
 
-pub async fn list_jumbotron_mc3u8_urls(State(state): State<App>) -> impl IntoResponse {
+pub async fn list_jumbotron_urls(State(state): State<App>) -> impl IntoResponse {
     let mut games = match list_games_inner(state).await {
         Ok(resp) => resp.games,
         Err(e) => {
             return response::error(e.context("Failed to list games for jumbotron RTMP URLs"));
         }
     };
+    const MAX_JUMBOTRON_GAMES: usize = 10;
     let mut rng = rand::rng();
-    let games = if games.len() <= 5 {
+    let games = if games.len() <= MAX_JUMBOTRON_GAMES {
         games
     } else {
         use rand::seq::SliceRandom;
         games.shuffle(&mut rng);
-        games.into_iter().take(5).collect()
+        games.into_iter().take(MAX_JUMBOTRON_GAMES).collect()
     };
     let items = match games
         .into_iter()
