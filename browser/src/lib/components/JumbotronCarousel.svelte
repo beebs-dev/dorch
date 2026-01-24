@@ -697,7 +697,7 @@
 				<div class="jc-controls" aria-hidden="false">
 					<button
 						type="button"
-						class="jc-nav"
+						class="jc-nav cursor-pointer"
 						onclick={() => rotate(-1)}
 						aria-label="Previous stream"
 						title="Previous"
@@ -712,7 +712,7 @@
 					</button>
 					<button
 						type="button"
-						class="jc-nav"
+						class="jc-nav cursor-pointer"
 						onclick={() => rotate(1)}
 						aria-label="Next stream"
 						title="Next"
