@@ -2,6 +2,7 @@ import type { Handle } from '@sveltejs/kit';
 
 import { getTrustedXForwardedFor } from '$lib/server/forwarded';
 import { isRateLimited } from '$lib/server/rate_limit';
+import { dev } from '$app/environment';
 
 function isPageResponse(response: Response): boolean {
 	const contentType = response.headers.get('content-type') ?? '';
@@ -9,7 +10,7 @@ function isPageResponse(response: Response): boolean {
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
-    if (await isRateLimited(event)) {
+    if (!dev && await isRateLimited(event)) {
         return new Response('Rate limit exceeded', {
             status: 429,
             headers: {
