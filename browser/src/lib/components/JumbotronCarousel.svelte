@@ -497,29 +497,47 @@
 		try {
 			// We intentionally use a single active <video> element.
 			// This allows duplicate thumbnails (same game) to be on screen during wrap-around.
-			stopAndResetVideo(activeVideoEl);
+			// IMPORTANT: when switching slides, the *old* active <video> can still be bound
+			// for a tick while the DOM updates. Capture it so we don't accidentally attach
+			// the new stream to the outgoing element.
+			const previousVideoEl = activeVideoEl;
+			stopAndResetVideo(previousVideoEl);
 			destroyHls(hls);
 			destroyRtc(rtc);
 			hls = null;
 			rtc = null;
 
-			lastActiveGameId = item?.game_id ?? null;
-			if (!item) return;
-
-			// Wait until the active element exists in the DOM.
-			for (let i = 0; i < 8; i++) {
-				if (activeVideoEl) break;
-				await tick();
+			if (!item) {
+				lastActiveGameId = null;
+				return;
 			}
-			if (!activeVideoEl) return;
 
-			await attachStreamToVideo(item, activeVideoEl);
+			// Wait until the *new* active element exists in the DOM and has been re-bound.
+			// (On slide change, activeVideoEl may briefly point at the outgoing element.)
+			let video: HTMLVideoElement | null = null;
+			for (let i = 0; i < 20; i++) {
+				await tick();
+				if (!activeVideoEl) continue;
+				if (activeVideoEl === previousVideoEl) continue;
+				if (!(activeVideoEl as any).isConnected) continue;
+				video = activeVideoEl;
+				break;
+			}
+			if (!video) {
+				// Allow a future reactive pass to retry.
+				return;
+			}
 			if (seq !== switchingSeq) return;
-			await safePlay(activeVideoEl);
+			lastActiveGameId = item.game_id;
+
+			await attachStreamToVideo(item, video);
+			if (seq !== switchingSeq) return;
+			if (activeVideoEl !== video) return;
+			await safePlay(video);
 			dbg('activateStream attached+played', {
 				seq,
 				gameId: item.game_id,
-				readyState: activeVideoEl.readyState,
+				readyState: video?.readyState,
 				usingRtc: Boolean(rtc),
 				usingHls: Boolean(hls)
 			});
@@ -531,7 +549,7 @@
 
 	$: if (mounted) {
 		// Re-attach whenever active item changes.
-		if (activeGameId !== lastActiveGameId) {
+		if (!activating && activeGameId !== lastActiveGameId) {
 			void activateStream(activeItem);
 		}
 	}

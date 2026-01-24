@@ -5,7 +5,7 @@ metadata:
   namespace: dorch
 spec:
   game_id: 25464d97-353d-4584-bc16-e72346f92d6f
-  name: "RANDOM MAPS"
+  name: "Stardate 20x7"
   max_players: 64
   s3_secret_name: game-spaces-cred
   iwad: 17bdc0a8-8a81-4b00-90d1-972bf406fa10
@@ -13,4 +13,4 @@ spec:
   warp: MAP01
   files:
     - 22a0ca23-f044-4319-a7a6-f3b60276d0ce
-    - d1781ce1-ab1e-4cfe-8329-5277ee12f076
+    - 9ca3514c-31ad-4561-9f34-b7602865d9ce
