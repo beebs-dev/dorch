@@ -157,6 +157,7 @@
 				<div>
 					<h2 class="text-base font-semibold tracking-wide text-zinc-100">Sign in</h2>
 					<p class="mt-1 text-xs text-zinc-400">Use your <span style="font-weight: bold; color: #b50d0d;">ɢɪʙ.ɢɢ</span> account to create custom servers for free.</p>
+					<p class="mt-1 text-xs text-zinc-400">NOTE: an account is <span class="font-bold">not</span> required to play. The settings menu (top right corner, gear icon) is always accessible.</p>
 				</div>
 				<button
 					type="button"

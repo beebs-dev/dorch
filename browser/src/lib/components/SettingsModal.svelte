@@ -330,8 +330,8 @@
 		>
 			<div class="flex items-center justify-between border-b border-zinc-800/80 px-5 py-4">
 				<div>
-					<h2 class="text-base font-semibold tracking-wide text-zinc-100">Settings</h2>
-					<p class="mt-1 text-xs text-zinc-400">Local, browser-only configuration.</p>
+					<h2 class="text-base font-semibold tracking-wide text-zinc-100">Game Settings</h2>
+					<p class="mt-1 text-xs text-zinc-400">Local, browser-only configuration. No account required.</p>
 				</div>
 				<button
 					type="button"
@@ -364,7 +364,7 @@
 					<section>
 						<div class="flex items-baseline justify-between gap-4">
 							<div>
-								<h3 class="text-xs font-semibold tracking-wide text-zinc-300">Config</h3>
+								<h3 class="text-xs font-semibold tracking-wide text-zinc-300">Config (autoexec.cfg)</h3>
 								<p class="mt-1 text-xs text-zinc-500">Paste text or upload a text file.</p>
 							</div>
 							<label class="cursor-pointer inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-xs font-semibold text-zinc-100 ring-1 ring-zinc-800 hover:bg-zinc-800 focus-within:ring-2 focus-within:ring-zinc-500">
@@ -387,8 +387,7 @@
 
 					<section>
 						<h3 class="text-xs font-semibold tracking-wide text-zinc-300">doom2.wad Override</h3>
-						<p class="mt-1 text-xs text-zinc-500">Select a local file to override doom2.wad. If unspecified, freedoom2.wad will be used. This file is only stored by your browser and never uploaded.</p>
-
+						<p class="mt-1 text-xs text-zinc-500">Select a local file to replace freedoom2.wad. If you don't choose one, the default freedoom2.wad will be used. Your selected file stays in your browser and is never uploaded. Use this option if you want to play using assets from the original retail game.</p>
 						<div class="mt-2 flex flex-wrap items-center gap-3">
 							<div class="inline-flex items-center gap-2 rounded-md bg-zinc-950 px-3 py-2 ring-1 ring-zinc-800">
 								<span
