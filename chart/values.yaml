@@ -10,7 +10,7 @@ prometheus:
 ratelimiter:
   burstLimit: 70
   burstWindowMs: 5000
-  longLimit: 400
+  longLimit: 200
   longWindowMs: 60000
   maxListSize: 1000
   keyPrefix: "rl:"
