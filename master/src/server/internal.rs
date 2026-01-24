@@ -213,7 +213,15 @@ pub async fn update_game_info(
         );
         // Zandronum will decrement the skill on load (d_main.cpp:2781)
         // so we need to increment it here to keep it consistent.
-        push_to_string(&mut set_args, &mut del_args, "skill", zandronum.skill + 1);
+        push_to_string(
+            &mut set_args,
+            &mut del_args,
+            "skill",
+            zandronum.skill.map(|s| match s {
+                Settable::Set(value) => Settable::Set(value + 1),
+                Settable::Unset => Settable::Unset,
+            }),
+        );
         push_to_string(
             &mut set_args,
             &mut del_args,
