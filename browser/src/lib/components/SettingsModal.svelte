@@ -47,6 +47,38 @@
 		onClose();
 	}
 
+    function randomIdent(): string {
+		const adjectives = [
+			'quick',
+			'bright',
+			'silent',
+			'fierce',
+			'brave',
+			'clever',
+			'lucky',
+			'wild',
+			'calm',
+			'proud'
+		];
+		const nouns = [
+			'tiger',
+			'eagle',
+			'lion',
+			'wolf',
+			'panther',
+			'hawk',
+			'fox',
+			'bear',
+			'dragon',
+			'falcon'
+		];
+
+		const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+		const noun = nouns[Math.floor(Math.random() * nouns.length)];
+		const number = Math.floor(Math.random() * 1000);
+		return `${adj}-${noun}-${number}`;
+	}
+
 	function onKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
 			e.preventDefault();
@@ -89,7 +121,7 @@
 
 	function loadFromLocalStorage() {
 		if (!browser) return;
-		name = window.localStorage.getItem(LS_NAME_KEY) ?? '';
+		name = window.localStorage.getItem(LS_NAME_KEY) ?? randomIdent();
 		config = window.localStorage.getItem(LS_CONFIG_KEY) ?? '';
 		doom2Meta = safeJsonParse<Doom2OverrideMeta>(window.localStorage.getItem(LS_DOOM2_META_KEY)) ?? {
 			present: false
@@ -315,7 +347,7 @@
 				<div class="grid gap-6">
 					<section>
 						<h3 class="text-xs font-semibold tracking-wide text-zinc-300">Name</h3>
-						<p class="mt-1 text-xs text-zinc-500">Max {NAME_MAX_LEN} characters.</p>
+						<p class="mt-1 text-xs text-zinc-500">Your display name. Max {NAME_MAX_LEN} characters.</p>
 						<input
 							bind:this={nameEl}
 							value={name}
@@ -355,7 +387,7 @@
 
 					<section>
 						<h3 class="text-xs font-semibold tracking-wide text-zinc-300">doom2.wad Override</h3>
-						<p class="mt-1 text-xs text-zinc-500">Select a local file to override doom2.wad.</p>
+						<p class="mt-1 text-xs text-zinc-500">Select a local file to override doom2.wad. If unspecified, freedoom2.wad will be used.</p>
 
 						<div class="mt-2 flex flex-wrap items-center gap-3">
 							<div class="inline-flex items-center gap-2 rounded-md bg-zinc-950 px-3 py-2 ring-1 ring-zinc-800">
