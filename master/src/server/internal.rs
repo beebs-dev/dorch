@@ -211,7 +211,9 @@ pub async fn update_game_info(
             "player_count",
             zandronum.player_count,
         );
-        push_to_string(&mut set_args, &mut del_args, "skill", zandronum.skill);
+        // Zandronum will decrement the skill on load (d_main.cpp:2781)
+        // so we need to increment it here to keep it consistent.
+        push_to_string(&mut set_args, &mut del_args, "skill", zandronum.skill + 1);
         push_to_string(
             &mut set_args,
             &mut del_args,
@@ -625,11 +627,13 @@ pub async fn try_get_info(state: &App, game: &Game) -> Option<GameInfo> {
             info.name = game.spec.name.clone();
             info.private = game.spec.private.unwrap_or(false);
             println!(
-                "{}{}{}{}",
+                "{}{}{}{}{}{}",
                 "✅ Retrieved game info • game_id=".green(),
                 game_id.green().dimmed(),
                 " • name=".green(),
                 info.name.green().dimmed(),
+                " • skill=".green(),
+                info.skill.green().dimmed(),
             );
             Some(info)
         }
