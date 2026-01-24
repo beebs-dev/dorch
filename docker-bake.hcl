@@ -35,7 +35,8 @@ target "base" {
 }
 
 target "browser" {
-  context    = "browser/"
+  context    = "./"
+  dockerfile = "browser/Dockerfile"
   tags       = ["${REGISTRY}thavlik/dorch-browser:latest"]
   push       = true
 }
