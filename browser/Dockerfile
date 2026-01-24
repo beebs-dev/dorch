@@ -10,7 +10,6 @@ WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY browser/ .
-COPY common/src/rate_limit/rate_limit.lua .
 
 ENV NODE_ENV=production
 RUN npm run build
@@ -28,6 +27,8 @@ COPY browser/package.json browser/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=build /app/build ./build
+# Lua script for Redis-backed rate limiter (loaded at runtime)
+COPY common/src/rate_limit/rate_limit.lua ./rate_limit.lua
 #COPY --from=build /app/icons ./icons
 
 EXPOSE 3000

@@ -7,6 +7,7 @@
 		"@fontsource/orbitron": "^5.2.8",
 		"@fontsource/share-tech-mono": "^5.2.7",
 		"hls.js": "^1.6.15",
+		"redis": "^4.7.1",
 		"three": "^0.182.0"
 	},
 	"scripts": {
