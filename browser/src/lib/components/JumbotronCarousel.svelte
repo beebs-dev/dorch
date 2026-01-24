@@ -38,6 +38,16 @@
 	let rtc: RTCPeerConnection | null = null;
 
 	let activeVideoEl: HTMLVideoElement | null = null;
+	let recoverTimer: number | null = null;
+	let startupWatchdogTimer: number | null = null;
+	let activating = false;
+	let debugEnabled = false;
+
+	function dbg(...args: any[]) {
+		if (!debugEnabled) return;
+		// eslint-disable-next-line no-console
+		console.log('[JumbotronCarousel]', ...args);
+	}
 
 	function wrapIndex(index: number, len: number): number {
 		if (len <= 0) return 0;
@@ -256,6 +266,18 @@
 
 		const pc = new RTCPeerConnection();
 		const stream = new MediaStream();
+		pc.oniceconnectionstatechange = () => {
+			const st = pc.iceConnectionState;
+			if (st === 'failed' || st === 'disconnected' || st === 'closed') {
+				scheduleRecover(`rtc ice ${st}`);
+			}
+		};
+		pc.onconnectionstatechange = () => {
+			const st = pc.connectionState;
+			if (st === 'failed' || st === 'disconnected' || st === 'closed') {
+				scheduleRecover(`rtc ${st}`);
+			}
+		};
 		pc.addTransceiver('video', { direction: 'recvonly' });
 		pc.addTransceiver('audio', { direction: 'recvonly' });
 		pc.ontrack = (evt) => {
@@ -344,8 +366,14 @@
 						cleanup();
 						resolve(v);
 					};
-					const onPlaying = () => settle(true);
-					const onError = () => settle(false);
+					const onPlaying = () => {
+						console.log('RTC playing event');
+						settle(true);
+					};
+					const onError = () => {
+						console.log('RTC error event');
+						settle(false);
+					};
 					const cleanup = () => {
 						video.removeEventListener('playing', onPlaying);
 						video.removeEventListener('error', onError);
@@ -370,14 +398,6 @@
 
 	async function attachStreamToVideo(item: JumbotronItem, video: HTMLVideoElement) {
 		const hlsUrl = item.hls ?? item.url;
-		if (!hlsUrl) {
-			stopAndResetVideo(video);
-			destroyHls(hls);
-			destroyRtc(rtc);
-			hls = null;
-			rtc = null;
-			return;
-		}
 
 		// Reset previous attachments.
 		stopAndResetVideo(video);
@@ -386,19 +406,33 @@
 		hls = null;
 		rtc = null;
 
+		dbg('attachStreamToVideo', {
+			gameId: item.game_id,
+			hasRtc: Boolean(item.rtc) || rtcSupported(),
+			hasHls: Boolean(hlsUrl)
+		});
+
 		video.muted = true;
 		video.playsInline = true;
 		video.autoplay = true;
-		video.loop = true;
+		// Live streams should not loop; looping can cause stalls/black frames on some browsers.
+		video.loop = false;
 		video.preload = 'auto';
 
-		// Prefer RTC when supported.
+		// Prefer RTC when supported (even if there's no HLS URL).
 		if (rtcSupported()) {
 			const rtcRes = await attachRtcToVideo(item, video, null);
 			if (rtcRes.ok && rtcRes.rtc) {
 				rtc = rtcRes.rtc;
 				return;
 			}
+		}
+
+		// If RTC failed and we don't have HLS, we can't play anything.
+		if (!hlsUrl) {
+			dbg('no playable URL (RTC failed and no HLS)', { gameId: item.game_id });
+			stopAndResetVideo(video);
+			return;
 		}
 
 		// Native HLS (Safari) or fallback.
@@ -420,39 +454,118 @@
 
 		hls = new Hls({
 			enableWorker: true,
-			lowLatencyMode: true,
-			backBufferLength: 30
+			// Match the more stable settings used in the server details player.
+			liveSyncDuration: 12,
+			liveMaxLatencyDuration: 30
 		});
-		hls.attachMedia(video);
+		// Basic recovery for fatal HLS errors; otherwise we can get stuck on a black frame.
+		try {
+			const HlsCtor: any = Hls;
+			hls.on(HlsCtor.Events.ERROR, (_evt: unknown, data: any) => {
+				if (!data?.fatal) return;
+				try {
+					if (data?.type === HlsCtor.ErrorTypes.NETWORK_ERROR) {
+						hls?.startLoad();
+						return;
+					}
+					if (data?.type === HlsCtor.ErrorTypes.MEDIA_ERROR) {
+						hls?.recoverMediaError();
+						return;
+					}
+				} catch {
+					// ignore
+				}
+				scheduleRecover('fatal hls error');
+			});
+		} catch {
+			// ignore
+		}
 		hls.loadSource(hlsUrl);
+		hls.attachMedia(video);
+	}
+
+	function clearStartupWatchdog() {
+		if (startupWatchdogTimer != null) {
+			clearTimeout(startupWatchdogTimer);
+			startupWatchdogTimer = null;
+		}
+	}
+
+	function scheduleRecover(_reason: string) {
+		if (!mounted) return;
+		if (!activeItem || !activeGameId) return;
+		// Avoid fighting a stream attach that's already in progress.
+		if (activating) return;
+		if (recoverTimer != null) return;
+		// eslint-disable-next-line no-console
+		console.warn('[JumbotronCarousel] recover scheduled:', _reason, { gameId: activeGameId });
+		const expectedGameId = activeGameId;
+		recoverTimer = window.setTimeout(() => {
+			recoverTimer = null;
+			if (!mounted) return;
+			if (activeGameId !== expectedGameId) return;
+			void activateStream(activeItem);
+		}, 750);
 	}
 
 	let lastActiveGameId: string | null = null;
 	async function activateStream(item: JumbotronItem | null) {
 		const seq = ++switchingSeq;
 		if (!mounted) return;
+		clearStartupWatchdog();
+		activating = true;
+		activeReady = false;
+		dbg('activateStream start', { seq, gameId: item?.game_id ?? null });
+		try {
+			// We intentionally use a single active <video> element.
+			// This allows duplicate thumbnails (same game) to be on screen during wrap-around.
+			stopAndResetVideo(activeVideoEl);
+			destroyHls(hls);
+			destroyRtc(rtc);
+			hls = null;
+			rtc = null;
 
-		// We intentionally use a single active <video> element.
-		// This allows duplicate thumbnails (same game) to be on screen during wrap-around.
-		stopAndResetVideo(activeVideoEl);
-		destroyHls(hls);
-		destroyRtc(rtc);
-		hls = null;
-		rtc = null;
+			lastActiveGameId = item?.game_id ?? null;
+			if (!item) return;
 
-		lastActiveGameId = item?.game_id ?? null;
-		if (!item) return;
+			// Wait until the active element exists in the DOM.
+			for (let i = 0; i < 8; i++) {
+				if (activeVideoEl) break;
+				await tick();
+			}
+			if (!activeVideoEl) return;
 
-		// Wait until the active element exists in the DOM.
-		for (let i = 0; i < 8; i++) {
-			if (activeVideoEl) break;
-			await tick();
+			await attachStreamToVideo(item, activeVideoEl);
+			if (seq !== switchingSeq) return;
+			await safePlay(activeVideoEl);
+			dbg('activateStream attached+played', {
+				seq,
+				gameId: item.game_id,
+				readyState: activeVideoEl.readyState,
+				usingRtc: Boolean(rtc),
+				usingHls: Boolean(hls)
+			});
+
+			// Startup watchdog: if we never reach a playable state, retry.
+			startupWatchdogTimer = window.setTimeout(() => {
+				startupWatchdogTimer = null;
+				if (!mounted) return;
+				if (seq !== switchingSeq) return;
+				const v = activeVideoEl;
+				if (!v) return;
+				if (v.error || v.readyState < 2) {
+					dbg('startup watchdog retry', {
+						seq,
+						gameId: activeGameId,
+						reason: v.error ? 'video.error' : `readyState ${v.readyState}`
+					});
+					void activateStream(activeItem);
+				}
+			}, 5500);
+		} finally {
+			if (seq === switchingSeq) activating = false;
+			dbg('activateStream done', { seq, stillCurrent: seq === switchingSeq });
 		}
-		if (!activeVideoEl) return;
-
-		await attachStreamToVideo(item, activeVideoEl);
-		if (seq !== switchingSeq) return;
-		await safePlay(activeVideoEl);
 	}
 
 	$: if (mounted) {
@@ -464,6 +577,13 @@
 
 	onMount(() => {
 		mounted = true;
+		try {
+			const qs = new URLSearchParams(window.location.search);
+			debugEnabled = qs.has('jcdebug') || window.localStorage.getItem('dorch.jcdebug') === '1';
+		} catch {
+			debugEnabled = false;
+		}
+		if (debugEnabled) dbg('debug enabled');
 		// Start on the first item (if any) and build the initial window.
 		activeIndex = wrapIndex(activeIndex, items.length);
 		rendered = buildInitialRendered();
@@ -472,6 +592,11 @@
 
 	onDestroy(() => {
 		mounted = false;
+		clearStartupWatchdog();
+		if (recoverTimer != null) {
+			clearTimeout(recoverTimer);
+			recoverTimer = null;
+		}
 		destroyHls(hls);
 		destroyRtc(rtc);
 		hls = null;
@@ -534,12 +659,28 @@
 									class="jc-video"
 									bind:this={activeVideoEl}
 									onplaying={() => {
+										dbg('video playing', { gameId: item.game_id, readyState: activeVideoEl?.readyState });
 										if (item.game_id === activeGameId) activeReady = true;
+									}}
+									onerror={() => {
+										// eslint-disable-next-line no-console
+										console.warn('[JumbotronCarousel] video error event', {
+											gameId: item.game_id,
+											error: activeVideoEl?.error
+										});
+										scheduleRecover('video error');
+									}}
+									onstalled={() => {
+										// eslint-disable-next-line no-console
+										console.warn('[JumbotronCarousel] video stalled event', {
+											gameId: item.game_id,
+											readyState: activeVideoEl?.readyState
+										});
+										scheduleRecover('video stalled');
 									}}
 									playsinline
 									muted
 									autoplay
-									loop
 									preload="auto"
 								></video>
 							{/if}
