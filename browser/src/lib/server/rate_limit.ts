@@ -29,7 +29,7 @@ function getRateLimiterConfig(): RateLimiterConfig {
 		longLimit: parseIntEnv('RATE_LIMITER_LONG_LIMIT', 200),
 		longWindowMs: parseIntEnv('RATE_LIMITER_LONG_WINDOW_MS', 60_000),
 		maxListSize: parseIntEnv('RATE_LIMITER_MAX_LIST_SIZE', 512),
-		keyPrefix: env.RATE_LIMITER_KEY_PREFIX ?? 'rate:',
+		keyPrefix: env.RATE_LIMITER_KEY_PREFIX ?? 'rate:'
 	};
 }
 
@@ -66,23 +66,71 @@ let redisClient: RedisClientType | null = null;
 let redisConnecting: Promise<RedisClientType> | null = null;
 let scriptSha: string | null = null;
 
+let shuttingDown = false;
+
+export async function shutdownRateLimiterRedis(): Promise<void> {
+	shuttingDown = true;
+	scriptSha = null;
+	redisConnecting = null;
+
+	const client = redisClient;
+	redisClient = null;
+	if (!client) return;
+
+	try {
+		// Disconnect immediately (do not wait for pending commands like `quit()`).
+		await client.disconnect();
+	} catch {
+		// Best-effort; shutdown should not hang on Redis.
+	}
+}
+
+// Ensure Redis doesn't keep the event loop alive during shutdown.
+const globalAny = globalThis as any;
+if (
+	typeof process !== 'undefined' &&
+	typeof process.once === 'function' &&
+	!globalAny.__dorchRateLimiterRedisShutdownInstalled
+) {
+	globalAny.__dorchRateLimiterRedisShutdownInstalled = true;
+	process.once('SIGTERM', () => {
+		void shutdownRateLimiterRedis();
+	});
+	process.once('SIGINT', () => {
+		void shutdownRateLimiterRedis();
+	});
+}
+
 async function getRedisClient(): Promise<RedisClientType> {
+	if (shuttingDown) {
+		throw new Error('redis is shutting down');
+	}
 	if (redisClient?.isOpen) return redisClient;
 	if (redisConnecting) return redisConnecting;
 
-	const url = buildRedisUrl();
-	const client = createClient({ url });
-	client.on('error', (e) => {
-		console.error('redis error', e);
-	});
+	if (!redisClient) {
+		const url = buildRedisUrl();
+		redisClient = createClient({
+			url,
+			socket: {
+				reconnectStrategy: (retries: number) => {
+					if (shuttingDown) return new Error('shutting down');
+					return Math.min(50 * (retries + 1), 2_000);
+				}
+			}
+		});
+		redisClient.on('error', (e) => {
+			console.error('redis error', e);
+		});
+	}
 
 	redisConnecting = (async () => {
 		try {
-			if (!client.isOpen) {
-				await client.connect();
+			if (!redisClient) throw new Error('redis client missing');
+			if (!redisClient.isOpen) {
+				await redisClient.connect();
 			}
-			redisClient = client as any;
-			return client;
+			return redisClient;
 		} catch (e) {
 			redisClient = null;
 			scriptSha = null;
@@ -156,7 +204,7 @@ export async function isRateLimited(event: RequestEvent): Promise<boolean> {
 		String(config.longLimit),
 		String(config.longWindowMs),
 		String(nowMs),
-		String(config.maxListSize),
+		String(config.maxListSize)
 	];
 
 	try {

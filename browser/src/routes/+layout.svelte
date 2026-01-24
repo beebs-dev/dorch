@@ -75,7 +75,7 @@
 	<link rel="icon" type="image/png" href={`${base}/favicon.png`} />
 </svelte:head>
 
-<div class="dorch-texture min-h-dvh bg-zinc-950 text-zinc-100">
+<div class="dorch-texture flex min-h-dvh flex-col bg-zinc-950 text-zinc-100">
 	<header class="sticky top-0 z-10 border-b border-red-950/60 bg-red-950/35 backdrop-blur">
 		<div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
 			<div class="shrink-0">
@@ -108,7 +108,7 @@
 					WAD BROWSER
 				</a>
 				{#if $page.data.loggedIn}
-					<div class="relative -mb-px group">
+					<div class="group relative -mb-px">
 						<a
 							href={resolve('/account')}
 							aria-current={isActive('/account', $page.url.pathname) ? 'page' : undefined}
@@ -134,12 +134,14 @@
 						</a>
 
 						<div
-							class="absolute right-0 top-full z-50 hidden min-w-48 pt-2 group-hover:block group-focus-within:block"
+							class="absolute top-full right-0 z-50 hidden min-w-48 pt-2 group-focus-within:block group-hover:block"
 						>
 							<div class="overflow-hidden rounded-lg bg-zinc-950 ring-1 ring-zinc-800">
-								<div class="px-3 py-2 text-xs text-zinc-400 border-b border-zinc-800">
+								<div class="border-b border-zinc-800 px-3 py-2 text-xs text-zinc-400">
 									Signed in as
-									<span class="ml-1 font-semibold text-red-300">{$page.data.username ?? 'unknown'}</span>
+									<span class="ml-1 font-semibold text-red-300"
+										>{$page.data.username ?? 'unknown'}</span
+									>
 								</div>
 								<a
 									href={resolve('/account')}
@@ -149,7 +151,7 @@
 								</a>
 								<button
 									type="button"
-									class="cursor-pointer w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
+									class="w-full cursor-pointer px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
 									onclick={signOut}
 								>
 									Sign out
@@ -160,7 +162,7 @@
 				{:else}
 					<button
 						type="button"
-						class={`cursor-pointer -mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+						class={`-mb-px cursor-pointer border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
 							loginOpen
 								? 'border-red-400 text-zinc-100'
 								: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
@@ -173,7 +175,19 @@
 			</nav>
 		</div>
 	</header>
-	<main class="min-w-0">{@render children()}</main>
+	<main class="min-w-0 flex-1">{@render children()}</main>
+	<footer class="border-t border-none bg-transparent px-4 py-6">
+		<div class="mx-auto max-w-6xl text-center">
+			<a
+				href="https://www.doomworld.com/forum/topic/156982-the-best-doom-experience-in-a-browser-gibgg"
+				target="_blank"
+				rel="noopener noreferrer"
+				class="text-sm text-zinc-300 underline underline-offset-4 opacity-50 transition-colors hover:text-zinc-100 hover:opacity-100"
+			>
+				Doomworld Post
+			</a>
+		</div>
+	</footer>
 	<LoginModal open={loginOpen} onClose={closeLogin} />
 	{#if $toastMessage}
 		<div
