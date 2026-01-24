@@ -38,8 +38,6 @@
 	let rtc: RTCPeerConnection | null = null;
 
 	let activeVideoEl: HTMLVideoElement | null = null;
-	//let recoverTimer: number | null = null;
-	//let startupWatchdogTimer: number | null = null;
 	let activating = false;
 	let debugEnabled = false;
 
@@ -269,13 +267,13 @@
 		pc.oniceconnectionstatechange = () => {
 			const st = pc.iceConnectionState;
 			if (st === 'failed' || st === 'disconnected' || st === 'closed') {
-				scheduleRecover(`rtc ice ${st}`);
+				console.log('RTC iceconnectionstatechange', { state: st, gameId: item.game_id });
 			}
 		};
 		pc.onconnectionstatechange = () => {
 			const st = pc.connectionState;
 			if (st === 'failed' || st === 'disconnected' || st === 'closed') {
-				scheduleRecover(`rtc ${st}`);
+				console.log('RTC connectionstatechange', { state: st, gameId: item.game_id });
 			}
 		};
 		pc.addTransceiver('video', { direction: 'recvonly' });
@@ -475,7 +473,7 @@
 				} catch {
 					// ignore
 				}
-				scheduleRecover('fatal hls error');
+				console.log('HLS fatal error, destroying HLS instance', { gameId: item.game_id, data });
 			});
 		} catch {
 			// ignore
@@ -484,35 +482,10 @@
 		hls.attachMedia(video);
 	}
 
-	//function clearStartupWatchdog() {
-	//	if (startupWatchdogTimer != null) {
-	//		clearTimeout(startupWatchdogTimer);
-	//		startupWatchdogTimer = null;
-	//	}
-	//}
-
-	function scheduleRecover(_reason: string) {
-		if (!mounted) return;
-		if (!activeItem || !activeGameId) return;
-		// Avoid fighting a stream attach that's already in progress.
-		if (activating) return;
-		//if (recoverTimer != null) return;
-		// eslint-disable-next-line no-console
-		console.warn('[JumbotronCarousel] recover scheduled:', _reason, { gameId: activeGameId });
-		const expectedGameId = activeGameId;
-		//recoverTimer = window.setTimeout(() => {
-		//	recoverTimer = null;
-		//	if (!mounted) return;
-		//	if (activeGameId !== expectedGameId) return;
-		//	void activateStream(activeItem);
-		//}, 750);
-	}
-
 	let lastActiveGameId: string | null = null;
 	async function activateStream(item: JumbotronItem | null) {
 		const seq = ++switchingSeq;
 		if (!mounted) return;
-		//clearStartupWatchdog();
 		activating = true;
 		activeReady = false;
 		dbg('activateStream start', { seq, gameId: item?.game_id ?? null });
@@ -545,23 +518,6 @@
 				usingRtc: Boolean(rtc),
 				usingHls: Boolean(hls)
 			});
-
-			// Startup watchdog: if we never reach a playable state, retry.
-			// startupWatchdogTimer = window.setTimeout(() => {
-			// 	startupWatchdogTimer = null;
-			// 	if (!mounted) return;
-			// 	if (seq !== switchingSeq) return;
-			// 	const v = activeVideoEl;
-			// 	if (!v) return;
-			// 	if (v.error || v.readyState < 2) {
-			// 		dbg('startup watchdog retry', {
-			// 			seq,
-			// 			gameId: activeGameId,
-			// 			reason: v.error ? 'video.error' : `readyState ${v.readyState}`
-			// 		});
-			// 		void activateStream(activeItem);
-			// 	}
-			// }, 5500);
 		} finally {
 			if (seq === switchingSeq) activating = false;
 			dbg('activateStream done', { seq, stillCurrent: seq === switchingSeq });
@@ -592,11 +548,6 @@
 
 	onDestroy(() => {
 		mounted = false;
-		//clearStartupWatchdog();
-		//if (recoverTimer != null) {
-		//	clearTimeout(recoverTimer);
-		//	recoverTimer = null;
-		//}
 		destroyHls(hls);
 		destroyRtc(rtc);
 		hls = null;
@@ -668,7 +619,6 @@
 											gameId: item.game_id,
 											error: activeVideoEl?.error
 										});
-										scheduleRecover('video error');
 									}}
 									onstalled={() => {
 										// eslint-disable-next-line no-console
@@ -676,7 +626,6 @@
 											gameId: item.game_id,
 											readyState: activeVideoEl?.readyState
 										});
-										scheduleRecover('video stalled');
 									}}
 									playsinline
 									muted
