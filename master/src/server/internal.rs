@@ -211,14 +211,7 @@ pub async fn update_game_info(
             "player_count",
             zandronum.player_count,
         );
-        // Zandronum will decrement the skill on load (d_main.cpp:2781)
-        // so we need to increment it here to keep it consistent.
-        push_to_string(
-            &mut set_args,
-            &mut del_args,
-            "skill",
-            zandronum.skill.map(|s| s.map(|v| v + 1)),
-        );
+        push_to_string(&mut set_args, &mut del_args, "skill", zandronum.skill);
         push_to_string(
             &mut set_args,
             &mut del_args,

@@ -87,10 +87,12 @@
 			case 1:
 				return `I'm Too Young to Die`;
 			case 2:
-				return `Hurt Me Plenty`;
+				return `Hey, Not Too Rough`;
 			case 3:
-				return `Ultra-Violence`;
+				return `Hurt Me Plenty`;
 			case 4:
+				return `Ultra-Violence`;
+			case 5:
 				return `Nightmare!`;
 			default:
 				return 'Unknown';
