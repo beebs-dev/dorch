@@ -18,6 +18,9 @@
 
 	export let items: JumbotronItem[] = [];
 	export let intervalMs = 5000;
+	// If false, the jumbotron will not automatically rotate streams.
+	// Navigation is manual via the next/prev buttons.
+	export let autoAdvance = false;
 
 	type TransitionKind = 'fade' | 'zoom' | 'slide-left' | 'slide-right' | 'tilt' | 'wipe' | 'glitch';
 
@@ -443,6 +446,7 @@
 	function armTimer() {
 		clearTimer();
 		if (!items.length) return;
+		if (!autoAdvance) return;
 		switchTimer = window.setInterval(() => {
 			void switchNow();
 		}, intervalMs);
