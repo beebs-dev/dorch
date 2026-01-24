@@ -81,7 +81,7 @@ async function getRedisClient(): Promise<RedisClientType> {
 			if (!client.isOpen) {
 				await client.connect();
 			}
-			redisClient = client;
+			redisClient = client as any;
 			return client;
 		} catch (e) {
 			redisClient = null;
@@ -90,9 +90,9 @@ async function getRedisClient(): Promise<RedisClientType> {
 		} finally {
 			redisConnecting = null;
 		}
-	})();
+	})() as any;
 
-	return redisConnecting;
+	return redisConnecting as Promise<RedisClientType>;
 }
 
 async function evalRateLimitScript(listKey: string, args: string[]): Promise<number> {
