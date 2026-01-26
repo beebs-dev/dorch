@@ -10,8 +10,8 @@ spec:
   s3_secret_name: game-spaces-cred
   iwad: 17bdc0a8-8a81-4b00-90d1-972bf406fa10
   use_doom1_assets: false
-  warp: MAP22
+  warp: MAP01
   skill: 2
   files:
     - 22a0ca23-f044-4319-a7a6-f3b60276d0ce
-    - 7ffde67e-88e9-4fa1-9755-f7098188c4e3
+    - f5942968-8378-4fae-a8fc-c02420ada217
