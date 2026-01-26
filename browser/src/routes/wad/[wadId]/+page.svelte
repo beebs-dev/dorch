@@ -4,6 +4,7 @@
 	import { page } from '$app/stores';
 	import PanoViewer from '$lib/components/PanoViewer.svelte';
 	import DorchPlayButton from '$lib/components/DorchPlayButton.svelte';
+	import ServerCreateModal from '$lib/components/ServerCreateModal.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { WadImage } from '$lib/types/wadinfo';
 	import { ellipsize, humanBytes, wadLabel, withParams } from '$lib/utils/format';
@@ -168,6 +169,7 @@
 	let modalImageUrl = $state<string | null>(null);
 	let showSha256 = $state(false);
 	let isFavorite = $state(false);
+	let showServerCreateModal = $state(false);
 
 	function closeModal() {
 		modalImageUrl = null;
@@ -267,7 +269,7 @@
 						</svg>
 					</button>
 					<DorchPlayButton
-						href={resolve('/') + `?wad=${encodeURIComponent(data.wad.meta.id)}`}
+						onClick={() => (showServerCreateModal = true)}
 						label="P L A Y"
 						ariaLabel={`Play ${wadTitle()}`}
 					/>
@@ -275,6 +277,15 @@
 			</div>
 		</div>
 	</header>
+
+	<ServerCreateModal
+		open={showServerCreateModal}
+		onClose={() => (showServerCreateModal = false)}
+		wadId={data.wad.meta.id}
+		wadTitle={wadTitle()}
+		wadIsIwad={(data.wad.meta.file?.type ?? '').toUpperCase() === 'IWAD'}
+		maps={data.wad.maps.map((m) => ({ map: m.map, title: mapDisplayTitle(m) }))}
+	/>
 
 	<nav
 		class="-mx-1 mt-4 flex flex-nowrap gap-1 overflow-x-auto overflow-y-hidden border-b border-zinc-800"

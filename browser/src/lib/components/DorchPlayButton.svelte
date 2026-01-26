@@ -2,16 +2,17 @@
 	import { onMount } from 'svelte';
 
 	type Props = {
-		href: string;
+		href?: string;
 		label?: string;
 		ariaLabel?: string;
 		className?: string;
+		onClick?: (e: MouseEvent) => void;
 	};
 
-	let { href, label = 'PLAY', ariaLabel, className = '' }: Props = $props();
+	let { href, label = 'PLAY', ariaLabel, className = '', onClick }: Props = $props();
 
 	let hovered = false;
-	let buttonEl: HTMLAnchorElement | null = null;
+	let buttonEl = $state<HTMLAnchorElement | HTMLButtonElement | null>(null);
 
 	onMount(() => {
 		if (!buttonEl) return;
@@ -55,16 +56,31 @@
 	});
 </script>
 
-<a
-	bind:this={buttonEl}
-	{href}
-	class={`dorch-play-button flex items-center justify-center rounded-lg px-6 py-2.5 text-lg text-zinc-100 ring-1 ring-red-950/60 ring-inset focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none ${className}`}
-	aria-label={ariaLabel ?? label}
-	onpointerenter={() => (hovered = true)}
-	onpointerleave={() => (hovered = false)}
->
-	{label}
-</a>
+{#if href}
+	<a
+		bind:this={buttonEl}
+		{href}
+		class={`dorch-play-button flex items-center justify-center rounded-lg px-6 py-2.5 text-lg text-zinc-100 ring-1 ring-red-950/60 ring-inset focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none ${className}`}
+		aria-label={ariaLabel ?? label}
+		onclick={onClick}
+		onpointerenter={() => (hovered = true)}
+		onpointerleave={() => (hovered = false)}
+	>
+		{label}
+	</a>
+{:else}
+	<button
+		type="button"
+		bind:this={buttonEl}
+		class={`dorch-play-button flex items-center justify-center rounded-lg px-6 py-2.5 text-lg text-zinc-100 ring-1 ring-red-950/60 ring-inset focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none ${className}`}
+		aria-label={ariaLabel ?? label}
+		onclick={onClick}
+		onpointerenter={() => (hovered = true)}
+		onpointerleave={() => (hovered = false)}
+	>
+		{label}
+	</button>
+{/if}
 
 <style>
 	.dorch-play-button {
