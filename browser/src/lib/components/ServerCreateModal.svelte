@@ -43,6 +43,29 @@
 	let wadMetaToken = 0;
 	let dragKey = $state<string | null>(null);
 
+	// IWAD search UI
+	let iwadSearch = $state('');
+	let iwadSearchOpen = $state(false);
+	let iwadSearchLoading = $state(false);
+	let iwadSearchError = $state<string | null>(null);
+	type WadSearchMeta = Pick<WadMeta, 'id' | 'title' | 'filename' | 'filenames'> & {
+		file: { type?: string; size?: number | null };
+	};
+	let iwadSearchItems = $state<Array<{ id: string; meta: WadSearchMeta }>>([]);
+	let iwadSearchAbort = $state<AbortController | null>(null);
+	let iwadSearchWrap: HTMLDivElement | null = $state(null);
+	let iwadSearchTimer = $state<number | null>(null);
+
+	// PWAD search UI (single input at bottom)
+	let pwadSearch = $state('');
+	let pwadSearchOpen = $state(false);
+	let pwadSearchLoading = $state(false);
+	let pwadSearchError = $state<string | null>(null);
+	let pwadSearchItems = $state<Array<{ id: string; meta: WadSearchMeta }>>([]);
+	let pwadSearchAbort = $state<AbortController | null>(null);
+	let pwadSearchWrap: HTMLDivElement | null = $state(null);
+	let pwadSearchTimer = $state<number | null>(null);
+
 	const DEFAULT_IWAD_UUID_FOR_PWAD = '17bdc0a8-8a81-4b00-90d1-972bf406fa10';
 
 	let nameError = $state<string | null>(null);
@@ -108,6 +131,97 @@
 		if (!item.ok) return `${item.id} — ${item.error}`;
 		const title = wadLabel(item.meta);
 		return title ? `${title}` : item.id;
+	}
+
+	function shortId(id: string, max = 36): string {
+		const s = id.trim();
+		if (s.length <= max) return s;
+		return `${s.slice(0, Math.max(0, max - 1))}…`;
+	}
+
+	function addPwadIfMissing(id: string) {
+		const trimmed = id.trim();
+		if (!trimmed) return;
+		const key = trimmed.toLowerCase();
+		if (pwads.some((p) => p.id.trim().toLowerCase() === key)) return;
+		addPwad(trimmed);
+	}
+
+	async function searchWads(query: string, which: 'iwad' | 'pwad') {
+		const q = query.trim();
+		if (which === 'iwad') {
+			iwadSearchError = null;
+			iwadSearchItems = [];
+			if (!q) {
+				iwadSearchLoading = false;
+				return;
+			}
+			iwadSearchLoading = true;
+			iwadSearchAbort?.abort();
+			const ctrl = new AbortController();
+			iwadSearchAbort = ctrl;
+			try {
+				const url = new URL('/api/wad/search', window.location.origin);
+				url.searchParams.set('q', q);
+				url.searchParams.set('limit', '12');
+				const res = await fetch(url, { signal: ctrl.signal });
+				if (!res.ok) throw new Error(`search failed: ${res.status}`);
+				const payload = (await res.json()) as { items: Array<{ id: string; meta: WadSearchMeta }> };
+				iwadSearchItems = payload.items ?? [];
+			} catch (e) {
+				if ((e as { name?: string }).name === 'AbortError') return;
+				iwadSearchError = 'Search failed.';
+			} finally {
+				iwadSearchLoading = false;
+			}
+			return;
+		}
+
+		pwadSearchError = null;
+		pwadSearchItems = [];
+		if (!q) {
+			pwadSearchLoading = false;
+			return;
+		}
+		pwadSearchLoading = true;
+		pwadSearchAbort?.abort();
+		const ctrl = new AbortController();
+		pwadSearchAbort = ctrl;
+		try {
+			const url = new URL('/api/wad/search', window.location.origin);
+			url.searchParams.set('q', q);
+			url.searchParams.set('limit', '12');
+			const res = await fetch(url, { signal: ctrl.signal });
+			if (!res.ok) throw new Error(`search failed: ${res.status}`);
+			const payload = (await res.json()) as { items: Array<{ id: string; meta: WadSearchMeta }> };
+			pwadSearchItems = payload.items ?? [];
+		} catch (e) {
+			if ((e as { name?: string }).name === 'AbortError') return;
+			pwadSearchError = 'Search failed.';
+		} finally {
+			pwadSearchLoading = false;
+		}
+	}
+
+	function scheduleSearch(which: 'iwad' | 'pwad') {
+		if (!browser) return;
+		if (which === 'iwad') {
+			if (iwadSearchTimer != null) window.clearTimeout(iwadSearchTimer);
+			iwadSearchTimer = window.setTimeout(() => {
+				if (!open) return;
+				if (iwadUuid.trim()) return;
+				if (!iwadSearchOpen) return;
+				void searchWads(iwadSearch, 'iwad');
+			}, 400);
+			return;
+		}
+
+		if (pwadSearchTimer != null) window.clearTimeout(pwadSearchTimer);
+		pwadSearchTimer = window.setTimeout(() => {
+			if (!open) return;
+			if (!pwadSearchOpen) return;
+			void searchWads(pwadSearch, 'pwad');
+		}, 400);
 	}
 
 	function metaSubLabel(item: WadMetaLookupItem | null): string {
@@ -266,6 +380,18 @@
 			resolvedIwad = null;
 			resolvedPwads = [];
 			dragKey = null;
+			iwadSearchAbort?.abort();
+			pwadSearchAbort?.abort();
+			iwadSearchLoading = false;
+			pwadSearchLoading = false;
+			iwadSearchOpen = false;
+			pwadSearchOpen = false;
+			if (browser) {
+				if (iwadSearchTimer != null) window.clearTimeout(iwadSearchTimer);
+				if (pwadSearchTimer != null) window.clearTimeout(pwadSearchTimer);
+			}
+			iwadSearchTimer = null;
+			pwadSearchTimer = null;
 			return;
 		}
 
@@ -279,6 +405,8 @@
 				iwadUuid = DEFAULT_IWAD_UUID_FOR_PWAD;
 				pwads = [{ key: makePwadKey(), id: wadId }];
 			}
+			iwadSearch = '';
+			pwadSearch = '';
 			warp = maps?.[0]?.map ?? '';
 			skill = 3;
 			singlePlayer = true;
@@ -313,6 +441,31 @@
 		return () => {
 			window.clearTimeout(t);
 		};
+	});
+
+	$effect(() => {
+		if (!open) return;
+		if (!browser) return;
+		if (!iwadUuid.trim()) return;
+		iwadSearchOpen = false;
+		iwadSearchItems = [];
+		iwadSearchLoading = false;
+		iwadSearchAbort?.abort();
+		if (iwadSearchTimer != null) window.clearTimeout(iwadSearchTimer);
+		iwadSearchTimer = null;
+	});
+
+	$effect(() => {
+		if (!open) return;
+		if (!browser) return;
+
+		const onPointerDown = (e: PointerEvent) => {
+			const t = e.target as Node | null;
+			if (t && iwadSearchWrap && !iwadSearchWrap.contains(t)) iwadSearchOpen = false;
+			if (t && pwadSearchWrap && !pwadSearchWrap.contains(t)) pwadSearchOpen = false;
+		};
+		document.addEventListener('pointerdown', onPointerDown);
+		return () => document.removeEventListener('pointerdown', onPointerDown);
 	});
 
 	onDestroy(() => {
@@ -376,32 +529,88 @@
 					<section>
 						<h3 class="text-xs font-semibold tracking-wide text-zinc-300">IWAD</h3>
 						<p class="mt-0.5 text-xs text-zinc-500">Enter the IWAD UUID (base game).</p>
-						<div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-							<input
-								value={iwadUuid}
-								oninput={(e) => {
-									iwadUuid = (e.currentTarget as HTMLInputElement).value;
-									iwadError = null;
-								}}
-								class="w-full rounded-lg bg-zinc-950 px-3 py-1.5 font-mono text-xs text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none"
-								placeholder="<iwad uuid>"
-								autocomplete="off"
-							/>
-							<div class="rounded-lg bg-zinc-900/35 px-3 py-1.5 ring-1 ring-zinc-800 ring-inset">
-								<div class="min-w-0 truncate text-xs text-zinc-200">
-									{#if wadMetaLoading}
-										<span class="text-zinc-400">Loading…</span>
-									{:else}
-										{metaLabel(resolvedIwad)}
-									{/if}
+						{#if iwadUuid.trim()}
+							<div class="mt-2 flex items-start justify-between gap-2 rounded-lg bg-zinc-900/35 px-3 py-2 ring-1 ring-zinc-800 ring-inset">
+								<div class="min-w-0">
+									<div class="min-w-0 truncate text-xs text-zinc-200">
+										{#if wadMetaLoading}
+											<span class="text-zinc-400">Loading…</span>
+										{:else}
+											{metaLabel(resolvedIwad)}
+										{/if}
+									</div>
+									<div class="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-zinc-500">
+										<span class="font-mono text-zinc-400">{shortId(iwadUuid.trim())}</span>
+										{#if !wadMetaLoading}
+											<span>{metaSubLabel(resolvedIwad)}</span>
+										{/if}
+									</div>
 								</div>
-								<div class="mt-0.5 text-[11px] text-zinc-500">
-									{#if !wadMetaLoading}
-										{metaSubLabel(resolvedIwad)}
+								<button
+									type="button"
+									class="shrink-0 cursor-pointer rounded-md bg-transparent px-2.5 py-1 text-xs font-semibold text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+									onclick={() => {
+										iwadUuid = '';
+										resolvedIwad = null;
+										iwadSearch = '';
+										iwadSearchOpen = true;
+									}}
+								>
+									Remove
+								</button>
+							</div>
+						{:else}
+							<div class="mt-2" bind:this={iwadSearchWrap}>
+								<div class="relative">
+									<input
+										value={iwadSearch}
+										oninput={(e) => {
+											iwadSearch = (e.currentTarget as HTMLInputElement).value;
+											iwadSearchOpen = true;
+											iwadError = null;
+											scheduleSearch('iwad');
+									}}
+										onfocus={() => (iwadSearchOpen = true)}
+										class="w-full rounded-lg bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none"
+										placeholder="Search IWADs…"
+										autocomplete="off"
+									/>
+									{#if iwadSearchOpen && iwadSearch.trim()}
+										<div class="absolute z-50 mt-1 w-full overflow-hidden rounded-lg bg-zinc-950 ring-1 ring-zinc-800">
+											<div class="max-h-64 overflow-auto">
+												{#if iwadSearchLoading}
+													<div class="px-3 py-2 text-xs text-zinc-400">Searching…</div>
+												{:else if iwadSearchError}
+													<div class="px-3 py-2 text-xs text-red-300">{iwadSearchError}</div>
+												{:else if !iwadSearchItems.length}
+													<div class="px-3 py-2 text-xs text-zinc-500">Type to search…</div>
+												{:else}
+													{#each iwadSearchItems as it (it.id)}
+														<button
+															type="button"
+															class="block w-full cursor-pointer px-3 py-2 text-left hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
+															onclick={() => {
+																iwadUuid = it.id;
+																resolvedIwad = null;
+																wadMetaError = null;
+																iwadSearchOpen = false;
+																iwadSearch = '';
+														}}
+														>
+															<div class="truncate text-xs text-zinc-100">{wadLabel(it.meta)}</div>
+															<div class="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-zinc-500">
+																<span class="font-mono text-zinc-400">{shortId(it.id)}</span>
+																<span>{it.meta.file?.type ?? '—'} • {humanBytes(it.meta.file?.size ?? null)}</span>
+															</div>
+														</button>
+													{/each}
+												{/if}
+											</div>
+										</div>
 									{/if}
 								</div>
 							</div>
-						</div>
+						{/if}
 						{#if iwadError}
 							<p class="mt-2 text-xs text-red-300">{iwadError}</p>
 						{/if}
@@ -411,13 +620,7 @@
 						<h3 class="text-xs font-semibold tracking-wide text-zinc-300">PWADs</h3>
 						<div class="mt-1 flex items-center justify-between gap-3">
 							<p class="text-xs text-zinc-500">Optional. Drag to reorder (load order matters).</p>
-							<button
-								type="button"
-								class="cursor-pointer rounded-md bg-zinc-900 px-3 py-1 text-xs font-semibold text-zinc-100 ring-1 ring-zinc-800 hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
-								onclick={() => addPwad('')}
-							>
-								Add PWAD
-							</button>
+							<div class="text-[11px] text-zinc-600">{pwads.length} selected</div>
 						</div>
 
 						{#if pwads.length === 0}
@@ -455,7 +658,7 @@
 									}}
 									class="rounded-lg bg-zinc-900/35 p-1.5 ring-1 ring-zinc-800 ring-inset"
 								>
-									<div class="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_1fr_auto] sm:items-center">
+									<div class="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_auto] sm:items-center">
 										<div class="flex items-center gap-2">
 											<div
 												class="select-none rounded-md bg-zinc-950 px-2 py-1 text-xs text-zinc-500 ring-1 ring-zinc-800"
@@ -467,14 +670,6 @@
 											<div class="text-xs text-zinc-500">#{idx + 1}</div>
 										</div>
 
-										<input
-											value={p.id}
-											oninput={(e) => updatePwad(p.key, (e.currentTarget as HTMLInputElement).value)}
-											class="w-full rounded-lg bg-zinc-950 px-3 py-1.5 font-mono text-xs text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none"
-											placeholder="<pwad uuid>"
-											autocomplete="off"
-										/>
-
 										<div class="rounded-lg bg-zinc-950/40 px-3 py-1.5 ring-1 ring-zinc-800 ring-inset">
 											<div class="min-w-0 truncate text-xs text-zinc-200">
 												{#if wadMetaLoading}
@@ -483,9 +678,10 @@
 													{metaLabel(resolvedPwads[idx] ?? null)}
 												{/if}
 											</div>
-											<div class="mt-0.5 text-[11px] text-zinc-500">
+											<div class="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-zinc-500">
+												<span class="font-mono text-zinc-400">{shortId(p.id || (resolvedPwads[idx]?.id ?? ''))}</span>
 												{#if !wadMetaLoading}
-													{metaSubLabel(resolvedPwads[idx] ?? null)}
+													<span>{metaSubLabel(resolvedPwads[idx] ?? null)}</span>
 												{/if}
 											</div>
 										</div>
@@ -509,6 +705,56 @@
 						{#if wadMetaError}
 							<p class="mt-2 text-xs text-red-300">{wadMetaError}</p>
 						{/if}
+
+						<div class="mt-3" bind:this={pwadSearchWrap}>
+							<div class="relative">
+								<input
+									value={pwadSearch}
+									oninput={(e) => {
+										pwadSearch = (e.currentTarget as HTMLInputElement).value;
+										pwadSearchOpen = true;
+										pwadError = null;
+										scheduleSearch('pwad');
+									}}
+									onfocus={() => (pwadSearchOpen = true)}
+									class="w-full rounded-lg bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none"
+									placeholder="Search and add PWADs…"
+									autocomplete="off"
+								/>
+
+								{#if pwadSearchOpen && pwadSearch.trim()}
+									<div class="absolute z-50 mt-1 w-full overflow-hidden rounded-lg bg-zinc-950 ring-1 ring-zinc-800">
+										<div class="max-h-64 overflow-auto">
+											{#if pwadSearchLoading}
+												<div class="px-3 py-2 text-xs text-zinc-400">Searching…</div>
+											{:else if pwadSearchError}
+												<div class="px-3 py-2 text-xs text-red-300">{pwadSearchError}</div>
+											{:else if !pwadSearchItems.length}
+												<div class="px-3 py-2 text-xs text-zinc-500">Type to search…</div>
+											{:else}
+												{#each pwadSearchItems as it (it.id)}
+													<button
+														type="button"
+														class="block w-full cursor-pointer px-3 py-2 text-left hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
+														onclick={() => {
+															addPwadIfMissing(it.id);
+															pwadSearch = '';
+															pwadSearchOpen = false;
+														}}
+													>
+														<div class="truncate text-xs text-zinc-100">{wadLabel(it.meta)}</div>
+														<div class="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-zinc-500">
+															<span class="font-mono text-zinc-400">{shortId(it.id)}</span>
+															<span>{it.meta.file?.type ?? '—'} • {humanBytes(it.meta.file?.size ?? null)}</span>
+														</div>
+													</button>
+												{/each}
+											{/if}
+										</div>
+									</div>
+								{/if}
+							</div>
+						</div>
 					</section>
 
 					<section>
