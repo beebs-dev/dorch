@@ -27,6 +27,8 @@
 	let singlePlayer = $state(true);
 	let maxPlayers = $state<number>(8);
 
+	const DEFAULT_IWAD_UUID_FOR_PWAD = '17bdc0a8-8a81-4b00-90d1-972bf406fa10';
+
 	let nameError = $state<string | null>(null);
 	let iwadError = $state<string | null>(null);
 	let pwadError = $state<string | null>(null);
@@ -154,7 +156,7 @@
 				iwadUuid = wadId;
 				pwadUuids = '';
 			} else {
-				iwadUuid = '';
+				iwadUuid = DEFAULT_IWAD_UUID_FOR_PWAD;
 				pwadUuids = wadId;
 			}
 			warp = maps?.[0]?.map ?? '';
