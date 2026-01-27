@@ -1,13 +1,10 @@
-
 ## **The gib.gg Manifesto: Tools Should Empower Creators—Not Divide Them**
 
 For over thirty years, the Doom community has kept a 1993 game alive through passion, creativity, and relentless experimentation. Mappers, coders, musicians, artists, and engine developers built one of the most vibrant modding ecosystems in the history of gaming—and they did it by embracing new tools, not fearing them.
 
 ### **Our Shared Principle**
 
-We believe in a simple idea:
-
-**Creators deserve the freedom to use the tools that help them create.**
+We believe in a simple idea: **Creators deserve the freedom to use the tools that help them create.**
 
 Whether that tool is DEU, a BSP optimizer, SLADE, UDB, Git, Copilot, or a modern LLM, the philosophy is the same:
 **Better tools allow more people to build more things.**

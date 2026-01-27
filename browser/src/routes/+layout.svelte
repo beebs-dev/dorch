@@ -210,12 +210,19 @@
 	<footer class="border-t border-none bg-transparent px-4 py-6">
 		<div class="mx-auto max-w-6xl text-center">
 			<a
+				href="/manifesto"
+				class="text-sm text-zinc-300 underline underline-offset-4 opacity-50 transition-colors hover:text-zinc-100 hover:opacity-100"
+			>
+				MANIFESTO
+			</a>
+			<span class="text-zinc-300">•</span>
+			<a
 				href="https://www.doomworld.com/forum/topic/156982-the-best-doom-experience-in-a-browser-gibgg"
 				target="_blank"
 				rel="noopener noreferrer"
 				class="text-sm text-zinc-300 underline underline-offset-4 opacity-50 transition-colors hover:text-zinc-100 hover:opacity-100"
 			>
-				Doomworld Post
+				DOOMWORLD POST
 			</a>
 		</div>
 	</footer>
