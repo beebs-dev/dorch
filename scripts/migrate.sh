@@ -12,11 +12,11 @@ secret() {
 }
 
 old_secret() {
-    secret old keycloak-postgres-cred "$1"
+    secret old postgres-cred "$1"
 }
 
 new_secret() {
-    secret keycloak keycloak-postgres-cred "$1"
+    secret dorch postgres-cred "$1"
 }
 
 # ---- Source (old cluster) ----
@@ -24,7 +24,7 @@ SRC_HOST=$(old_secret host)
 SRC_USER=$(old_secret username)
 SRC_PASS=$(old_secret password)
 SRC_PORT=$(old_secret port)
-SRC_DB=$(old_secret database)
+SRC_DB=slop
 SRC_SSLMODE=$(old_secret sslmode)
 
 # ---- Destination (new cluster) ----
@@ -32,7 +32,7 @@ DEST_HOST=$(new_secret host)
 DEST_USER=$(new_secret username)
 DEST_PASS=$(new_secret password)
 DEST_PORT=$(new_secret port)
-DEST_DB=$(new_secret database)
+DEST_DB=slop
 DEST_SSLMODE=$(new_secret sslmode)
 
 export SRC_HOST SRC_USER SRC_PASS SRC_PORT SRC_DB SRC_SSLMODE

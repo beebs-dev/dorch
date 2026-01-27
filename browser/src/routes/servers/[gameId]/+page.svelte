@@ -469,11 +469,6 @@
 								{/if}
 							</div>
 						{/if}
-						<div
-							class="mt-2 text-center text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-500"
-						>
-							identity: {identity}
-						</div>
 					</div>
 				</div>
 
