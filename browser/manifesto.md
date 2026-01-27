@@ -31,7 +31,7 @@ This is the opposite of what made Doom thrive. And the community is already payi
 
 Every toolchain today—from compilers to IDEs to graphics software—contains automation, heuristics, or machine-assisted features. Drawing a bright moral line around "AI" is both impossible and counterproductive.
 
-Seasoned developers who adopt AI tooling often experience an [unbelievable increase in productivity](https://antirez.com/news/158). The idea of "hand-made code" is quickly becoming an esoteric novelty to us, as so many of our projects otherwise carry impractically large technical debts. It's not a matter of skill, motivation, or laziness—it has everything to do with the sheer number of work hours needed to deliver the features you love. This is a bittersweet feeling that some well-known developers resist, and justifiably so. With the excitement comes a palpable sense of loss.
+Seasoned developers who adopt AI tooling often experience an [unbelievable increase in productivity](https://antirez.com/news/158). The idea of "hand-written code" is quickly becoming an esoteric novelty to us, as so many of our projects otherwise carry impractically large technical debts. It's not a matter of skill, motivation, or laziness—it has everything to do with the sheer number of work hours needed to deliver the features you love. This is a bittersweet feeling that some well-known developers resist, and justifiably so. With the excitement comes a palpable sense of loss.
 
 The use of these tools does not innately diminish human creativity, and the solution is not their outright rejection.
 
