@@ -89,12 +89,10 @@ Regarding "AI slop", there has never been a shortage of WADs that could accurate
 
 ### **Our Position at gib.gg**
 
-We can ruthlessly criticize the system while still supporting each other as creators.
-
-We will never police creativity.
-We will never enforce ideological purity around how something is made.
-We evaluate mods, maps, and contributions by their **quality**, **craftsmanship**, and **impact**—not by the internal workflow of the developer.
-
+We can ruthlessly criticize the system while still supporting each other as creators.<br>
+We will never police creativity.<br>
+We will never enforce ideological purity around how something is made.<br>
+We evaluate creative works by their **quality**, **craftsmanship**, and **impact**—not by the internal workflow of the developer.<br>
 We support transparency and honesty.<br>
 We encourage open collaboration and modern tools.<br>
 We encourage any and all criticism of AI itself.<br>
