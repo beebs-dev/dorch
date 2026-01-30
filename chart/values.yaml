@@ -159,7 +159,7 @@ sock:
 wadinfo:
   image: thavlik/dorch-wadinfo:latest
   imagePullPolicy: Always
-  replicas: 3
+  replicas: 1
   logLevel: debug
   resources:
     requests:
@@ -323,7 +323,7 @@ client:
 browser:
   image: docker.io/thavlik/dorch-browser:latest
   imagePullPolicy: Always
-  replicas: 3
+  replicas: 1
   logLevel: warning
   resources:
     limits:
