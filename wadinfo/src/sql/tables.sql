@@ -69,6 +69,10 @@ create index if not exists idx_wads_hidden
 create index if not exists idx_wads_can_download
   on wads (can_download);
 
+-- Common eligibility filter (e.g. featured sampling queries)
+create index if not exists idx_wads_hidden_can_download_wad_id
+  on wads (hidden, can_download, wad_id);
+
 create index if not exists idx_wads_file_type
   on wads (file_type);
 
@@ -344,6 +348,11 @@ create table if not exists wad_map_images (
 
 create index if not exists idx_wad_map_images_wad_map
   on wad_map_images (wad_id, map_name);
+
+-- Helps `jsonb_agg(... order by i.map_name, i.id)` by providing a matching
+-- ordered access path per wad.
+create index if not exists idx_wad_map_images_wad_map_id
+  on wad_map_images (wad_id, map_name, id);
 
 create table if not exists wad_analysis (
   wad_id      uuid primary key references wads(wad_id) on delete cascade,
