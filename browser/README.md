@@ -23,6 +23,10 @@ Server-side API base URLs are configured via private environment variables:
 - `WADINFO_BASE_URL` (existing): base URL for the WAD info service (used by the WAD browser)
 - `DORCH_MASTER_BASE_URL` (new): base URL for the master server list API (used by `/servers`, expects `GET /games`)
 
+Optional caching/tuning:
+
+- `FEATURED_CACHE_TTL`: Redis TTL (seconds) for the WAD browser `/featured` SSR payload; defaults to `15`
+
 Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
 
 ```sh

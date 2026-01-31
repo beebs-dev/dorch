@@ -12,6 +12,8 @@ import type {
 	WadSearchResults
 } from '$lib/types/wadinfo';
 
+import { getRedisClient } from '$lib/server/redis';
+
 function rewriteS3SpacesUrl(url: string | null | undefined): string | null | undefined {
 	if (!url) return url;
 	if (!url.startsWith('s3://')) return url;
@@ -94,6 +96,24 @@ class WadinfoHttpError extends Error {
 	}
 }
 
+function parseIntEnv(name: string, defaultValue: number): number {
+	const raw = env[name];
+	if (!raw) return defaultValue;
+	const parsed = Number.parseInt(raw, 10);
+	return Number.isFinite(parsed) ? parsed : defaultValue;
+}
+
+function shouldUseFeaturedCache(opts: {
+	offset: number;
+	limit: number;
+	desc?: boolean;
+	featuredLimit?: number;
+}): boolean {
+	// The /featured payload includes a dynamic results list; only cache the common
+	// “first page, default sort, includes featured section” request.
+	return opts.offset === 0 && !opts.desc && (opts.featuredLimit ?? 0) > 0;
+}
+
 function getBaseUrl(): string {
 	const base = env.WADINFO_BASE_URL;
 	if (!base) {
@@ -158,6 +178,26 @@ export function createWadinfoClient(fetchFn: typeof fetch, opts?: { forwardedFor
 			desc?: boolean;
 			featuredLimit?: number;
 		}): Promise<FeaturedViewResponse> {
+			const useCache = shouldUseFeaturedCache(opts);
+			const cacheKey = `feat:l=${opts.limit}`;
+
+			if (useCache) {
+				try {
+					const redis = await getRedisClient();
+					const cached = await redis.get(cacheKey);
+					if (cached) {
+						try {
+							const parsed = JSON.parse(cached) as FeaturedViewResponse;
+							return normalizeFeaturedViewResponse(parsed);
+						} catch {
+							// Ignore bad cache entries.
+						}
+					}
+				} catch {
+					// Fail open if Redis is unavailable.
+				}
+			}
+
 			const url = buildUrl('/featured');
 			url.searchParams.set('offset', String(opts.offset));
 			url.searchParams.set('limit', String(opts.limit));
@@ -171,7 +211,19 @@ export function createWadinfoClient(fetchFn: typeof fetch, opts?: { forwardedFor
 				undefined,
 				{ forwardedFor }
 			);
-			return normalizeFeaturedViewResponse(res);
+			const normalized = normalizeFeaturedViewResponse(res);
+
+			if (useCache) {
+				const ttlSeconds = Math.max(1, parseIntEnv('FEATURED_CACHE_TTL', 15));
+				try {
+					const redis = await getRedisClient();
+					await redis.set(cacheKey, JSON.stringify(normalized), { EX: ttlSeconds });
+				} catch {
+					// Fail open if Redis is unavailable.
+				}
+			}
+
+			return normalized;
 		},
 
 		async listWads(opts: {
