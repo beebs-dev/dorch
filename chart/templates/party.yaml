@@ -1,3 +1,4 @@
+{{- if .Values.party.enabled }}
 {{- $image := printf "%s%s" .Values.registry .Values.party.image -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -94,3 +95,4 @@ spec:
     port: 80
   - name: public
     port: 3000
+{{- end }}

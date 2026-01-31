@@ -1,3 +1,4 @@
+{{- if .Values.party.enabled }}
 {{- $image := printf "%s%s" .Values.registry .Values.party.router.image -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -74,4 +75,5 @@ spec:
       app: {{ .Release.Name }}-party-router
   podMetricsEndpoints:
   - port: metrics
+{{- end }}
 {{- end }}

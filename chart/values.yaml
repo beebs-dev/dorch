@@ -213,6 +213,7 @@ auth:
       memory: "64Mi"
 
 party:
+  enabled: false
   image: thavlik/dorch-party:latest
   imagePullPolicy: Always
   replicas: 1
