@@ -68,6 +68,7 @@ mod sql {
 
     pub const GET_WAD: &str = include_str!("sql/get_wad.sql");
     pub const GET_WAD_PUBLIC: &str = include_str!("sql/get_wad_public.sql");
+    pub const GET_WAD_METAS: &str = include_str!("sql/get_wad_metas.sql");
     pub const RESOLVE_WAD_URLS: &str = include_str!("sql/resolve_wad_urls.sql");
     pub const RESOLVE_MAP_THUMBNAILS: &str = include_str!("sql/resolve_map_thumbnails.sql");
     pub const GET_WAD_MAPS: &str = include_str!("sql/get_wad_maps.sql");
@@ -619,6 +620,34 @@ impl Database {
             maps
         };
         Ok(Some(ReadWad { meta, maps }))
+    }
+
+    pub async fn get_wad_metas(&self, wad_ids: &[Uuid]) -> Result<Vec<ReadWadMeta>> {
+        if wad_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::GET_WAD_METAS)
+            .await
+            .context("failed to prepare GET_WAD_METAS")?;
+        let rows = conn
+            .query(&stmt, &[&wad_ids])
+            .await
+            .context("failed to execute GET_WAD_METAS")?;
+
+        rows.into_iter()
+            .map(|row| {
+                let row_wad_id: Uuid = row.try_get("wad_id")?;
+                let meta_json: serde_json::Value = row.try_get("meta_json")?;
+                let mut meta: ReadWadMeta = serde_json::from_value(meta_json)
+                    .context("deserialize ReadWadMeta from meta_json")?;
+                if meta.id.is_nil() {
+                    meta.id = row_wad_id;
+                }
+                Ok(meta)
+            })
+            .collect::<Result<Vec<_>>>()
     }
 
     pub async fn get_wad_map(

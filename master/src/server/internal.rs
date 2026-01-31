@@ -1,8 +1,8 @@
 use crate::{
     app::App,
     client::{
-        GameSummary, JumbotronItem, ListGamesResponse, ListJumbotronStreams, NewGameRequest,
-        NewGameResponse,
+        GameSummary, HomeResponse, JumbotronItem, ListGamesResponse, ListJumbotronStreams,
+        NewGameRequest, NewGameResponse,
     },
 };
 use anyhow::{Context, Result, anyhow, bail};
@@ -41,6 +41,7 @@ pub async fn run_server(
         .route("/healthz", get(health))
         .route("/readyz", get(health));
     let router = Router::new()
+        .route("/home", get(home))
         .route("/jumbotron", get(list_jumbotron_urls))
         .route("/game", get(list_games))
         .route(
@@ -371,22 +372,29 @@ pub async fn update_game_info(
 }
 
 pub async fn list_jumbotron_urls(State(state): State<App>) -> impl IntoResponse {
-    let mut games = match list_games_inner(state).await {
-        Ok(resp) => resp.games,
-        Err(e) => {
-            return response::error(e.context("Failed to list games for jumbotron RTMP URLs"));
-        }
-    };
+    match home_inner(state).await {
+        Ok(resp) => (StatusCode::OK, Json(resp.jumbotron)).into_response(),
+        Err(e) => response::error(e.context("Failed to build jumbotron")),
+    }
+}
+
+pub async fn home(State(state): State<App>) -> impl IntoResponse {
+    match home_inner(state).await {
+        Ok(resp) => (StatusCode::OK, Json(resp)).into_response(),
+        Err(e) => response::error(e.context("Failed to build home model")),
+    }
+}
+
+fn build_jumbotron_from_games(games: &[GameSummary]) -> Result<ListJumbotronStreams> {
+    let mut games: Vec<GameSummary> = games.to_vec();
     const MAX_JUMBOTRON_GAMES: usize = 10;
-    let mut rng = rand::rng();
-    let games = if games.len() <= MAX_JUMBOTRON_GAMES {
-        games
-    } else {
+    if games.len() > MAX_JUMBOTRON_GAMES {
         use rand::seq::SliceRandom;
+        let mut rng = rand::rng();
         games.shuffle(&mut rng);
-        games.into_iter().take(MAX_JUMBOTRON_GAMES).collect()
-    };
-    let items = match games
+        games.truncate(MAX_JUMBOTRON_GAMES);
+    }
+    let items = games
         .into_iter()
         .map(|g| {
             let info = g
@@ -412,15 +420,14 @@ pub async fn list_jumbotron_urls(State(state): State<App>) -> impl IntoResponse 
                 rtc: format!("webrtc://cdn.gib.gg/live/{}", g.game_id),
             })
         })
-        .collect::<Result<Vec<JumbotronItem>>>()
-    {
-        Ok(v) => v,
-        Err(e) => {
-            return response::error(e.context("Failed to construct jumbotron items"));
-        }
-    };
-    let resp = ListJumbotronStreams { items };
-    (StatusCode::OK, Json(resp)).into_response()
+        .collect::<Result<Vec<JumbotronItem>>>()?;
+    Ok(ListJumbotronStreams { items })
+}
+
+pub async fn home_inner(state: App) -> Result<HomeResponse> {
+    let games = list_games_inner(state).await?;
+    let jumbotron = build_jumbotron_from_games(&games.games)?;
+    Ok(HomeResponse { games, jumbotron })
 }
 
 async fn count_games(api: &Api<Game>, creator_id: Uuid) -> Result<(usize, usize)> {

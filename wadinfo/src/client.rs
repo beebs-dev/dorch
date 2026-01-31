@@ -115,6 +115,16 @@ pub struct ResolveWadURLsRequest {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct GetWadMetasRequest {
+    pub wad_ids: Vec<Uuid>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GetWadMetasResponse {
+    pub items: Vec<ReadWadMeta>,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct ResolvedWadURL {
     pub wad_id: Uuid,
     pub url: String,

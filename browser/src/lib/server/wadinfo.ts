@@ -2,6 +2,7 @@ import { env } from '$env/dynamic/private';
 import type {
 	GetWadMapResponse,
 	GetWadResponse,
+	GetWadMetasResponse,
 	FeaturedViewResponse,
 	ListWadsResponse,
 	MapReference,
@@ -270,6 +271,27 @@ export function createWadinfoClient(fetchFn: typeof fetch, opts?: { forwardedFor
 				{ forwardedFor }
 			);
 			return normalizeGetWadResponse(wad);
+		},
+
+		async getWadMetas(wadIds: string[]): Promise<Map<string, WadMeta>> {
+			if (!wadIds.length) return new Map();
+			const res = await requestJson<GetWadMetasResponse>(
+				fetchFn,
+				'/wad_metas',
+				{
+					method: 'POST',
+					headers: {
+						'content-type': 'application/json'
+					},
+					body: JSON.stringify({ wad_ids: wadIds })
+				},
+				{ forwardedFor }
+			);
+			const out = new Map<string, WadMeta>();
+			for (const meta of res.items ?? []) {
+				if (meta?.id) out.set(meta.id, normalizeWadMeta(meta));
+			}
+			return out;
 		},
 
 		async getWadMap(wadId: string, mapName: string): Promise<GetWadMapResponse> {

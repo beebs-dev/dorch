@@ -125,6 +125,12 @@ pub struct ListGamesResponse {
     pub games: Vec<GameSummary>,
 }
 
+#[derive(Serialize)]
+pub struct HomeResponse {
+    pub games: ListGamesResponse,
+    pub jumbotron: ListJumbotronStreams,
+}
+
 #[derive(Deserialize, Default)]
 pub struct UpdateGameRequest {
     #[serde(skip_serializing_if = "Option::is_none")]

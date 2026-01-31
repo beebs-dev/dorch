@@ -1,6 +1,7 @@
 use crate::{
     app::App,
     client::{
+        GetWadMetasRequest, GetWadMetasResponse,
         ListWadsRequest, MapAnalysis, ResolveMapThumbnailsRequest, ResolveMapThumbnailsResponse,
         ResolveWadURLsRequest, ResolveWadURLsResponse, WadAnalysis, WadImage, WadSearchRequest,
     },
@@ -56,6 +57,7 @@ pub async fn run_server(
     let router = Router::new()
         .route("/thumbnails", post(resolve_map_thumbnails))
         .route("/wad", get(list_wads))
+        .route("/wad_metas", post(get_wad_metas))
         .route("/wad_urls", post(resolve_wad_s3_urls))
         .route("/featured", get(featured_wads))
         .route("/wad/{id}", get(get_wad))
@@ -103,6 +105,16 @@ pub async fn run_server(
 
 async fn health() -> impl IntoResponse {
     StatusCode::OK.into_response()
+}
+
+pub async fn get_wad_metas(
+    State(state): State<App>,
+    Json(req): Json<GetWadMetasRequest>,
+) -> impl IntoResponse {
+    match state.db.get_wad_metas(&req.wad_ids).await {
+        Ok(items) => (StatusCode::OK, Json(GetWadMetasResponse { items })).into_response(),
+        Err(e) => response::error(e.context("Failed to get wad metas")),
+    }
 }
 pub async fn get_map_analysis_exists(
     State(state): State<App>,

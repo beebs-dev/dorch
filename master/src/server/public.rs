@@ -62,6 +62,7 @@ pub async fn run_server(
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::dev());
     let router = Router::new()
+        .route("/home", get(home))
         .route("/jumbotron", get(internal::list_jumbotron_urls))
         .route("/game", get(list_games))
         .route("/game/{game_id}", get(get_game))
@@ -113,6 +114,18 @@ pub async fn list_games(State(state): State<App>) -> impl IntoResponse {
         Err(e) => return response::error(e.context("Failed to list games")),
     };
     for game in &mut resp.games {
+        // Remove creator ID from public response
+        game.creator_id = Uuid::nil();
+    }
+    (StatusCode::OK, Json(resp)).into_response()
+}
+
+pub async fn home(State(state): State<App>) -> impl IntoResponse {
+    let mut resp = match internal::home_inner(state).await {
+        Ok(resp) => resp,
+        Err(e) => return response::error(e.context("Failed to build home model")),
+    };
+    for game in &mut resp.games.games {
         // Remove creator ID from public response
         game.creator_id = Uuid::nil();
     }

@@ -20,6 +20,11 @@ export type JumbotronResponse = {
 	items: JumbotronItem[];
 };
 
+export type HomeResponse = {
+	games: ListGamesResponse;
+	jumbotron: JumbotronResponse;
+};
+
 class DorchMasterHttpError extends Error {
 	readonly status: number;
 	readonly body?: string;
@@ -94,6 +99,9 @@ export function createDorchMasterClient(fetchFn: typeof fetch, opts?: { forwarde
 		async getJumbotron(): Promise<JumbotronResponse> {
 			// dorch-master returns: { items: [{ game_id, url }, ...] }
 			return requestJson<JumbotronResponse>(fetchFn, '/jumbotron', undefined, { forwardedFor });
+		},
+		async getHome(): Promise<HomeResponse> {
+			return requestJson<HomeResponse>(fetchFn, '/home', undefined, { forwardedFor });
 		},
 		DorchMasterHttpError
 	};

@@ -142,6 +142,14 @@ export interface GetWadResponse {
 	maps: MapStat[];
 }
 
+export interface GetWadMetasRequest {
+	wad_ids: Uuid[];
+}
+
+export interface GetWadMetasResponse {
+	items: WadMeta[];
+}
+
 export type GetWadMapResponse = MapStat & { wad_meta: WadMeta };
 
 export interface WadSearchResults extends ListResponse<WadMeta> {

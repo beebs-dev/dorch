@@ -22,22 +22,15 @@ export const load: PageServerLoad = async ({ fetch, setHeaders, request }) => {
 	const wadinfo = createWadinfoClient(fetch, { forwardedFor });
 
 	let jumbotronItems: JumbotronItem[] = [];
-	try {
-		const resp = await dorch.getJumbotron();
-		jumbotronItems = resp.items ?? [];
-	} catch {
-		// Best-effort only; jumbotron is optional.
-		jumbotronItems = [];
-	}
-
-	let games: GameSummary[];
+	let games: GameSummary[] = [];
 	let errorMessage: string | null = null;
-
 	try {
-		const resp = await dorch.listGames();
-		games = resp.games ?? [];
+		const resp = await dorch.getHome();
+		jumbotronItems = resp.jumbotron?.items ?? [];
+		games = resp.games?.games ?? [];
 	} catch (e) {
 		errorMessage = e instanceof Error ? e.message : 'Failed to fetch servers';
+		jumbotronItems = [];
 		games = [];
 	}
 
@@ -50,18 +43,12 @@ export const load: PageServerLoad = async ({ fetch, setHeaders, request }) => {
 		}
 	}
 
+	const wadMetaById = wantedWadIds.size
+		? await wadinfo.getWadMetas([...wantedWadIds])
+		: new Map<string, WadMeta>();
 	const wadNameById = new Map<string, string>();
-	if (wantedWadIds.size) {
-		await Promise.all(
-			[...wantedWadIds].map(async (wadId) => {
-				try {
-					const wad = await wadinfo.getWad(wadId);
-					wadNameById.set(wadId, wadDisplayName(wad.meta));
-				} catch {
-					// Best-effort only; fall back to showing the UUID.
-				}
-			})
-		);
+	for (const [wadId, meta] of wadMetaById.entries()) {
+		wadNameById.set(wadId, wadDisplayName(meta));
 	}
 
 	const rows: ServerRow[] = games.map((game) => {
