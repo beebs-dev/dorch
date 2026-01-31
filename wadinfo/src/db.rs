@@ -1,7 +1,7 @@
 use crate::client::{
-    AbridgedMapAnalysis, AbridgedWadAnalysis, GetWadMapResponse, ListWadsResponse, MapAnalysis,
-    MapReference, MapThumbnail, ReadMapStat, ReadWad, ReadWadMetaWithTextFiles, ResolvedWadURL,
-    WadAnalysis, WadImage, WadSearchResults,
+    AbridgedMapAnalysis, AbridgedWadAnalysis, FeaturedViewResponse, FeaturedWadViewItem,
+    GetWadMapResponse, ListWadsResponse, MapAnalysis, MapReference, MapThumbnail, ReadMapStat,
+    ReadWad, ReadWadMetaWithTextFiles, ResolvedWadURL, WadAnalysis, WadImage, WadSearchResults,
 };
 use anyhow::{Context, Result};
 use dorch_common::{
@@ -63,6 +63,8 @@ mod sql {
     pub const LIST_WADS_DESC: &str = include_str!("sql/list_wads_desc.sql");
 
     pub const FEATURED_WADS: &str = include_str!("sql/featured_wads.sql");
+
+    pub const FEATURED_WADS_WITH_IMAGES: &str = include_str!("sql/featured_wads_with_images.sql");
 
     pub const GET_WAD: &str = include_str!("sql/get_wad.sql");
     pub const GET_WAD_PUBLIC: &str = include_str!("sql/get_wad_public.sql");
@@ -148,6 +150,11 @@ impl Database {
             .prepare(sql::FEATURED_WADS)
             .await
             .context("failed to prepare FEATURED_WADS")?;
+
+        _ = conn
+            .prepare(sql::FEATURED_WADS_WITH_IMAGES)
+            .await
+            .context("failed to prepare FEATURED_WADS_WITH_IMAGES")?;
 
         _ = conn
             .prepare(sql::RESOLVE_WAD_URLS)
@@ -1066,6 +1073,103 @@ impl Database {
             limit,
             truncated: offset + limit < full_count,
         })
+    }
+
+    /// Optimized, non-transactional view used by the browser home page.
+    ///
+    /// Goals:
+    /// - Single HTTP request for the browser
+    /// - Minimal Postgres round-trips (2 statements: list + featured-with-images)
+    /// - No transaction (freshness isn't critical; prioritize speed)
+    pub async fn featured_view(
+        &self,
+        offset: i64,
+        limit: i64,
+        sort_desc: bool,
+        featured_limit: i64,
+    ) -> Result<FeaturedViewResponse> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+
+        // --- Main list (same shape as GET /wad)
+        let offset = offset.max(0);
+        let limit = limit.clamp(1, 100);
+        let sql = if sort_desc {
+            sql::LIST_WADS_DESC
+        } else {
+            sql::LIST_WADS_ASC
+        };
+        let stmt = conn
+            .prepare_cached(sql)
+            .await
+            .context("failed to prepare LIST_WADS (featured_view)")?;
+        let rows = conn
+            .query(&stmt, &[&offset, &limit])
+            .await
+            .context("failed to execute LIST_WADS (featured_view)")?;
+
+        let full_count = rows
+            .first()
+            .map(|r| r.try_get::<_, i64>("full_count"))
+            .transpose()
+            .context("failed to get full_count from LIST_WADS (featured_view)")?
+            .unwrap_or(0);
+
+        let items = rows
+            .into_iter()
+            .map(|row| {
+                let row_wad_id: Uuid = row.try_get("wad_id")?;
+                let meta_json: serde_json::Value = row.try_get("meta_json")?;
+                let mut meta = serde_json::from_value::<ReadWadMeta>(meta_json)
+                    .context("deserialize ReadWadMeta from meta_json")?;
+                if meta.id.is_nil() {
+                    meta.id = row_wad_id;
+                }
+                Ok(meta)
+            })
+            .collect::<Result<Vec<ReadWadMeta>>>()?;
+
+        let results = ListWadsResponse {
+            items,
+            full_count,
+            offset,
+            limit,
+            truncated: offset + limit < full_count,
+        };
+
+        // --- Featured items (non-panorama images, flattened across maps)
+        let featured_limit = featured_limit.clamp(0, 100);
+        let featured = if featured_limit <= 0 {
+            Vec::new()
+        } else {
+            let stmt = conn
+                .prepare_cached(sql::FEATURED_WADS_WITH_IMAGES)
+                .await
+                .context("failed to prepare FEATURED_WADS_WITH_IMAGES")?;
+            let rows = conn
+                .query(&stmt, &[&featured_limit])
+                .await
+                .context("failed to execute FEATURED_WADS_WITH_IMAGES")?;
+
+            rows.into_iter()
+                .map(|row| {
+                    let row_wad_id: Uuid = row.try_get("wad_id")?;
+                    let meta_json: serde_json::Value = row.try_get("meta_json")?;
+                    let mut meta = serde_json::from_value::<ReadWadMeta>(meta_json)
+                        .context("deserialize ReadWadMeta from meta_json")?;
+                    if meta.id.is_nil() {
+                        meta.id = row_wad_id;
+                    }
+
+                    let images_json: serde_json::Value = row.try_get("images_json")?;
+                    let images = serde_json::from_value::<Vec<WadImage>>(images_json)
+                        .context("deserialize WadImage[] from images_json")?;
+
+                    Ok(FeaturedWadViewItem { wad: meta, images })
+                })
+                .collect::<Result<Vec<FeaturedWadViewItem>>>()?
+        };
+
+        Ok(FeaturedViewResponse { results, featured })
     }
 
     pub async fn featured_wads(&self, limit: i64) -> Result<ListWadsResponse> {

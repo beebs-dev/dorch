@@ -125,6 +125,18 @@ export interface ListResponse<TItem> {
 
 export type ListWadsResponse = ListResponse<WadMeta>;
 
+export interface FeaturedWadViewItem {
+	wad: WadMeta;
+	/** Non-panorama images, flattened across all maps. */
+	images: WadImage[];
+}
+
+/** View-optimized payload for the WAD browser home page. */
+export interface FeaturedViewResponse {
+	results: ListWadsResponse;
+	featured: FeaturedWadViewItem[];
+}
+
 export interface GetWadResponse {
 	meta: WadMeta;
 	maps: MapStat[];

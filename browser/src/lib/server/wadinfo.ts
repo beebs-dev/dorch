@@ -2,6 +2,7 @@ import { env } from '$env/dynamic/private';
 import type {
 	GetWadMapResponse,
 	GetWadResponse,
+	FeaturedViewResponse,
 	ListWadsResponse,
 	MapReference,
 	MapThumbnail,
@@ -59,6 +60,18 @@ function normalizeWadSearchResults(res: WadSearchResults): WadSearchResults {
 	return {
 		...res,
 		items: (res.items ?? []).map(normalizeWadMeta)
+	};
+}
+
+function normalizeFeaturedViewResponse(res: FeaturedViewResponse): FeaturedViewResponse {
+	return {
+		...res,
+		results: normalizeListWadsResponse(res.results),
+		featured: (res.featured ?? []).map((it) => ({
+			...it,
+			wad: normalizeWadMeta(it.wad),
+			images: (it.images ?? []) as WadImage[]
+		}))
 	};
 }
 
@@ -139,16 +152,26 @@ async function requestJson<T>(
 export function createWadinfoClient(fetchFn: typeof fetch, opts?: { forwardedFor?: string }) {
 	const forwardedFor = opts?.forwardedFor;
 	return {
-		async featured(opts: { limit?: number } = {}): Promise<ListWadsResponse> {
+		async featuredView(opts: {
+			offset: number;
+			limit: number;
+			desc?: boolean;
+			featuredLimit?: number;
+		}): Promise<FeaturedViewResponse> {
 			const url = buildUrl('/featured');
-			if (typeof opts.limit === 'number') url.searchParams.set('limit', String(opts.limit));
-			const res = await requestJson<ListWadsResponse>(
+			url.searchParams.set('offset', String(opts.offset));
+			url.searchParams.set('limit', String(opts.limit));
+			if (opts.desc) url.searchParams.set('d', 'true');
+			if (typeof opts.featuredLimit === 'number') {
+				url.searchParams.set('featured_limit', String(opts.featuredLimit));
+			}
+			const res = await requestJson<FeaturedViewResponse>(
 				fetchFn,
 				url.pathname + `?${url.searchParams.toString()}`,
 				undefined,
 				{ forwardedFor }
 			);
-			return normalizeListWadsResponse(res);
+			return normalizeFeaturedViewResponse(res);
 		},
 
 		async listWads(opts: {

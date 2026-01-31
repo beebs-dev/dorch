@@ -174,6 +174,24 @@ pub struct ListWadsResponse {
     pub truncated: bool,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct FeaturedWadViewItem {
+    pub wad: ReadWadMeta,
+
+    /// Non-panorama images (flattened across all maps).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub images: Vec<WadImage>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FeaturedViewResponse {
+    /// The main WAD list for the WAD browser.
+    pub results: ListWadsResponse,
+
+    /// Featured items with pre-resolved non-panorama thumbnails.
+    pub featured: Vec<FeaturedWadViewItem>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WadAnalysis {
     pub wad_id: Uuid,

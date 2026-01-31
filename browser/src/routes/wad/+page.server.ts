@@ -24,6 +24,7 @@ export const load: PageServerLoad = async ({ fetch, url, setHeaders, request }) 
 	const wadinfo = createWadinfoClient(fetch, { forwardedFor });
 
 	let results: WadBrowserResults;
+	let featured: Array<{ wad: WadMeta; images: WadImage[] }> = [];
 	if (q) {
 		const resp = await wadinfo.search({ query: q, offset, limit });
 		results = {
@@ -39,34 +40,20 @@ export const load: PageServerLoad = async ({ fetch, url, setHeaders, request }) 
 		// wadinfo currently supports alphabetical sorting only (ascending/descending).
 		// Keep `sort` values stable so we can map to future backend sorting.
 		const desc = sort === 'alphabetical_desc';
-		const resp = await wadinfo.listWads({ offset, limit, desc });
-		results = resp;
+		const resp = await wadinfo.featuredView({
+			offset,
+			limit,
+			desc,
+			featuredLimit: offset === 0 ? 6 : 0
+		});
+		results = resp.results;
+		featured = resp.featured;
 	}
 
 	// Short TTL; safe for SSR and avoids stale UIs without needing client fetch.
 	setHeaders({ 'cache-control': 'private, max-age=0, s-maxage=10' });
 
-	let featured: Array<{ wad: WadMeta; images: WadImage[] }> = [];
-	if (!q && offset === 0) {
-		const slice = (await wadinfo.featured({ limit: 6 })).items;
-		const images = await Promise.all(
-			slice.map(async (wad) => {
-				try {
-					const detail = await wadinfo.getWad(wad.id);
-					return (detail.maps ?? []).flatMap((m) => m.images ?? []);
-				} catch {
-					return [];
-				}
-			})
-		);
-		featured = slice.map((wad, i) => {
-			const all = images[i] ?? [];
-			const nonPano = all.filter((img) => (img.type ?? img.kind) !== 'pano');
-			// Featured thumbnails should never use pano renders.
-			// If a WAD has only panos, we intentionally show the placeholder.
-			return { wad, images: nonPano };
-		});
-	}
+	// featured is now embedded in the /featured response to avoid per-WAD fanout.
 
 	return {
 		q,

@@ -27,7 +27,16 @@ use uuid::Uuid;
 
 #[derive(serde::Deserialize)]
 pub struct FeaturedRequest {
-    pub limit: Option<i64>,
+    /// Pagination for the main list portion (same semantics as GET /wad).
+    #[serde(flatten)]
+    pub pagination: dorch_common::Pagination,
+
+    /// If true, sort descending. Otherwise, sort ascending.
+    #[serde(rename = "d", default)]
+    pub sort_desc: bool,
+
+    /// Number of featured items to return.
+    pub featured_limit: Option<i64>,
 }
 
 pub async fn run_server(
@@ -259,10 +268,20 @@ pub async fn featured_wads(
     State(state): State<App>,
     Query(req): Query<FeaturedRequest>,
 ) -> impl IntoResponse {
-    let limit = req.limit.unwrap_or(6).clamp(1, 100);
-    match state.db.featured_wads(limit).await {
-        Ok(wads) => (StatusCode::OK, Json(wads)).into_response(),
-        Err(e) => response::error(e.context("Failed to list featured wads")),
+    let offset = req.pagination.offset.max(0);
+    let limit = req.pagination.limit.unwrap_or(25).clamp(1, 100);
+    let featured_limit = req
+        .featured_limit
+        .unwrap_or(if offset == 0 { 6 } else { 0 })
+        .clamp(0, 100);
+
+    match state
+        .db
+        .featured_view(offset, limit, req.sort_desc, featured_limit)
+        .await
+    {
+        Ok(view) => (StatusCode::OK, Json(view)).into_response(),
+        Err(e) => response::error(e.context("Failed to build featured view")),
     }
 }
 
