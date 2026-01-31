@@ -73,6 +73,15 @@ create index if not exists idx_wads_can_download
 create index if not exists idx_wads_hidden_can_download_wad_id
   on wads (hidden, can_download, wad_id);
 
+-- Supports fast featured sampling without `order by random()`.
+-- Matches the expressions used in featured_wads_with_images.sql.
+create index if not exists idx_wads_featured_title_missing_shuffle
+  on wads (
+    ((nullif(trim(meta_json->>'title'), '') is null)),
+    (md5(wad_id::text))
+  )
+  where hidden = false and can_download = true;
+
 create index if not exists idx_wads_file_type
   on wads (file_type);
 
