@@ -1,9 +1,9 @@
 use crate::{
     app::App,
     client::{
-        GetWadMetasRequest, GetWadMetasResponse,
-        ListWadsRequest, MapAnalysis, ResolveMapThumbnailsRequest, ResolveMapThumbnailsResponse,
-        ResolveWadURLsRequest, ResolveWadURLsResponse, WadAnalysis, WadImage, WadSearchRequest,
+        GetWadMetasRequest, GetWadMetasResponse, ListWadsRequest, MapAnalysis,
+        ResolveMapThumbnailsRequest, ResolveMapThumbnailsResponse, ResolveWadURLsRequest,
+        ResolveWadURLsResponse, WadAnalysis, WadImage, WadSearchRequest,
     },
 };
 use anyhow::{Context, Result, bail};
