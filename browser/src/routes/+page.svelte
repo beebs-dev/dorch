@@ -1,10 +1,8 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import JumbotronCarousel from '$lib/components/JumbotronCarousel.svelte';
-	import { base, resolve } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import { goto, invalidateAll } from '$app/navigation';
-	import { browser } from '$app/environment';
-	import { onMount } from 'svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -100,14 +98,6 @@
 	const rows = $derived(() => data.rows ?? []);
 	const fetchedAt = $derived(() => (data.fetchedAt ? new Date(data.fetchedAt) : null));
 	const jumbotronItems = $derived(() => data.jumbotronItems ?? []);
-
-	onMount(() => {
-		if (!browser) return;
-		const url = `${base}/api/wad/precache`;
-		void fetch(url, { method: 'POST', keepalive: true }).catch((e) => {
-			console.warn('Failed to precache WAD browser model', e);
-		});
-	});
 </script>
 
 <svelte:head>

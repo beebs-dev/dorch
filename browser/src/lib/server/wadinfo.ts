@@ -178,17 +178,11 @@ export function createWadinfoClient(fetchFn: typeof fetch, opts?: { forwardedFor
 			limit: number;
 			desc?: boolean;
 			featuredLimit?: number;
-			/**
-			 * When true, skip reading from Redis and fetch from wadinfo even if a cache entry exists.
-			 * The response will still be written back to Redis if caching is enabled for this request.
-			 */
-			bypassCache?: boolean;
 		}): Promise<FeaturedViewResponse> {
 			const useCache = shouldUseFeaturedCache(opts);
-			const bypassCache = Boolean(opts.bypassCache);
 			const cacheKey = `feat:l=${opts.limit}`;
 
-			if (useCache && !bypassCache) {
+			if (useCache) {
 				try {
 					const redis = await getRedisClient();
 					const cached = await redis.get(cacheKey);
