@@ -1,16 +1,18 @@
+---
 apiVersion: dorch.beebs.dev/v1
 kind: Game
 metadata:
-  name: game-25464d97-353d-4584-bc16-e72346f92d6f
+  name: game-96a118c0-7250-4562-ac14-d6711a7fff05
   namespace: dorch
 spec:
-  game_id: 25464d97-353d-4584-bc16-e72346f92d6f
-  name: "Stardate 20x7"
+  game_id: 96a118c0-7250-4562-ac14-d6711a7fff05
+  name: "M A G N O L I A"
   max_players: 64
   s3_secret_name: game-spaces-cred
   iwad: 17bdc0a8-8a81-4b00-90d1-972bf406fa10
   use_doom1_assets: false
-  warp: MAP08
+  skill: 4
+  warp: MAP01
   files:
     - 22a0ca23-f044-4319-a7a6-f3b60276d0ce
-    - 9ca3514c-31ad-4561-9f34-b7602865d9ce
+    - a1ccd9ce-0867-414b-8f79-b39a87dd94e9
