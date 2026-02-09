@@ -82,6 +82,11 @@ create index if not exists idx_wads_featured_title_missing_shuffle
   )
   where hidden = false and can_download = true;
 
+-- Denormalized featured eligibility (requires has_images + has_analysis to be backfilled).
+create index if not exists idx_wads_featured_eligible
+  on wads (md5(wad_id::text), (nullif(trim(meta_json->>'title'), '') is null))
+  where hidden = false and can_download = true and has_images = true and has_analysis = true;
+
 create index if not exists idx_wads_file_type
   on wads (file_type);
 

@@ -456,6 +456,13 @@ impl Database {
                 .await
                 .with_context(|| format!("insert wad_analysis_tag {}", tag))?;
         }
+        // Sync denormalized has_analysis flag for featured query optimization
+        tx.execute(
+            "UPDATE wads SET has_analysis = true WHERE wad_id = $1 AND has_analysis = false",
+            &[&analysis.wad_id],
+        )
+        .await
+        .context("failed to set has_analysis")?;
         tx.commit().await.context("commit insert_wad_analysis tx")
     }
 
@@ -863,6 +870,23 @@ impl Database {
                 .await
                 .with_context(|| format!("insert wad_map_image {wad_id} {map_name}"))?;
         }
+
+        // Sync denormalized has_images flag for featured query optimization
+        let has_images = !images.is_empty()
+            || tx
+                .query_one(
+                    "SELECT EXISTS(SELECT 1 FROM wad_map_images WHERE wad_id = $1)",
+                    &[&wad_id],
+                )
+                .await
+                .map(|row| row.get::<_, bool>(0))
+                .unwrap_or(false);
+        tx.execute(
+            "UPDATE wads SET has_images = $2 WHERE wad_id = $1 AND has_images <> $2",
+            &[&wad_id, &has_images],
+        )
+        .await
+        .context("failed to set has_images")?;
 
         tx.commit()
             .await

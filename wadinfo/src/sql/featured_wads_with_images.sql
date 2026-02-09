@@ -17,8 +17,8 @@ eligible as (
   from wads w
   where w.hidden = false
     and w.can_download = true
-    and exists (select 1 from wad_map_images i where i.wad_id = w.wad_id)
-    and exists (select 1 from wad_analysis a where a.wad_id = w.wad_id)
+    and w.has_images = true
+    and w.has_analysis = true
 ),
 title_present as (
   select *
