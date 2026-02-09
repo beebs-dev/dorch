@@ -286,13 +286,26 @@ pub async fn featured_wads(
         .featured_limit
         .unwrap_or(if offset == 0 { 6 } else { 0 })
         .clamp(0, 100);
-
+    let start = std::time::Instant::now();
     match state
         .db
         .featured_view(offset, limit, req.sort_desc, featured_limit)
         .await
     {
-        Ok(view) => (StatusCode::OK, Json(view)).into_response(),
+        Ok(view) => {
+            println!(
+                "{}{}{}{}{}{}{}{}",
+                "✅ Featured view • offset=".green(),
+                offset.green().dimmed(),
+                " • limit=".green(),
+                limit.green().dimmed(),
+                " • featured_limit=".green(),
+                featured_limit.green().dimmed(),
+                " • elapsed=".green(),
+                humantime::format_duration(start.elapsed()).green().dimmed()
+            );
+            (StatusCode::OK, Json(view)).into_response()
+        }
         Err(e) => response::error(e.context("Failed to build featured view")),
     }
 }

@@ -403,3 +403,7 @@ create table if not exists wad_map_analysis_tags (
   tag         text not null,
   primary key (wad_id, map_name, tag)
 );
+
+CREATE INDEX IF NOT EXISTS idx_wads_list_order
+  ON wads (has_images DESC, lower(coalesce(title, '')), wad_id)
+  WHERE hidden = false AND can_download = true;

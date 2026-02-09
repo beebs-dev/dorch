@@ -5,7 +5,7 @@ select
 from wads w
 where w.hidden = false and w.can_download = true
 order by
-  exists (select 1 from wad_map_images i where i.wad_id = w.wad_id) desc,
+  w.has_images desc,
   lower(coalesce(w.title, '')) desc,
   w.wad_id desc
 offset $1
