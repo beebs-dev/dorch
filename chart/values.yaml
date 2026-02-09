@@ -327,5 +327,6 @@ browser:
   replicas: 1
   logLevel: warning
   resources:
-    limits:
+    requests: 
+      cpu: "250m"
       memory: "256Mi"

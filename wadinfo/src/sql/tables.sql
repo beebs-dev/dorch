@@ -87,6 +87,21 @@ create index if not exists idx_wads_featured_eligible
   on wads (md5(wad_id::text), (nullif(trim(meta_json->>'title'), '') is null))
   where hidden = false and can_download = true and has_images = true and has_analysis = true;
 
+-- Fast count for visible wads
+create index if not exists idx_wads_visible_count
+  on wads (hidden, can_download)
+  where hidden = false and can_download = true;
+
+-- Covering indexes for list_wads ORDER BY (desc variant)
+create index if not exists idx_wads_list_order_desc
+  on wads (has_images desc, lower(coalesce(title, '')) desc, wad_id desc)
+  where hidden = false and can_download = true;
+
+-- Covering indexes for list_wads ORDER BY (asc variant)
+create index if not exists idx_wads_list_order_asc
+  on wads (has_images desc, lower(coalesce(title, '')), wad_id)
+  where hidden = false and can_download = true;
+
 create index if not exists idx_wads_file_type
   on wads (file_type);
 

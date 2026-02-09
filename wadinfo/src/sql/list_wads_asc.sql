@@ -1,5 +1,10 @@
+with cnt as (
+  select count(*) as full_count
+  from wads
+  where hidden = false and can_download = true
+)
 select
-  count(*) over() as full_count,
+  (select full_count from cnt) as full_count,
   w.wad_id,
   w.meta_json
 from wads w
