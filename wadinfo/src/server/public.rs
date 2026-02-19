@@ -119,6 +119,12 @@ pub async fn put_user_profile_avatar(
     body: Bytes,
 ) -> impl IntoResponse {
     if authenticated_user_id != user_id {
+        eprintln!(
+            "{}{}{}",
+            "⚠️  User ".yellow(),
+            authenticated_user_id.to_string().yellow().dimmed(),
+            " attempted to modify another user's profile".yellow()
+        );
         return response::forbidden(anyhow!("Not allowed to modify another user's profile"));
     }
     internal::put_user_profile_avatar_common(state, user_id, headers, body).await

@@ -1,17 +1,11 @@
 import type { LayoutServerLoad } from './$types';
 
-const REFRESH_TOKEN_COOKIE = 'dorch_refresh_token';
-const LOGGED_IN_COOKIE = 'dorch_logged_in';
-const USERNAME_COOKIE = 'dorch_username';
-
-export const load: LayoutServerLoad = async ({ cookies }) => {
-	const refreshToken = cookies.get(REFRESH_TOKEN_COOKIE);
-	const loggedInCookie = cookies.get(LOGGED_IN_COOKIE);
-	const username = cookies.get(USERNAME_COOKIE);
-	const loggedIn =
-		loggedInCookie === '1' || (typeof refreshToken === 'string' && refreshToken.length > 0);
+// Auth is now handled client-side via localStorage.
+// The server cannot know auth state until hydration completes.
+export const load: LayoutServerLoad = async () => {
 	return {
-		loggedIn,
-		username: loggedIn && typeof username === 'string' && username.length > 0 ? username : null
+		// These are now only used for SSR fallback - actual state comes from client auth store
+		loggedIn: false,
+		username: null
 	};
 };

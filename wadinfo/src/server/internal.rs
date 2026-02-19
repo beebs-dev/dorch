@@ -147,6 +147,7 @@ pub async fn delete_user_profile_avatar_common(
             &PutUserProfileRequest {
                 avatar_url: Some(None),
                 username: None,
+                display_name: None,
                 privacy_hide_activity: None,
             },
         )
@@ -404,6 +405,7 @@ pub async fn get_user_profile_public(
             let public = UserProfilePublic {
                 id: profile.id,
                 username: profile.username,
+                display_name: profile.display_name,
                 avatar_url: profile.avatar_url,
                 registered_at: profile.registered_at,
                 last_active_at: if profile.privacy_hide_activity {
@@ -480,6 +482,7 @@ pub async fn put_user_profile_avatar_common(
             &PutUserProfileRequest {
                 avatar_url: Some(Some(avatar_url)),
                 username: None,
+                display_name: None,
                 privacy_hide_activity: None,
             },
         )

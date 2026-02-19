@@ -366,7 +366,7 @@ impl Database {
         };
 
         let current = row_to_user_profile(row)?;
-        let username = req.username.as_ref().unwrap_or(&current.username);
+        let display_name = req.display_name.as_ref().unwrap_or(&current.display_name);
         let avatar_url = req
             .avatar_url
             .as_ref()
@@ -386,7 +386,7 @@ impl Database {
                 &update_stmt,
                 &[
                     &user_id,
-                    &username,
+                    &display_name,
                     &avatar_url,
                     &last_active_at,
                     &privacy_hide_activity,
@@ -406,6 +406,7 @@ impl Database {
             .username
             .as_deref()
             .ok_or_else(|| anyhow!("username is required when creating profile"))?;
+        let display_name = req.display_name.as_deref().unwrap_or(username);
         let avatar_url = req.avatar_url.as_ref().cloned().unwrap_or(None);
         let privacy_hide_activity = req.privacy_hide_activity.unwrap_or(false);
         let registered_at = unix_epoch_ms().context("failed to get current epoch milliseconds")?;
@@ -421,6 +422,7 @@ impl Database {
                 &[
                     &user_id,
                     &username,
+                    &display_name,
                     &avatar_url,
                     &registered_at,
                     &privacy_hide_activity,
@@ -1914,6 +1916,7 @@ fn row_to_user_profile(row: tokio_postgres::Row) -> Result<UserProfileFull> {
     Ok(UserProfileFull {
         id: row.try_get("id")?,
         username: row.try_get("username")?,
+        display_name: row.try_get("display_name")?,
         avatar_url: row.try_get("avatar_url")?,
         registered_at: row.try_get("registered_at")?,
         last_active_at: row.try_get("last_active_at")?,

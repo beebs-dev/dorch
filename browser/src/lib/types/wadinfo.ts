@@ -188,6 +188,7 @@ export interface ResolveMapThumbnailsResponse {
 export interface UserProfileFull {
 	id: Uuid;
 	username: string;
+	display_name: string;
 	avatar_url?: string | null;
 	registered_at: number;
 	last_active_at?: number | null;
@@ -197,6 +198,7 @@ export interface UserProfileFull {
 export interface UserProfilePublic {
 	id: Uuid;
 	username: string;
+	display_name: string;
 	avatar_url?: string | null;
 	registered_at: number;
 	last_active_at?: number | null;
@@ -206,7 +208,7 @@ export type UserProfileView = UserProfileFull | UserProfilePublic;
 
 export interface PutUserProfileRequest {
 	avatar_url?: string | null;
-	username?: string;
+	display_name?: string;
 	privacy_hide_activity?: boolean;
 }
 

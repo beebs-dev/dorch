@@ -1,6 +1,7 @@
 select
   id,
   username,
+  display_name,
   avatar_url,
   registered_at,
   last_active_at,

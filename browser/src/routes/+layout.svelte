@@ -4,6 +4,7 @@
 	import LoginModal from '$lib/components/LoginModal.svelte';
 	import SettingsModal from '$lib/components/SettingsModal.svelte';
 	import { toastMessage } from '$lib/stores/toast';
+	import { subscribe as authSubscribe, logout, type AuthState } from '$lib/stores/auth';
 	import { base, resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
@@ -14,6 +15,12 @@
 
 	let loginOpen = $state(false);
 	let settingsOpen = $state(false);
+	let authState = $state<AuthState>({
+		isAuthenticated: false,
+		userId: null,
+		username: null,
+		accessToken: null
+	});
 
 	function syncLoginFromUrl() {
 		if (!browser) return;
@@ -22,11 +29,19 @@
 
 	onMount(() => {
 		if (!browser) return;
-		syncLoginFromUrl();
 
+		// Subscribe to auth state changes
+		const unsubscribeAuth = authSubscribe((state) => {
+			authState = state;
+		});
+
+		// Sync login modal with URL hash
+		syncLoginFromUrl();
 		window.addEventListener('hashchange', syncLoginFromUrl);
 		window.addEventListener('popstate', syncLoginFromUrl);
+
 		return () => {
+			unsubscribeAuth();
 			window.removeEventListener('hashchange', syncLoginFromUrl);
 			window.removeEventListener('popstate', syncLoginFromUrl);
 		};
@@ -65,11 +80,7 @@
 
 	async function signOut() {
 		if (!browser) return;
-		try {
-			await fetch(resolve('/api/logout'), { method: 'POST' });
-		} catch {
-			// ignore
-		}
+		logout();
 
 		const home = resolve('/');
 		if ($page.url.pathname === home) {
@@ -117,7 +128,7 @@
 				>
 					WAD BROWSER
 				</a>
-				{#if $page.data.loggedIn}
+				{#if authState.isAuthenticated}
 					<div class="group relative -mb-px">
 						<a
 							href={resolve('/account')}
@@ -150,7 +161,7 @@
 								<div class="border-b border-zinc-800 px-3 py-2 text-xs text-zinc-400">
 									Signed in as
 									<span class="ml-1 font-semibold text-red-300"
-										>{$page.data.username ?? 'unknown'}</span
+										>{authState.username ?? 'unknown'}</span
 									>
 								</div>
 								<a

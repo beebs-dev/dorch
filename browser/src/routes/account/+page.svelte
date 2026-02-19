@@ -5,6 +5,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { showToast } from '$lib/stores/toast';
+	import { getAccessToken, getAuthState, subscribe as authSubscribe, logout } from '$lib/stores/auth';
 	import type { UserProfileFull, UserProfileView } from '$lib/types/wadinfo';
 
 	let loading = $state(true);
@@ -14,102 +15,24 @@
 
 	let profile = $state<UserProfileView | null>(null);
 	let username = $state('');
+	let displayName = $state('');
 	let privacyHideActivity = $state(false);
 	let avatarFile = $state<File | null>(null);
 	let uploadingAvatar = $state(false);
 
 	const maxAvatarUploadBytes = 5 * 1024 * 1024;
-	const accessTokenCookieName = 'dorch_access_token';
-	const accessTokenExpCookieName = 'dorch_access_token_expires_at';
 	const apiBaseUrl = 'https://api.gib.gg';
-	const accessTokenComfortWindowMs = 60_000;
 
-	function readCookie(name: string): string | null {
-		if (typeof document === 'undefined') return null;
-		const encodedPrefix = `${encodeURIComponent(name)}=`;
-		const parts = document.cookie.split(';');
-		for (const rawPart of parts) {
-			const part = rawPart.trim();
-			if (!part.startsWith(encodedPrefix)) continue;
-			const rawValue = part.slice(encodedPrefix.length);
-			try {
-				return decodeURIComponent(rawValue);
-			} catch {
-				return rawValue;
-			}
-		}
-		return null;
-	}
-
-	function getAccessToken(): string | null {
-		const token = readCookie(accessTokenCookieName);
-		if (!token) return null;
-		const trimmed = token.trim();
-		return trimmed.length > 0 ? trimmed : null;
-	}
-
-	function decodeJwtPayload(token: string): Record<string, unknown> | null {
-		const parts = token.split('.');
-		if (parts.length < 2) return null;
-		try {
-			const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-			const padLength = payload.length % 4;
-			const paddedPayload = payload + (padLength ? '='.repeat(4 - padLength) : '');
-			const jsonPayload = atob(paddedPayload);
-			const parsed = JSON.parse(jsonPayload);
-			return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
-		} catch {
-			return null;
-		}
-	}
-
-	function parseIsoDateMs(value: string | null): number | null {
-		if (!value) return null;
-		const parsed = Date.parse(value);
-		return Number.isFinite(parsed) ? parsed : null;
-	}
-
-	function getTokenExpiryMs(token: string): number | null {
-		const payload = decodeJwtPayload(token);
-		const exp = payload?.exp;
-		const jwtExpiryMs = typeof exp === 'number' && Number.isFinite(exp) ? exp * 1000 : null;
-		const cookieExpiryMs = parseIsoDateMs(readCookie(accessTokenExpCookieName));
-
-		if (jwtExpiryMs !== null && cookieExpiryMs !== null) {
-			return Math.min(jwtExpiryMs, cookieExpiryMs);
-		}
-		return jwtExpiryMs ?? cookieExpiryMs;
-	}
-
-	function isTokenComfortablyValid(token: string): boolean {
-		const expiryMs = getTokenExpiryMs(token);
-		if (expiryMs === null) return false;
-		return Date.now() + accessTokenComfortWindowMs < expiryMs;
-	}
-
-	async function refreshAccessTokenIfPossible(): Promise<string | null> {
-		const res = await fetch('/api/session', {
-			method: 'GET',
-			headers: { accept: 'application/json' }
-		});
-		if (res.status === 401) {
+	async function getValidAccessToken(): Promise<string | null> {
+		const token = await getAccessToken();
+		if (!token) {
 			notAuthenticated = true;
 			return null;
 		}
-		if (!res.ok) return null;
-		return getAccessToken();
+		return token;
 	}
 
-	async function ensureComfortableAccessToken(): Promise<string | null> {
-		const token = getAccessToken();
-		if (token && isTokenComfortablyValid(token)) return token;
-
-		const refreshedToken = await refreshAccessTokenIfPossible();
-		if (!refreshedToken) return null;
-		return isTokenComfortablyValid(refreshedToken) ? refreshedToken : null;
-	}
-
-	async function directApiWrite(path: string, init: RequestInit): Promise<Response> {
+	async function apiRequest(path: string, init: RequestInit): Promise<Response> {
 		const buildAuthHeaders = (token: string) => {
 			const headers = new Headers(init.headers);
 			headers.set('authorization', `Bearer ${token}`);
@@ -117,7 +40,7 @@
 			return headers;
 		};
 
-		let token = await ensureComfortableAccessToken();
+		let token = await getValidAccessToken();
 		if (!token) {
 			return new Response(JSON.stringify({ error: 'Not authenticated' }), {
 				status: 401,
@@ -133,13 +56,23 @@
 
 		if (res.status !== 401) return res;
 
-		token = await refreshAccessTokenIfPossible();
-		if (!token) return res;
+		// Token might have expired, try to get a fresh one
+		token = await getAccessToken();
+		if (!token) {
+			notAuthenticated = true;
+			return res;
+		}
 
 		res = await fetch(url, {
 			...init,
 			headers: buildAuthHeaders(token)
 		});
+
+		if (res.status === 401) {
+			notAuthenticated = true;
+			logout();
+		}
+
 		return res;
 	}
 
@@ -156,6 +89,7 @@
 
 	function syncFormFromProfile(next: UserProfileView) {
 		username = next.username ?? '';
+		displayName = next.display_name ?? '';
 		privacyHideActivity = isFullProfile(next) ? !!next.privacy_hide_activity : false;
 		avatarFile = null;
 	}
@@ -164,8 +98,17 @@
 		loading = true;
 		loadError = null;
 		notAuthenticated = false;
+
+		const authState = getAuthState();
+		if (!authState.isAuthenticated || !authState.userId) {
+			notAuthenticated = true;
+			profile = null;
+			loading = false;
+			return;
+		}
+
 		try {
-			const res = await fetch('/api/account/profile', {
+			const res = await apiRequest(`/user/profile/${encodeURIComponent(authState.userId)}`, {
 				method: 'GET',
 				headers: { accept: 'application/json' }
 			});
@@ -196,15 +139,14 @@
 
 	const hasChanges = $derived.by(() => {
 		if (!profile) return false;
-		const nextUsername = username.trim();
-		const sameUsername = nextUsername === profile.username;
+		const sameDisplayName = displayName.trim() === (profile.display_name ?? '');
 		const samePrivacy = !isFullProfile(profile) || privacyHideActivity === !!profile.privacy_hide_activity;
-		return !(sameUsername && samePrivacy);
+		return !sameDisplayName || !samePrivacy;
 	});
 
 	const canSave = $derived.by(() => {
 		if (!profile || saving || uploadingAvatar) return false;
-		if (!username.trim()) return false;
+		if (!displayName.trim()) return false;
 		return hasChanges;
 	});
 
@@ -222,14 +164,14 @@
 		if (!profile || !canSave) return;
 		saving = true;
 		try {
-			const res = await directApiWrite(`/user/profile/${encodeURIComponent(profile.id)}`, {
+			const res = await apiRequest(`/user/profile/${encodeURIComponent(profile.id)}`, {
 				method: 'PUT',
 				headers: {
 					'content-type': 'application/json',
 					accept: 'application/json'
 				},
 				body: JSON.stringify({
-					username: username.trim(),
+					display_name: displayName.trim(),
 					privacy_hide_activity: privacyHideActivity
 				})
 			});
@@ -287,7 +229,7 @@
 		if (!profile || !avatarFile || !canUploadAvatar) return;
 		uploadingAvatar = true;
 		try {
-			const res = await directApiWrite(`/user/profile/${encodeURIComponent(profile.id)}/avatar`, {
+			const res = await apiRequest(`/user/profile/${encodeURIComponent(profile.id)}/avatar`, {
 				method: 'PUT',
 				headers: {
 					'content-type': avatarFile.type || 'application/octet-stream',
@@ -372,12 +314,13 @@
 							class="h-full w-full object-cover"
 						/>
 					{:else}
-						<span class="text-3xl font-semibold text-zinc-300">{(username.trim()[0] ?? 'U').toUpperCase()}</span>
+						<span class="text-3xl font-semibold text-zinc-300">{(displayName.trim()[0] ?? username.trim()[0] ?? 'U').toUpperCase()}</span>
 					{/if}
 				</div>
 				<div class="mt-4 text-center">
-					<p class="text-base font-semibold text-zinc-100">{profile.username}</p>
-					<p class="mt-1 text-xs text-zinc-500">User ID</p>
+					<p class="text-base font-semibold text-zinc-100">{profile.display_name}</p>
+					<p class="mt-1 text-xs text-zinc-500">@{profile.username}</p>
+					<p class="mt-2 text-xs text-zinc-500">User ID</p>
 					<p class="mt-1 break-all text-xs text-zinc-400">{profile.id}</p>
 				</div>
 
@@ -432,13 +375,25 @@
 						<span class="text-xs font-semibold tracking-wide text-zinc-300">USERNAME</span>
 						<input
 							type="text"
-							bind:value={username}
+							value={username}
+							readonly
 							autocomplete="username"
+							class="mt-2 w-full rounded-lg bg-zinc-950 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none cursor-not-allowed opacity-70"
+						/>
+						<p class="mt-1 text-xs text-zinc-500">Username cannot be changed.</p>
+					</label>
+
+					<label class="block">
+						<span class="text-xs font-semibold tracking-wide text-zinc-300">DISPLAY NAME</span>
+						<input
+							type="text"
+							bind:value={displayName}
+							autocomplete="nickname"
 							required
-							maxlength="30"
+							maxlength="50"
 							class="mt-2 w-full rounded-lg bg-zinc-950 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none"
 						/>
-						<p class="mt-1 text-xs text-zinc-500">3–30 characters. Letters, numbers, dots, dashes, and underscores are recommended.</p>
+						<p class="mt-1 text-xs text-zinc-500">The name shown to other users. Can be changed anytime.</p>
 					</label>
 
 					{#if isFullProfile(profile)}

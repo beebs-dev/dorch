@@ -12,6 +12,7 @@ use uuid::Uuid;
 pub struct UserProfileFull {
     pub id: Uuid,
     pub username: String,
+    pub display_name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
     pub registered_at: i64,
@@ -24,6 +25,7 @@ pub struct UserProfileFull {
 pub struct UserProfilePublic {
     pub id: Uuid,
     pub username: String,
+    pub display_name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
     pub registered_at: i64,
@@ -42,8 +44,11 @@ pub enum UserProfileView {
 pub struct PutUserProfileRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<Option<String>>,
+    /// Only used during profile creation. Ignored on updates (username is immutable).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub username: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub privacy_hide_activity: Option<bool>,
 }
@@ -460,6 +465,7 @@ impl Client {
             &PutUserProfileRequest {
                 avatar_url: None,
                 username: Some(username.to_string()),
+                display_name: Some(username.to_string()),
                 privacy_hide_activity: Some(false),
             },
         )

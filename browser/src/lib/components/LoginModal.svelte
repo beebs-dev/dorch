@@ -2,6 +2,7 @@
 	import { onDestroy, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import { showToast } from '$lib/stores/toast';
+	import { login as authLogin } from '$lib/stores/auth';
 
 	let { open, onClose }: { open: boolean; onClose: () => void } = $props();
 
@@ -100,32 +101,13 @@
 
 		submitting = true;
 		try {
-			const res = await fetch('/api/login', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ username, password, rememberMe })
-			});
-
-			if (!res.ok) {
-				let message = 'Login failed.';
-				try {
-					const body = (await res.json()) as any;
-					if (typeof body?.error === 'string') message = body.error;
-				} catch {
-					// ignore
-				}
-				showToast(message);
-				return;
-			}
-
-			// The server sets auth cookies; do a full navigation so layout re-renders server-side.
-			// Reload the current page (without #login) so the user stays where they are.
-			await res.json();
+			await authLogin(username, password, rememberMe);
 			password = '';
 			close();
+			// Reload the page to reflect the new auth state
 			window.location.assign(`${window.location.pathname}${window.location.search}`);
-		} catch {
-			showToast('Login failed.');
+		} catch (err: any) {
+			showToast(err?.message ?? 'Login failed.');
 		} finally {
 			submitting = false;
 		}
