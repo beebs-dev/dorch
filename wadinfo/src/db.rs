@@ -1,16 +1,20 @@
 use crate::client::{
     AbridgedMapAnalysis, AbridgedWadAnalysis, FeaturedViewResponse, FeaturedWadViewItem,
     GetWadMapResponse, ListWadsResponse, MapAnalysis, MapReference, MapThumbnail, ReadMapStat,
-    ReadWad, ReadWadMetaWithTextFiles, ResolvedWadURL, WadAnalysis, WadImage, WadSearchResults,
+    PutUserProfileRequest, ReadWad, ReadWadMetaWithTextFiles, ResolvedWadURL, UserProfileFull,
+    WadAnalysis, WadImage, WadSearchResults,
 };
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use dorch_common::{
     postgres::strip_sql_comments,
     types::wad::{InsertWad, ReadWadMeta, TextFile},
 };
 use owo_colors::OwoColorize;
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    time::{SystemTime, UNIX_EPOCH},
+};
 use tokio_postgres::types::Json;
 use uuid::Uuid;
 
@@ -73,6 +77,10 @@ mod sql {
     pub const RESOLVE_MAP_THUMBNAILS: &str = include_str!("sql/resolve_map_thumbnails.sql");
     pub const GET_WAD_MAPS: &str = include_str!("sql/get_wad_maps.sql");
     pub const GET_WAD_MAP: &str = include_str!("sql/get_wad_map.sql");
+    pub const GET_USER_PROFILE: &str = include_str!("sql/get_user_profile.sql");
+    pub const INSERT_USER_PROFILE: &str = include_str!("sql/insert_user_profile.sql");
+    pub const UPDATE_USER_PROFILE: &str = include_str!("sql/update_user_profile.sql");
+    pub const TOUCH_USER_ACTIVITY: &str = include_str!("sql/touch_user_activity.sql");
 
     pub const DELETE_WAD_CHILDREN: &str = include_str!("sql/delete_wad_children.sql");
     pub const INSERT_WAD_AUTHOR: &str = include_str!("sql/insert_wad_author.sql");
@@ -183,6 +191,22 @@ impl Database {
             .prepare(sql::GET_WAD_MAP)
             .await
             .context("failed to prepare GET_WAD_MAP")?;
+        _ = conn
+            .prepare(sql::GET_USER_PROFILE)
+            .await
+            .context("failed to prepare GET_USER_PROFILE")?;
+        _ = conn
+            .prepare(sql::INSERT_USER_PROFILE)
+            .await
+            .context("failed to prepare INSERT_USER_PROFILE")?;
+        _ = conn
+            .prepare(sql::UPDATE_USER_PROFILE)
+            .await
+            .context("failed to prepare UPDATE_USER_PROFILE")?;
+        _ = conn
+            .prepare(sql::TOUCH_USER_ACTIVITY)
+            .await
+            .context("failed to prepare TOUCH_USER_ACTIVITY")?;
 
         _ = conn
             .prepare(sql::DELETE_WAD_CHILDREN)
@@ -308,6 +332,117 @@ impl Database {
             .await
             .context("failed to prepare GET_WAD_MAP_ANALYSIS_EXISTS")?;
         Ok(Self { pool })
+    }
+
+    pub async fn get_user_profile(&self, user_id: Uuid) -> Result<Option<UserProfileFull>> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::GET_USER_PROFILE)
+            .await
+            .context("failed to prepare GET_USER_PROFILE")?;
+        let row = conn
+            .query_opt(&stmt, &[&user_id])
+            .await
+            .context("failed to execute GET_USER_PROFILE")?;
+        row.map(row_to_user_profile).transpose()
+    }
+
+    pub async fn update_user_profile(
+        &self,
+        user_id: Uuid,
+        req: &PutUserProfileRequest,
+    ) -> Result<Option<UserProfileFull>> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let get_stmt = conn
+            .prepare_cached(sql::GET_USER_PROFILE)
+            .await
+            .context("failed to prepare GET_USER_PROFILE")?;
+        let row = conn
+            .query_opt(&get_stmt, &[&user_id])
+            .await
+            .context("failed to execute GET_USER_PROFILE")?;
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let current = row_to_user_profile(row)?;
+        let username = req.username.as_ref().unwrap_or(&current.username);
+        let avatar_url = req
+            .avatar_url
+            .as_ref()
+            .cloned()
+            .unwrap_or(current.avatar_url.clone());
+        let privacy_hide_activity = req
+            .privacy_hide_activity
+            .unwrap_or(current.privacy_hide_activity);
+        let last_active_at = unix_epoch_ms().context("failed to get current epoch milliseconds")?;
+
+        let update_stmt = conn
+            .prepare_cached(sql::UPDATE_USER_PROFILE)
+            .await
+            .context("failed to prepare UPDATE_USER_PROFILE")?;
+        let row = conn
+            .query_one(
+                &update_stmt,
+                &[
+                    &user_id,
+                    &username,
+                    &avatar_url,
+                    &last_active_at,
+                    &privacy_hide_activity,
+                ],
+            )
+            .await
+            .context("failed to execute UPDATE_USER_PROFILE")?;
+        Ok(Some(row_to_user_profile(row)?))
+    }
+
+    pub async fn create_user_profile(
+        &self,
+        user_id: Uuid,
+        req: &PutUserProfileRequest,
+    ) -> Result<UserProfileFull> {
+        let username = req
+            .username
+            .as_deref()
+            .ok_or_else(|| anyhow!("username is required when creating profile"))?;
+        let avatar_url = req.avatar_url.as_ref().cloned().unwrap_or(None);
+        let privacy_hide_activity = req.privacy_hide_activity.unwrap_or(false);
+        let registered_at = unix_epoch_ms().context("failed to get current epoch milliseconds")?;
+
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::INSERT_USER_PROFILE)
+            .await
+            .context("failed to prepare INSERT_USER_PROFILE")?;
+        let row = conn
+            .query_one(
+                &stmt,
+                &[
+                    &user_id,
+                    &username,
+                    &avatar_url,
+                    &registered_at,
+                    &privacy_hide_activity,
+                ],
+            )
+            .await
+            .context("failed to execute INSERT_USER_PROFILE")?;
+        row_to_user_profile(row)
+    }
+
+    pub async fn touch_user_activity(&self, user_id: Uuid) -> Result<bool> {
+        let ts = unix_epoch_ms().context("failed to get current epoch milliseconds")?;
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::TOUCH_USER_ACTIVITY)
+            .await
+            .context("failed to prepare TOUCH_USER_ACTIVITY")?;
+        let updated = conn
+            .execute(&stmt, &[&user_id, &ts])
+            .await
+            .context("failed to execute TOUCH_USER_ACTIVITY")?;
+        Ok(updated > 0)
     }
 
     pub async fn map_analysis_exists(&self, wad_id: Uuid, map_name: &str) -> Result<bool> {
@@ -1773,6 +1908,26 @@ impl Database {
         tx.commit().await.context("commit insert_wad tx")?;
         Ok(wad_id)
     }
+}
+
+fn row_to_user_profile(row: tokio_postgres::Row) -> Result<UserProfileFull> {
+    Ok(UserProfileFull {
+        id: row.try_get("id")?,
+        username: row.try_get("username")?,
+        avatar_url: row.try_get("avatar_url")?,
+        registered_at: row.try_get("registered_at")?,
+        last_active_at: row.try_get("last_active_at")?,
+        privacy_hide_activity: row.try_get("privacy_hide_activity")?,
+    })
+}
+
+fn unix_epoch_ms() -> Result<i64> {
+    Ok(SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .context("system time is before unix epoch")?
+        .as_millis()
+        .try_into()
+        .context("epoch millis overflow i64")?)
 }
 
 fn parse_ts_any(s: &Option<String>) -> Option<chrono::DateTime<chrono::Utc>> {

@@ -53,6 +53,8 @@ spec:
             path: /healthz
             port: 80
         env:
+        - name: WADINFO_ENDPOINT
+          value: "http://{{ .Release.Name }}-wadinfo"
         - name: SERVICE_NAME
           value: iam
         - name: RUST_LOG

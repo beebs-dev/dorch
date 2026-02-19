@@ -9,6 +9,46 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct UserProfileFull {
+    pub id: Uuid,
+    pub username: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
+    pub registered_at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_active_at: Option<i64>,
+    pub privacy_hide_activity: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct UserProfilePublic {
+    pub id: Uuid,
+    pub username: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
+    pub registered_at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_active_at: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum UserProfileView {
+    Full(UserProfileFull),
+    Public(UserProfilePublic),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct PutUserProfileRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<Option<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub privacy_hide_activity: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MapReference {
     pub wad_id: Uuid,
     pub map: String,
@@ -362,5 +402,85 @@ impl Client {
                     .context("Failed to parse get_wad response")?,
             )),
         }
+    }
+
+    pub async fn get_user_profile(&self, user_id: Uuid) -> Result<Option<UserProfileView>> {
+        let url = format!("{}/user/profile/{}", self.base_url, user_id);
+        let resp = self
+            .inner
+            .get(&url)
+            .send()
+            .await
+            .context("Failed to send get_user_profile request")?;
+        match resp.status() {
+            reqwest::StatusCode::NOT_FOUND => Ok(None),
+            status if !status.is_success() => {
+                bail!(
+                    "get_user_profile request failed with status {}: {}",
+                    status,
+                    resp.text().await.unwrap_or_default()
+                );
+            }
+            _ => Ok(Some(
+                resp.json::<UserProfileView>()
+                    .await
+                    .context("Failed to parse get_user_profile response")?,
+            )),
+        }
+    }
+
+    pub async fn put_user_profile(
+        &self,
+        user_id: Uuid,
+        req: &PutUserProfileRequest,
+    ) -> Result<UserProfileFull> {
+        let url = format!("{}/user/profile/{}", self.base_url, user_id);
+        let resp = self
+            .inner
+            .put(&url)
+            .json(req)
+            .send()
+            .await
+            .context("Failed to send put_user_profile request")?;
+        if !resp.status().is_success() {
+            bail!(
+                "put_user_profile request failed with status {}: {}",
+                resp.status(),
+                resp.text().await.unwrap_or_default()
+            );
+        }
+        resp.json::<UserProfileFull>()
+            .await
+            .context("Failed to parse put_user_profile response")
+    }
+
+    pub async fn create_user_profile(&self, user_id: Uuid, username: &str) -> Result<UserProfileFull> {
+        self.put_user_profile(
+            user_id,
+            &PutUserProfileRequest {
+                avatar_url: None,
+                username: Some(username.to_string()),
+                privacy_hide_activity: Some(false),
+            },
+        )
+        .await
+    }
+
+    pub async fn post_user_activity(&self, user_id: Uuid) -> Result<()> {
+        let url = format!("{}/user/activity/{}", self.base_url, user_id);
+        let resp = self
+            .inner
+            .post(&url)
+            .send()
+            .await
+            .context("Failed to send post_user_activity request")?;
+        if !resp.status().is_success() {
+            bail!(
+                "post_user_activity request failed with status {}: {}",
+                resp.status(),
+                resp.text().await.unwrap_or_default()
+            );
+        }
+        Ok(())
     }
 }

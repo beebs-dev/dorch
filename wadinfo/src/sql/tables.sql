@@ -422,3 +422,15 @@ create table if not exists wad_map_analysis_tags (
 CREATE INDEX IF NOT EXISTS idx_wads_list_order
   ON wads (has_images DESC, lower(coalesce(title, '')), wad_id)
   WHERE hidden = false AND can_download = true;
+
+create table if not exists user_profile (
+  id uuid primary key,
+  username text not null unique,
+  avatar_url text,
+  registered_at bigint not null,
+  last_active_at bigint,
+  privacy_hide_activity bool not null default false
+);
+
+create index if not exists idx_user_profile_username
+  on user_profile (username);

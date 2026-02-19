@@ -28,7 +28,7 @@ async fn run_servers(args: args::ServerArgs) -> Result<()> {
         cancel_clone.cancel();
     });
     let cancel_clone = cancel.clone();
-    let app_state = App::new(args.kc.clone());
+    let app_state = App::new(args.kc.clone(), args.wadinfo_endpoint.clone());
     let app_state_clone = app_state.clone();
     let mut internal_join = Box::pin(tokio::spawn(async move {
         server::internal::run_server(cancel_clone, args.internal_port, app_state_clone).await

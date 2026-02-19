@@ -2,6 +2,7 @@ use std::{ops::Deref, sync::Arc};
 
 pub struct AppInner {
     pub kc: dorch_common::args::KeycloakArgs,
+    pub wadinfo: dorch_wadinfo::client::Client,
 }
 
 #[derive(Clone)]
@@ -17,9 +18,12 @@ impl Deref for App {
 }
 
 impl App {
-    pub fn new(kc: dorch_common::args::KeycloakArgs) -> Self {
+    pub fn new(kc: dorch_common::args::KeycloakArgs, wadinfo_endpoint: String) -> Self {
         Self {
-            inner: Arc::new(AppInner { kc }),
+            inner: Arc::new(AppInner {
+                kc,
+                wadinfo: dorch_wadinfo::client::Client::new(wadinfo_endpoint),
+            }),
         }
     }
 }

@@ -51,6 +51,10 @@ pub async fn run_server(
     let protected_router = Router::new()
         .route("/wad", get(internal::list_wads))
         .route("/featured", get(internal::featured_wads))
+        .route(
+            "/user/profile/{user_id}",
+            get(internal::get_user_profile_public).put(internal::put_user_profile_public),
+        )
         .route("/wad/{id}", get(internal::get_wad))
         .route("/wad/{id}/map/{map}", get(internal::get_wad_map))
         .route("/search", get(internal::search))

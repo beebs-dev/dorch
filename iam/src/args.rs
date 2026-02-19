@@ -17,6 +17,9 @@ pub struct ServerArgs {
     #[command(flatten)]
     pub kc: dorch_common::args::KeycloakArgs,
 
+    #[arg(long, env = "WADINFO_ENDPOINT", required = true)]
+    pub wadinfo_endpoint: String,
+
     #[arg(long, env = "INTERNAL_PORT", required = true)]
     pub internal_port: u16,
 

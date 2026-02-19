@@ -1727,6 +1727,7 @@ dependencies = [
  "deadpool-redis",
  "dorch-common",
  "dorch-iam-client",
+ "dorch-wadinfo",
  "futures",
  "futures-util",
  "http 1.4.0",

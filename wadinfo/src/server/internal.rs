@@ -2,11 +2,13 @@ use crate::{
     app::App,
     client::{
         GetWadMetasRequest, GetWadMetasResponse, ListWadsRequest, MapAnalysis,
+        PutUserProfileRequest,
         ResolveMapThumbnailsRequest, ResolveMapThumbnailsResponse, ResolveWadURLsRequest,
-        ResolveWadURLsResponse, WadAnalysis, WadImage, WadSearchRequest,
+        ResolveWadURLsResponse, UserProfilePublic, UserProfileView, WadAnalysis, WadImage,
+        WadSearchRequest,
     },
 };
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, Path, Query, State},
@@ -18,6 +20,7 @@ use axum::{
 use dorch_common::{
     access_log,
     rate_limit::{RateLimiter, middleware::RateLimitLayer},
+    rbac::UserId,
     response,
     types::wad::InsertWad,
 };
@@ -56,6 +59,8 @@ pub async fn run_server(
         .layer(middleware::from_fn(access_log::internal));
     let router = Router::new()
         .route("/thumbnails", post(resolve_map_thumbnails))
+        .route("/user/profile/{user_id}", get(get_user_profile_internal).put(put_user_profile_internal))
+        .route("/user/activity/{user_id}", post(post_user_activity))
         .route("/wad", get(list_wads))
         .route("/wad_metas", post(get_wad_metas))
         .route("/wad_urls", post(resolve_wad_s3_urls))
@@ -326,6 +331,87 @@ pub async fn get_wad(State(state): State<App>, Path(wad_id): Path<Uuid>) -> impl
         Ok(Some(wad)) => (StatusCode::OK, Json(wad)).into_response(),
         Ok(None) => response::not_found(anyhow::anyhow!("WAD not found")),
         Err(e) => response::error(e.context("Failed to get wad")),
+    }
+}
+
+pub async fn get_user_profile_internal(
+    State(state): State<App>,
+    Path(user_id): Path<Uuid>,
+) -> impl IntoResponse {
+    match state.db.get_user_profile(user_id).await {
+        Ok(Some(profile)) => (StatusCode::OK, Json(UserProfileView::Full(profile))).into_response(),
+        Ok(None) => response::not_found(anyhow!("User profile not found")),
+        Err(e) => response::error(e.context("Failed to get user profile")),
+    }
+}
+
+pub async fn get_user_profile_public(
+    State(state): State<App>,
+    authenticated_user_id: UserId,
+    Path(user_id): Path<Uuid>,
+) -> impl IntoResponse {
+    match state.db.get_user_profile(user_id).await {
+        Ok(Some(profile)) => {
+            if authenticated_user_id.0 == user_id {
+                return (StatusCode::OK, Json(UserProfileView::Full(profile))).into_response();
+            }
+            let public = UserProfilePublic {
+                id: profile.id,
+                username: profile.username,
+                avatar_url: profile.avatar_url,
+                registered_at: profile.registered_at,
+                last_active_at: if profile.privacy_hide_activity {
+                    None
+                } else {
+                    profile.last_active_at
+                },
+            };
+            (StatusCode::OK, Json(UserProfileView::Public(public))).into_response()
+        }
+        Ok(None) => response::not_found(anyhow!("User profile not found")),
+        Err(e) => response::error(e.context("Failed to get user profile")),
+    }
+}
+
+pub async fn put_user_profile_internal(
+    State(state): State<App>,
+    Path(user_id): Path<Uuid>,
+    Json(req): Json<PutUserProfileRequest>,
+) -> impl IntoResponse {
+    match state.db.update_user_profile(user_id, &req).await {
+        Ok(Some(profile)) => (StatusCode::OK, Json(profile)).into_response(),
+        Ok(None) => match state.db.create_user_profile(user_id, &req).await {
+            Ok(profile) => (StatusCode::OK, Json(profile)).into_response(),
+            Err(e) => response::error(e.context("Failed to create user profile")),
+        },
+        Err(e) => response::error(e.context("Failed to update user profile")),
+    }
+}
+
+pub async fn put_user_profile_public(
+    State(state): State<App>,
+    authenticated_user_id: UserId,
+    Path(user_id): Path<Uuid>,
+    Json(req): Json<PutUserProfileRequest>,
+) -> impl IntoResponse {
+    if authenticated_user_id.0 != user_id {
+        return response::forbidden(anyhow!("Not allowed to modify another user's profile"));
+    }
+    match state.db.update_user_profile(user_id, &req).await {
+        Ok(Some(profile)) => (StatusCode::OK, Json(profile)).into_response(),
+        Ok(None) => response::not_found(anyhow!("User profile not found")),
+        Err(e) => response::error(e.context("Failed to update user profile")),
+    }
+}
+
+pub async fn post_user_activity(
+    State(state): State<App>,
+    Path(user_id): Path<Uuid>,
+) -> impl IntoResponse {
+    match state.db.touch_user_activity(user_id).await {
+        Ok(true) => StatusCode::NO_CONTENT.into_response(),
+        Ok(false) => response::not_found(anyhow!("User profile not found")),
+        Err(e) => response::error(e.context("Failed to update user activity")),
     }
 }
 

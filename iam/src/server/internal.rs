@@ -786,6 +786,13 @@ async fn create_user(state: &App, req: RegisterRequest) -> Result<RegisterRespon
             bail!("Failed to get user by username after creation: {}", e);
         }
     };
+
+    state
+        .wadinfo
+        .create_user_profile(user.id, &req.username)
+        .await
+        .context("Failed to create user profile in wadinfo")?;
+
     reset_user_password(user.id, &req.password, &admin_base, client.clone(), token)
         .await
         .context("Failed to set user password")?;
