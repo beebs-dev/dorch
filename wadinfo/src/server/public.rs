@@ -6,27 +6,41 @@ use crate::{
 };
 use anyhow::{Context, Result, anyhow};
 use axum::{
-    Json, Router,
-    extract::{DefaultBodyLimit, Path, State},
-    http::{HeaderMap, StatusCode},
-    middleware,
-    response::IntoResponse,
-    routing::{get, post},
+    Json, Router, body::Body, extract::{DefaultBodyLimit, Path, State}, http::{HeaderMap, Request, Response, StatusCode}, middleware, response::IntoResponse, routing::{get, post}
 };
 use axum_keycloak_auth::{
     PassthroughMode,
+    decode::{KeycloakToken, ProfileAndEmail},
     instance::{KeycloakAuthInstance, KeycloakConfig},
     layer::KeycloakAuthLayer,
 };
 use bytes::Bytes;
 use dorch_common::{
-    access_log, args::KeycloakArgs, cors, rate_limit::{RateLimiter, middleware::RateLimitLayer}, rbac::UserId, response
+    access_log,
+    args::KeycloakArgs,
+    cors,
+    rate_limit::{RateLimiter, middleware::RateLimitLayer},
+    rbac::UserId,
+    response,
 };
 use owo_colors::OwoColorize;
 use reqwest::Url;
-use uuid::Uuid;
 use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
+
+use axum::{Extension, middleware::Next};
+use axum_keycloak_auth::KeycloakAuthStatus;
+
+async fn debug_auth(mut req: Request<Body>, next: Next) -> Response<Body> {
+    if let Some(token) = req.extensions().get::<KeycloakToken<String, ProfileAndEmail>>() {
+        eprintln!("Authenticated user: {}", token.subject);
+    } else {
+        eprintln!("Request has no valid KeycloakToken");
+    }
+
+    next.run(req).await
+}
 
 pub async fn run_server(
     cancel: CancellationToken,
@@ -35,10 +49,7 @@ pub async fn run_server(
     app_state: App,
     rate_limiter: RateLimiter,
 ) -> Result<()> {
-    let allowed_origins = vec![
-        "https://gib.gg",
-        "https://www.gib.gg",
-    ];
+    let allowed_origins = vec!["https://gib.gg", "https://www.gib.gg"];
     let keycloak_auth_instance = KeycloakAuthInstance::new(
         KeycloakConfig::builder()
             .server(Url::parse(&kc.endpoint).unwrap())
@@ -49,7 +60,7 @@ pub async fn run_server(
         .instance(keycloak_auth_instance)
         .passthrough_mode(PassthroughMode::Block)
         .persist_raw_claims(true)
-        .expected_audiences(vec![kc.client_id])
+        .expected_audiences(vec!["account".to_string()])
         .build();
     let protected_router = Router::new()
         .route("/wad", get(internal::list_wads))
@@ -69,6 +80,7 @@ pub async fn run_server(
         .route("/search", get(internal::search))
         .with_state(app_state.clone())
         .layer(keycloak_layer)
+        .layer(middleware::from_fn(debug_auth))
         .layer(RateLimitLayer::new(rate_limiter.clone()))
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::prod(&allowed_origins));
@@ -109,7 +121,6 @@ pub async fn run_server(
     );
     Ok(())
 }
-
 
 pub async fn put_user_profile_avatar(
     State(state): State<App>,
@@ -162,7 +173,6 @@ pub async fn resolve_wad_public_urls(
     }
     (StatusCode::OK, Json(ResolveWadURLsResponse { items })).into_response()
 }
-
 
 pub async fn put_user_profile(
     State(state): State<App>,

@@ -39,7 +39,7 @@ pub async fn run_server(
         .instance(keycloak_auth_instance)
         .passthrough_mode(PassthroughMode::Block)
         .persist_raw_claims(true)
-        .expected_audiences(vec![args.kc.client_id])
+        .expected_audiences(vec![args.kc.client_id, "account".to_string()])
         .build();
     let router = Router::new()
         .route("/party/{party_id}", put(put_party).get(get_party))

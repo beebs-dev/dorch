@@ -51,7 +51,7 @@ pub async fn run_server(
         .instance(keycloak_auth_instance)
         .passthrough_mode(PassthroughMode::Block)
         .persist_raw_claims(true)
-        .expected_audiences(vec![kc.client_id])
+        .expected_audiences(vec![kc.client_id, "account".to_string()])
         .build();
     let protected_router = Router::new()
         .route("/game/{game_id}", delete(delete_game).post(new_game))
