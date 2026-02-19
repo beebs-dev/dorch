@@ -815,7 +815,7 @@ async fn create_user(state: &App, req: RegisterRequest) -> Result<RegisterRespon
             ("client_secret", state.kc.client_secret.as_str()),
             ("username", req.username.as_str()),
             ("password", req.password.as_str()),
-            ("scope", "openid offline_access"),
+            ("scope", "openid"),
         ])
         .send()
         .await
