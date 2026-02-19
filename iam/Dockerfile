@@ -2,9 +2,11 @@ ARG RUNTIME_IMAGE=debian:bookworm-slim
 ARG BASE_IMAGE=thavlik/dorch-base:latest
 
 FROM ${BASE_IMAGE} AS builder
+ENV SCCACHE_SERVER_PORT=4226
 COPY common/src common/src
 COPY iam-client/src iam-client/src
 COPY iam/src iam/src
+COPY wadinfo/src wadinfo/src
 WORKDIR /app/iam
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \

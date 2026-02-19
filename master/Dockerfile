@@ -2,6 +2,7 @@ ARG RUNTIME_IMAGE=debian:bookworm-slim
 ARG BASE_IMAGE=thavlik/dorch-base:latest
 
 FROM ${BASE_IMAGE} AS builder
+ENV SCCACHE_SERVER_PORT=4229
 COPY common/src common/src
 COPY auth/src auth/src
 COPY types/src types/src

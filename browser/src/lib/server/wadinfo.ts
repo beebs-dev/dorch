@@ -8,8 +8,11 @@ import type {
 	MapReference,
 	MapThumbnail,
 	ResolveMapThumbnailsResponse,
+	PutUserProfileRequest,
 	WadMeta,
 	WadImage,
+	UserProfileFull,
+	UserProfileView,
 	WadSearchResults
 } from '$lib/types/wadinfo';
 
@@ -142,13 +145,16 @@ async function requestJson<T>(
 	fetchFn: typeof fetch,
 	path: string,
 	init?: RequestInit,
-	opts?: { internal?: boolean; forwardedFor?: string }
+	opts?: { internal?: boolean; forwardedFor?: string; bearerToken?: string }
 ): Promise<T> {
 	const url = buildUrl(path, opts);
 	const headers = new Headers(init?.headers);
 	if (!headers.has('accept')) headers.set('accept', 'application/json');
 	if (opts?.forwardedFor && !headers.has('x-forwarded-for')) {
 		headers.set('x-forwarded-for', opts.forwardedFor);
+	}
+	if (opts?.bearerToken && !headers.has('authorization')) {
+		headers.set('authorization', `Bearer ${opts.bearerToken}`);
 	}
 	const res = await fetchFn(url, {
 		...init,
@@ -170,8 +176,12 @@ async function requestJson<T>(
 	return (await res.json()) as T;
 }
 
-export function createWadinfoClient(fetchFn: typeof fetch, opts?: { forwardedFor?: string }) {
+export function createWadinfoClient(
+	fetchFn: typeof fetch,
+	opts?: { forwardedFor?: string; bearerToken?: string }
+) {
 	const forwardedFor = opts?.forwardedFor;
+	const bearerToken = opts?.bearerToken;
 	return {
 		async featuredView(opts: {
 			offset: number;
@@ -210,7 +220,7 @@ export function createWadinfoClient(fetchFn: typeof fetch, opts?: { forwardedFor
 				fetchFn,
 				url.pathname + `?${url.searchParams.toString()}`,
 				undefined,
-				{ forwardedFor }
+				{ forwardedFor, bearerToken }
 			);
 			const normalized = normalizeFeaturedViewResponse(res);
 
@@ -240,7 +250,7 @@ export function createWadinfoClient(fetchFn: typeof fetch, opts?: { forwardedFor
 				fetchFn,
 				url.pathname + `?${url.searchParams.toString()}`,
 				undefined,
-				{ forwardedFor }
+				{ forwardedFor, bearerToken }
 			);
 			return normalizeListWadsResponse(res);
 		},
@@ -258,7 +268,7 @@ export function createWadinfoClient(fetchFn: typeof fetch, opts?: { forwardedFor
 				fetchFn,
 				url.pathname + `?${url.searchParams.toString()}`,
 				undefined,
-				{ forwardedFor }
+				{ forwardedFor, bearerToken }
 			);
 			return normalizeWadSearchResults(res);
 		},
@@ -268,7 +278,7 @@ export function createWadinfoClient(fetchFn: typeof fetch, opts?: { forwardedFor
 				fetchFn,
 				`/wad/${encodeURIComponent(wadId)}`,
 				undefined,
-				{ forwardedFor }
+				{ forwardedFor, bearerToken }
 			);
 			return normalizeGetWadResponse(wad);
 		},
@@ -285,7 +295,7 @@ export function createWadinfoClient(fetchFn: typeof fetch, opts?: { forwardedFor
 					},
 					body: JSON.stringify({ wad_ids: wadIds })
 				},
-				{ forwardedFor }
+				{ forwardedFor, bearerToken }
 			);
 			const out = new Map<string, WadMeta>();
 			for (const meta of res.items ?? []) {
@@ -300,7 +310,7 @@ export function createWadinfoClient(fetchFn: typeof fetch, opts?: { forwardedFor
 				fetchFn,
 				`/wad/${encodeURIComponent(wadId)}/map/${encodeURIComponent(mapName)}`,
 				undefined,
-				{ forwardedFor }
+				{ forwardedFor, bearerToken }
 			);
 			return {
 				...res,
@@ -313,7 +323,31 @@ export function createWadinfoClient(fetchFn: typeof fetch, opts?: { forwardedFor
 				fetchFn,
 				`/wad/${encodeURIComponent(wadId)}/maps/${encodeURIComponent(mapName)}/images`,
 				undefined,
-				{ forwardedFor }
+				{ forwardedFor, bearerToken }
+			);
+		},
+
+		async getUserProfile(userId: string): Promise<UserProfileView> {
+			return requestJson<UserProfileView>(
+				fetchFn,
+				`/user/profile/${encodeURIComponent(userId)}`,
+				undefined,
+				{ forwardedFor, bearerToken }
+			);
+		},
+
+		async putUserProfile(userId: string, req: PutUserProfileRequest): Promise<UserProfileFull> {
+			return requestJson<UserProfileFull>(
+				fetchFn,
+				`/user/profile/${encodeURIComponent(userId)}`,
+				{
+					method: 'PUT',
+					headers: {
+						'content-type': 'application/json'
+					},
+					body: JSON.stringify(req)
+				},
+				{ forwardedFor, bearerToken }
 			);
 		},
 
@@ -329,7 +363,7 @@ export function createWadinfoClient(fetchFn: typeof fetch, opts?: { forwardedFor
 					},
 					body: JSON.stringify({ items })
 				},
-				{ internal: true, forwardedFor }
+				{ internal: true, forwardedFor, bearerToken }
 			);
 			console.log('Received map thumbnails from wadinfo:', res);
 			return (res.items ?? []).map(normalizeMapThumbnail);

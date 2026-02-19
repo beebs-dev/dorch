@@ -2,6 +2,7 @@ ARG RUNTIME_IMAGE=ubuntu:24.04
 ARG BASE_IMAGE=thavlik/dorch-base:latest
 
 FROM ${BASE_IMAGE} AS builder
+ENV SCCACHE_SERVER_PORT=4230
 COPY proxy/src proxy/src
 COPY common/src common/src
 WORKDIR /app/proxy

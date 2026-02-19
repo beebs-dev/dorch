@@ -185,6 +185,31 @@ export interface ResolveMapThumbnailsResponse {
 	items: MapThumbnail[];
 }
 
+export interface UserProfileFull {
+	id: Uuid;
+	username: string;
+	avatar_url?: string | null;
+	registered_at: number;
+	last_active_at?: number | null;
+	privacy_hide_activity: boolean;
+}
+
+export interface UserProfilePublic {
+	id: Uuid;
+	username: string;
+	avatar_url?: string | null;
+	registered_at: number;
+	last_active_at?: number | null;
+}
+
+export type UserProfileView = UserProfileFull | UserProfilePublic;
+
+export interface PutUserProfileRequest {
+	avatar_url?: string | null;
+	username?: string;
+	privacy_hide_activity?: boolean;
+}
+
 // Future wiring: ratings are not in the schema yet.
 export interface RatingSummary {
 	average?: number | null; // 1..5

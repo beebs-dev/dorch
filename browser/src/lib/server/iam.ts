@@ -32,6 +32,12 @@ function getLoginPath(): string {
 	return configured.startsWith('/') ? configured : `/${configured}`;
 }
 
+function getRefreshPath(): string {
+	const configured = env.IAM_REFRESH_PATH;
+	if (!configured) return '/user/refresh';
+	return configured.startsWith('/') ? configured : `/${configured}`;
+}
+
 async function requestJson<T>(
 	fetchFn: typeof fetch,
 	path: string,
@@ -73,6 +79,20 @@ export function createIamClient(fetchFn: typeof fetch, opts?: { forwardedFor?: s
 					'content-type': 'application/json'
 				},
 				body: JSON.stringify({ username, password })
+				},
+				{ forwardedFor }
+			);
+		},
+		async refresh(refreshToken: string): Promise<UserCredentials> {
+			return requestJson<UserCredentials>(
+				fetchFn,
+				getRefreshPath(),
+				{
+					method: 'POST',
+					headers: {
+						'content-type': 'application/json'
+					},
+					body: JSON.stringify({ refresh_token: refreshToken })
 				},
 				{ forwardedFor }
 			);

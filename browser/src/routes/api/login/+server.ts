@@ -1,14 +1,16 @@
 import { dev } from '$app/environment';
 import { createIamClient } from '$lib/server/iam';
 import { getTrustedXForwardedFor } from '$lib/server/forwarded';
+import {
+	ACCESS_TOKEN_COOKIE,
+	ACCESS_TOKEN_EXP_COOKIE,
+	LOGGED_IN_COOKIE,
+	REFRESH_TOKEN_COOKIE,
+	REFRESH_TOKEN_EXP_COOKIE,
+	USERNAME_COOKIE,
+	USER_ID_COOKIE
+} from '$lib/server/session';
 import { json, type RequestHandler } from '@sveltejs/kit';
-
-const REFRESH_TOKEN_COOKIE = 'dorch_refresh_token';
-const REFRESH_TOKEN_EXP_COOKIE = 'dorch_refresh_token_expires_at';
-const LOGGED_IN_COOKIE = 'dorch_logged_in';
-const USERNAME_COOKIE = 'dorch_username';
-const ACCESS_TOKEN_COOKIE = 'dorch_access_token';
-const ACCESS_TOKEN_EXP_COOKIE = 'dorch_access_token_expires_at';
 
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 5;
 
@@ -70,6 +72,14 @@ export const POST: RequestHandler = async ({ request, fetch, cookies }) => {
 
 		if (typeof creds?.username === 'string' && creds.username.length > 0) {
 			cookies.set(USERNAME_COOKIE, creds.username, {
+				path: '/',
+				httpOnly: true,
+				sameSite: 'lax',
+				secure: !dev
+			});
+		}
+		if (typeof creds?.id === 'string' && creds.id.length > 0) {
+			cookies.set(USER_ID_COOKIE, creds.id, {
 				path: '/',
 				httpOnly: true,
 				sameSite: 'lax',
