@@ -4,10 +4,11 @@ use dorch_common::{rate_limit::RateLimiter, shutdown::shutdown_signal};
 use owo_colors::OwoColorize;
 use tokio_util::sync::CancellationToken;
 
-use crate::{app::App, args::Commands, db::Database};
+use crate::{app::App, args::Commands, avatar::AvatarStore, db::Database};
 
 pub mod app;
 pub mod args;
+pub mod avatar;
 pub mod client;
 pub mod db;
 pub mod dispatch;
@@ -82,7 +83,17 @@ async fn run_servers(args: args::ServerArgs) -> Result<()> {
         shutdown_signal().await;
         cancel_clone.cancel();
     });
-    let app_state = App::new(cancel.clone(), db);
+    let avatar_store = AvatarStore::new(
+        args.avatar_s3_access_key_id,
+        args.avatar_s3_secret_access_key,
+        args.avatar_s3_bucket,
+        args.avatar_s3_region,
+        args.avatar_s3_endpoint,
+        args.avatar_s3_key_prefix,
+    )
+    .await
+    .context("Failed to initialize avatar S3 store")?;
+    let app_state = App::new(cancel.clone(), db, avatar_store);
     let pool = dorch_common::redis::init_redis(&args.redis).await;
     let rate_limiter = RateLimiter::new(pool, args.rate_limiter.into());
     let mut internal_join = Box::pin(tokio::spawn({

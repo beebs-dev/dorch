@@ -1,12 +1,13 @@
 use crate::{
     app::App,
+    avatar::MAX_AVATAR_UPLOAD_BYTES,
     client::{ResolveWadURLsRequest, ResolveWadURLsResponse},
     server::internal,
 };
 use anyhow::{Context, Result};
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{DefaultBodyLimit, State},
     http::StatusCode,
     middleware,
     response::IntoResponse,
@@ -54,6 +55,12 @@ pub async fn run_server(
         .route(
             "/user/profile/{user_id}",
             get(internal::get_user_profile_public).put(internal::put_user_profile_public),
+        )
+        .route(
+            "/user/profile/{user_id}/avatar",
+            post(internal::post_user_profile_avatar_public)
+                .put(internal::put_user_profile_avatar_public)
+                .layer(DefaultBodyLimit::max(MAX_AVATAR_UPLOAD_BYTES)),
         )
         .route("/wad/{id}", get(internal::get_wad))
         .route("/wad/{id}/map/{map}", get(internal::get_wad_map))

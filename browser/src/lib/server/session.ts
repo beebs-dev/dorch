@@ -2,6 +2,7 @@ import { dev } from '$app/environment';
 import type { Cookies, RequestEvent } from '@sveltejs/kit';
 import { createIamClient } from '$lib/server/iam';
 import { getTrustedXForwardedFor } from '$lib/server/forwarded';
+import { Buffer } from 'node:buffer';
 
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 5;
 
@@ -53,7 +54,7 @@ function decodeJwtSub(token: string): string | null {
 		const payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
 		const pad = payloadB64.length % 4;
 		const padded = payloadB64 + (pad ? '='.repeat(4 - pad) : '');
-		const payloadStr = atob(padded);
+		const payloadStr = Buffer.from(padded, 'base64').toString('utf8');
 		const payload = JSON.parse(payloadStr) as { sub?: unknown };
 		return typeof payload.sub === 'string' && payload.sub.length > 0 ? payload.sub : null;
 	} catch {
@@ -65,14 +66,14 @@ function writeAccessCookies(cookies: Cookies, accessToken: string) {
 	const expiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000).toISOString();
 	cookies.set(ACCESS_TOKEN_COOKIE, accessToken, {
 		path: '/',
-		httpOnly: true,
+		httpOnly: false,
 		sameSite: 'lax',
 		secure: !dev,
 		maxAge: ACCESS_TOKEN_TTL_SECONDS
 	});
 	cookies.set(ACCESS_TOKEN_EXP_COOKIE, expiresAt, {
 		path: '/',
-		httpOnly: true,
+		httpOnly: false,
 		sameSite: 'lax',
 		secure: !dev,
 		maxAge: ACCESS_TOKEN_TTL_SECONDS

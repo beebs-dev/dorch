@@ -14,8 +14,76 @@
 
 	let profile = $state<UserProfileView | null>(null);
 	let username = $state('');
-	let avatarUrl = $state('');
 	let privacyHideActivity = $state(false);
+	let avatarFile = $state<File | null>(null);
+	let uploadingAvatar = $state(false);
+
+	const maxAvatarUploadBytes = 5 * 1024 * 1024;
+	const accessTokenCookieName = 'dorch_access_token';
+	const apiBaseUrl = 'https://api.gib.gg';
+
+	function readCookie(name: string): string | null {
+		if (typeof document === 'undefined') return null;
+		const encodedPrefix = `${encodeURIComponent(name)}=`;
+		const parts = document.cookie.split(';');
+		for (const rawPart of parts) {
+			const part = rawPart.trim();
+			if (!part.startsWith(encodedPrefix)) continue;
+			const rawValue = part.slice(encodedPrefix.length);
+			try {
+				return decodeURIComponent(rawValue);
+			} catch {
+				return rawValue;
+			}
+		}
+		return null;
+	}
+
+	function getAccessToken(): string | null {
+		const token = readCookie(accessTokenCookieName);
+		if (!token) return null;
+		const trimmed = token.trim();
+		return trimmed.length > 0 ? trimmed : null;
+	}
+
+	async function directApiWrite(path: string, init: RequestInit): Promise<Response> {
+		const buildAuthHeaders = (token: string) => {
+			const headers = new Headers(init.headers);
+			headers.set('authorization', `Bearer ${token}`);
+			if (!headers.has('accept')) headers.set('accept', 'application/json');
+			return headers;
+		};
+
+		let token = getAccessToken();
+		if (!token) {
+			await loadProfile();
+			token = getAccessToken();
+		}
+		if (!token) {
+			return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+				status: 401,
+				headers: { 'content-type': 'application/json' }
+			});
+		}
+
+		const url = `${apiBaseUrl}${path}`;
+		let res = await fetch(url, {
+			...init,
+			headers: buildAuthHeaders(token)
+		});
+
+		if (res.status !== 401) return res;
+
+		await loadProfile();
+		token = getAccessToken();
+		if (!token) return res;
+
+		res = await fetch(url, {
+			...init,
+			headers: buildAuthHeaders(token)
+		});
+		return res;
+	}
 
 	function isFullProfile(value: UserProfileView | null): value is UserProfileFull {
 		return !!value && 'privacy_hide_activity' in value;
@@ -30,8 +98,8 @@
 
 	function syncFormFromProfile(next: UserProfileView) {
 		username = next.username ?? '';
-		avatarUrl = next.avatar_url ?? '';
 		privacyHideActivity = isFullProfile(next) ? !!next.privacy_hide_activity : false;
+		avatarFile = null;
 	}
 
 	async function loadProfile() {
@@ -71,18 +139,19 @@
 	const hasChanges = $derived.by(() => {
 		if (!profile) return false;
 		const nextUsername = username.trim();
-		const nextAvatar = avatarUrl.trim();
-		const currentAvatar = profile.avatar_url ?? '';
 		const sameUsername = nextUsername === profile.username;
-		const sameAvatar = nextAvatar === currentAvatar;
 		const samePrivacy = !isFullProfile(profile) || privacyHideActivity === !!profile.privacy_hide_activity;
-		return !(sameUsername && sameAvatar && samePrivacy);
+		return !(sameUsername && samePrivacy);
 	});
 
 	const canSave = $derived.by(() => {
-		if (!profile || saving) return false;
+		if (!profile || saving || uploadingAvatar) return false;
 		if (!username.trim()) return false;
 		return hasChanges;
+	});
+
+	const canUploadAvatar = $derived.by(() => {
+		return !!profile && !!avatarFile && !saving && !uploadingAvatar;
 	});
 
 	function onReset() {
@@ -95,7 +164,7 @@
 		if (!profile || !canSave) return;
 		saving = true;
 		try {
-			const res = await fetch('/api/account/profile', {
+			const res = await directApiWrite(`/user/profile/${encodeURIComponent(profile.id)}`, {
 				method: 'PUT',
 				headers: {
 					'content-type': 'application/json',
@@ -103,7 +172,6 @@
 				},
 				body: JSON.stringify({
 					username: username.trim(),
-					avatar_url: avatarUrl.trim() || null,
 					privacy_hide_activity: privacyHideActivity
 				})
 			});
@@ -132,6 +200,66 @@
 			showToast(err?.message ?? 'Failed to save account settings.');
 		} finally {
 			saving = false;
+		}
+	}
+
+	function onAvatarSelected(e: Event) {
+		const input = e.currentTarget as HTMLInputElement;
+		const nextFile = input.files?.[0] ?? null;
+		if (!nextFile) {
+			avatarFile = null;
+			return;
+		}
+		if (!nextFile.type.toLowerCase().startsWith('image/')) {
+			showToast('Avatar must be an image file.');
+			avatarFile = null;
+			input.value = '';
+			return;
+		}
+		if (nextFile.size > maxAvatarUploadBytes) {
+			showToast(`Avatar exceeds max size of ${maxAvatarUploadBytes} bytes.`);
+			avatarFile = null;
+			input.value = '';
+			return;
+		}
+		avatarFile = nextFile;
+	}
+
+	async function onAvatarUpload() {
+		if (!profile || !avatarFile || !canUploadAvatar) return;
+		uploadingAvatar = true;
+		try {
+			const res = await directApiWrite(`/user/profile/${encodeURIComponent(profile.id)}/avatar`, {
+				method: 'PUT',
+				headers: {
+					'content-type': avatarFile.type || 'application/octet-stream',
+					accept: 'application/json'
+				},
+				body: avatarFile
+			});
+			if (res.status === 401) {
+				notAuthenticated = true;
+				showToast('Please sign in to upload an avatar.');
+				return;
+			}
+			if (!res.ok) {
+				let msg = 'Failed to upload avatar.';
+				try {
+					const body = (await res.json()) as { error?: string };
+					if (typeof body?.error === 'string' && body.error.length > 0) msg = body.error;
+				} catch {
+					// ignore
+				}
+				throw new Error(msg);
+			}
+			const updated = (await res.json()) as UserProfileFull;
+			profile = updated;
+			syncFormFromProfile(updated);
+			showToast('Avatar updated.');
+		} catch (err: any) {
+			showToast(err?.message ?? 'Failed to upload avatar.');
+		} finally {
+			uploadingAvatar = false;
 		}
 	}
 
@@ -179,14 +307,11 @@
 		<div class="grid gap-6 lg:grid-cols-[1fr_2fr]">
 			<aside class="rounded-xl border border-zinc-800 bg-zinc-950/80 p-6">
 				<div class="mx-auto flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-zinc-900 ring-1 ring-zinc-700">
-					{#if avatarUrl.trim()}
+					{#if profile.avatar_url}
 						<img
-							src={avatarUrl.trim()}
+							src={profile.avatar_url}
 							alt="Profile avatar"
 							class="h-full w-full object-cover"
-							onerror={(e) => {
-								(e.currentTarget as HTMLImageElement).style.display = 'none';
-							}}
 						/>
 					{:else}
 						<span class="text-3xl font-semibold text-zinc-300">{(username.trim()[0] ?? 'U').toUpperCase()}</span>
@@ -219,6 +344,32 @@
 				</div>
 
 				<div class="space-y-5">
+					<div class="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+						<p class="text-xs font-semibold tracking-wide text-zinc-300">AVATAR IMAGE</p>
+						<p class="mt-1 text-xs text-zinc-500">
+							Upload any image up to {maxAvatarUploadBytes} bytes. It will be resized and stored as webp.
+						</p>
+						<div class="mt-3 flex flex-wrap items-center gap-3">
+							<input
+								type="file"
+								accept="image/*"
+								onchange={onAvatarSelected}
+								class="block w-full max-w-sm cursor-pointer rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-zinc-800 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-zinc-100 hover:file:bg-zinc-700"
+							/>
+							<button
+								type="button"
+								onclick={onAvatarUpload}
+								disabled={!canUploadAvatar}
+								class="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+							>
+								{uploadingAvatar ? 'Uploading…' : 'Upload avatar'}
+							</button>
+						</div>
+						{#if avatarFile}
+							<p class="mt-2 text-xs text-zinc-500">Selected: {avatarFile.name}</p>
+						{/if}
+					</div>
+
 					<label class="block">
 						<span class="text-xs font-semibold tracking-wide text-zinc-300">USERNAME</span>
 						<input
@@ -230,17 +381,6 @@
 							class="mt-2 w-full rounded-lg bg-zinc-950 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none"
 						/>
 						<p class="mt-1 text-xs text-zinc-500">3–30 characters. Letters, numbers, dots, dashes, and underscores are recommended.</p>
-					</label>
-
-					<label class="block">
-						<span class="text-xs font-semibold tracking-wide text-zinc-300">AVATAR URL</span>
-						<input
-							type="url"
-							bind:value={avatarUrl}
-							placeholder="https://example.com/avatar.png"
-							class="mt-2 w-full rounded-lg bg-zinc-950 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none"
-						/>
-						<p class="mt-1 text-xs text-zinc-500">Leave blank to remove your avatar.</p>
 					</label>
 
 					{#if isFullProfile(profile)}

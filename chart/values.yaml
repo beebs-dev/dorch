@@ -161,6 +161,13 @@ wadinfo:
   imagePullPolicy: Always
   replicas: 1
   logLevel: debug
+  avatarS3:
+    accessKeyId: {}
+    secretAccessKey: {}
+    bucket: ""
+    region: ""
+    endpoint: ""
+    keyPrefix: "avatars/"
   resources:
     requests:
       memory: "32Mi"

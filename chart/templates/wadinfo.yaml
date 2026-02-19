@@ -53,6 +53,18 @@ spec:
             path: /healthz
             port: 80
         env:
+        - name: AVATAR_S3_ACCESS_KEY_ID
+{{ tpl (toYaml .Values.wadinfo.avatarS3.accessKeyId) . | indent 10 }}
+        - name: AVATAR_S3_SECRET_ACCESS_KEY
+{{ tpl (toYaml .Values.wadinfo.avatarS3.secretAccessKey) . | indent 10 }}
+        - name: AVATAR_S3_BUCKET
+          value: {{ .Values.wadinfo.avatarS3.bucket | quote }}
+        - name: AVATAR_S3_REGION
+          value: {{ .Values.wadinfo.avatarS3.region | quote }}
+        - name: AVATAR_S3_ENDPOINT
+          value: {{ .Values.wadinfo.avatarS3.endpoint | quote }}
+        - name: AVATAR_S3_KEY_PREFIX
+          value: {{ .Values.wadinfo.avatarS3.keyPrefix | quote }}
         - name: SERVICE_NAME
           value: wadinfo
         - name: RUST_LOG

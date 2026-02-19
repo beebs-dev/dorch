@@ -143,3 +143,20 @@ screenshot:
       region: "nyc3"
       endpoint: "https://nyc3.digitaloceanspaces.com"
       bucket: "iwads"
+
+wadinfo:
+  avatarS3:
+    accessKeyId:
+      valueFrom:
+        secretKeyRef:
+          name: spaces-cred
+          key: access_key_id
+    secretAccessKey:
+      valueFrom:
+        secretKeyRef:
+          name: spaces-cred
+          key: secret_access_key
+    bucket: "gibdotgg"
+    region: "nyc3"
+    endpoint: "https://nyc3.digitaloceanspaces.com"
+    keyPrefix: "avatars/"

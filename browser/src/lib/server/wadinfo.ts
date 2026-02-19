@@ -351,6 +351,28 @@ export function createWadinfoClient(
 			);
 		},
 
+		async uploadUserAvatar(
+			userId: string,
+			fileBytes: Uint8Array,
+			contentType: string
+		): Promise<UserProfileFull> {
+			const bytes = new Uint8Array(fileBytes.length);
+			bytes.set(fileBytes);
+			const body = new Blob([bytes.buffer], { type: contentType });
+			return requestJson<UserProfileFull>(
+				fetchFn,
+				`/user/profile/${encodeURIComponent(userId)}/avatar`,
+				{
+					method: 'PUT',
+					headers: {
+						'content-type': contentType
+					},
+					body
+				},
+				{ forwardedFor, bearerToken }
+			);
+		},
+
 		async resolveMapThumbnails(items: MapReference[]): Promise<MapThumbnail[]> {
 			console.log('Requesting map thumbnails from wadinfo:', { items });
 			const res = await requestJson<ResolveMapThumbnailsResponse>(

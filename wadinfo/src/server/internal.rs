@@ -1,5 +1,6 @@
 use crate::{
     app::App,
+    avatar::MAX_AVATAR_UPLOAD_BYTES,
     client::{
         GetWadMetasRequest, GetWadMetasResponse, ListWadsRequest, MapAnalysis,
         PutUserProfileRequest,
@@ -10,9 +11,10 @@ use crate::{
 };
 use anyhow::{Context, Result, anyhow, bail};
 use axum::{
+    body::Bytes,
     Json, Router,
     extract::{DefaultBodyLimit, Path, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     middleware,
     response::IntoResponse,
     routing::{get, post},
@@ -60,6 +62,12 @@ pub async fn run_server(
     let router = Router::new()
         .route("/thumbnails", post(resolve_map_thumbnails))
         .route("/user/profile/{user_id}", get(get_user_profile_internal).put(put_user_profile_internal))
+        .route(
+            "/user/profile/{user_id}/avatar",
+            post(post_user_profile_avatar_internal)
+                .put(put_user_profile_avatar_internal)
+                .layer(DefaultBodyLimit::max(MAX_AVATAR_UPLOAD_BYTES)),
+        )
         .route("/user/activity/{user_id}", post(post_user_activity))
         .route("/wad", get(list_wads))
         .route("/wad_metas", post(get_wad_metas))
@@ -412,6 +420,92 @@ pub async fn post_user_activity(
         Ok(true) => StatusCode::NO_CONTENT.into_response(),
         Ok(false) => response::not_found(anyhow!("User profile not found")),
         Err(e) => response::error(e.context("Failed to update user activity")),
+    }
+}
+
+pub async fn put_user_profile_avatar_internal(
+    State(state): State<App>,
+    Path(user_id): Path<Uuid>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> impl IntoResponse {
+    put_user_profile_avatar_common(state, user_id, headers, body).await
+}
+
+pub async fn post_user_profile_avatar_internal(
+    state: State<App>,
+    path: Path<Uuid>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> impl IntoResponse {
+    put_user_profile_avatar_internal(state, path, headers, body).await
+}
+
+pub async fn put_user_profile_avatar_public(
+    State(state): State<App>,
+    authenticated_user_id: UserId,
+    Path(user_id): Path<Uuid>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> impl IntoResponse {
+    if authenticated_user_id.0 != user_id {
+        return response::forbidden(anyhow!("Not allowed to modify another user's profile"));
+    }
+    put_user_profile_avatar_common(state, user_id, headers, body).await
+}
+
+pub async fn post_user_profile_avatar_public(
+    state: State<App>,
+    authenticated_user_id: UserId,
+    path: Path<Uuid>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> impl IntoResponse {
+    put_user_profile_avatar_public(state, authenticated_user_id, path, headers, body).await
+}
+
+async fn put_user_profile_avatar_common(
+    state: App,
+    user_id: Uuid,
+    headers: HeaderMap,
+    body: Bytes,
+) -> axum::response::Response {
+    if body.is_empty() {
+        return response::bad_request(anyhow!("Avatar payload is empty"));
+    }
+    if body.len() > MAX_AVATAR_UPLOAD_BYTES {
+        return response::bad_request(anyhow!(
+            "Avatar exceeds max size of {} bytes",
+            MAX_AVATAR_UPLOAD_BYTES
+        ));
+    }
+
+    if let Some(content_type) = headers.get("content-type").and_then(|v| v.to_str().ok())
+        && !content_type.to_ascii_lowercase().starts_with("image/")
+    {
+        return response::bad_request(anyhow!("Avatar must be an image upload"));
+    }
+
+    let avatar_url = match state.avatar_store.upload_avatar(user_id, &body).await {
+        Ok(url) => url,
+        Err(e) => return response::error(e.context("Failed to upload avatar")),
+    };
+
+    match state
+        .db
+        .update_user_profile(
+            user_id,
+            &PutUserProfileRequest {
+                avatar_url: Some(Some(avatar_url)),
+                username: None,
+                privacy_hide_activity: None,
+            },
+        )
+        .await
+    {
+        Ok(Some(profile)) => (StatusCode::OK, Json(profile)).into_response(),
+        Ok(None) => response::not_found(anyhow!("User profile not found")),
+        Err(e) => response::error(e.context("Failed to update user profile avatar")),
     }
 }
 

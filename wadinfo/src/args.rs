@@ -43,6 +43,24 @@ pub struct ServerArgs {
 
     #[command(flatten)]
     pub rate_limiter: RateLimiterArgs,
+
+    #[arg(long, env = "AVATAR_S3_ACCESS_KEY_ID", required = true)]
+    pub avatar_s3_access_key_id: String,
+
+    #[arg(long, env = "AVATAR_S3_SECRET_ACCESS_KEY", required = true)]
+    pub avatar_s3_secret_access_key: String,
+
+    #[arg(long, env = "AVATAR_S3_BUCKET", required = true)]
+    pub avatar_s3_bucket: String,
+
+    #[arg(long, env = "AVATAR_S3_REGION", required = true)]
+    pub avatar_s3_region: String,
+
+    #[arg(long, env = "AVATAR_S3_ENDPOINT", required = true)]
+    pub avatar_s3_endpoint: String,
+
+    #[arg(long, env = "AVATAR_S3_KEY_PREFIX", required = true)]
+    pub avatar_s3_key_prefix: String,
 }
 
 #[derive(Parser, Debug, Clone)]
