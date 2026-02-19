@@ -8,15 +8,22 @@
 	import { getAccessToken, getAuthState, subscribe as authSubscribe, logout } from '$lib/stores/auth';
 	import type { UserProfileFull, UserProfileView } from '$lib/types/wadinfo';
 
-	let loading = $state(true);
-	let saving = $state(false);
-	let notAuthenticated = $state(false);
-	let loadError = $state<string | null>(null);
+	let { data } = $props();
 
-	let profile = $state<UserProfileView | null>(null);
-	let username = $state('');
-	let displayName = $state('');
-	let privacyHideActivity = $state(false);
+	// Initialize state from server-side data
+	let loading = $state(!data.profile && !data.notAuthenticated);
+	let saving = $state(false);
+	let notAuthenticated = $state(data.notAuthenticated ?? false);
+	let loadError = $state<string | null>(data.loadError ?? null);
+
+	let profile = $state<UserProfileView | null>(data.profile ?? null);
+	let username = $state(data.profile?.username ?? '');
+	let displayName = $state(data.profile?.display_name ?? '');
+	let privacyHideActivity = $state(
+		data.profile && 'privacy_hide_activity' in data.profile
+			? !!data.profile.privacy_hide_activity
+			: false
+	);
 	let avatarFile = $state<File | null>(null);
 	let uploadingAvatar = $state(false);
 
@@ -263,7 +270,12 @@
 		}
 	}
 
-	onMount(loadProfile);
+	onMount(() => {
+		// Only load client-side if SSR didn't provide the profile
+		if (!data.profile && !data.notAuthenticated) {
+			loadProfile();
+		}
+	});
 </script>
 
 <section class="mx-auto w-full max-w-5xl px-4 py-8">

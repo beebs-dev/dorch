@@ -11,6 +11,19 @@ const STORAGE_KEY_REFRESH_TOKEN_EXP = 'dorch_refresh_token_exp';
 const STORAGE_KEY_USER_ID = 'dorch_user_id';
 const STORAGE_KEY_USERNAME = 'dorch_username';
 
+const COOKIE_ACCESS_TOKEN = 'dorch_access_token';
+const COOKIE_USER_ID = 'dorch_user_id';
+
+function setCookie(name: string, value: string, maxAgeSeconds: number): void {
+	if (!browser) return;
+	document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+}
+
+function clearCookie(name: string): void {
+	if (!browser) return;
+	document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
+}
+
 export type AuthState = {
 	isAuthenticated: boolean;
 	userId: string | null;
@@ -92,6 +105,10 @@ function saveToStorage(creds: UserCredentials, persist: boolean): void {
 	storage.setItem(STORAGE_KEY_USER_ID, id);
 	storage.setItem(STORAGE_KEY_USERNAME, username);
 
+	// Also set cookies so the server can read them for SSR
+	setCookie(COOKIE_ACCESS_TOKEN, accessToken, expiresIn);
+	setCookie(COOKIE_USER_ID, id, expiresIn);
+
 	if (refreshToken && persist) {
 		storage.setItem(STORAGE_KEY_REFRESH_TOKEN, refreshToken);
 		storage.setItem(STORAGE_KEY_REFRESH_TOKEN_EXP, String(refreshTokenExpMs));
@@ -116,6 +133,10 @@ function clearStorage(): void {
 	storage.removeItem(STORAGE_KEY_REFRESH_TOKEN_EXP);
 	storage.removeItem(STORAGE_KEY_USER_ID);
 	storage.removeItem(STORAGE_KEY_USERNAME);
+
+	// Also clear cookies
+	clearCookie(COOKIE_ACCESS_TOKEN);
+	clearCookie(COOKIE_USER_ID);
 }
 
 export function clearAuth(): void {
