@@ -212,33 +212,54 @@ pub async fn upload_wad(
     UserId(_user_id): UserId,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
+    eprintln!("📥 upload_wad: starting to process multipart");
+    
     // Find the file field
-    while let Some(field) = multipart.next_field().await.unwrap_or(None) {
-        let name = field.name().unwrap_or("").to_string();
-        if name == "file" {
-            let filename = match field.file_name().map(|s| s.to_string()) {
-                Some(f) => f,
-                None => return response::error(anyhow!("No filename provided")),
-            };
+    loop {
+        match multipart.next_field().await {
+            Ok(Some(field)) => {
+                let name = field.name().unwrap_or("").to_string();
+                eprintln!("📥 upload_wad: got field name={:?}", name);
+                
+                if name == "file" {
+                    let filename = match field.file_name().map(|s| s.to_string()) {
+                        Some(f) => f,
+                        None => return response::error(anyhow!("No filename provided")),
+                    };
+                    eprintln!("📥 upload_wad: filename={:?}, starting stream upload", filename);
 
-            // Stream the upload directly to S3
-            match state
-                .wad_upload_store
-                .upload_draft_stream(&filename, field)
-                .await
-            {
-                Ok((hash, upload_id, size)) => {
-                    return (
-                        StatusCode::OK,
-                        Json(UploadResponse {
-                            hash,
-                            id: upload_id,
-                            size,
-                        }),
-                    )
-                        .into_response();
+                    // Stream the upload directly to S3
+                    match state
+                        .wad_upload_store
+                        .upload_draft_stream(&filename, field)
+                        .await
+                    {
+                        Ok((hash, upload_id, size)) => {
+                            eprintln!("📥 upload_wad: SUCCESS hash={} size={}", hash, size);
+                            return (
+                                StatusCode::OK,
+                                Json(UploadResponse {
+                                    hash,
+                                    id: upload_id,
+                                    size,
+                                }),
+                            )
+                                .into_response();
+                        }
+                        Err(e) => {
+                            eprintln!("📥 upload_wad: FAILED {:?}", e);
+                            return response::error(e.context("Failed to upload WAD file"));
+                        }
+                    }
                 }
-                Err(e) => return response::error(e.context("Failed to upload WAD file")),
+            }
+            Ok(None) => {
+                eprintln!("📥 upload_wad: no more fields");
+                break;
+            }
+            Err(e) => {
+                eprintln!("📥 upload_wad: next_field error: {:?}", e);
+                return response::error(anyhow!("Multipart field error: {}", e));
             }
         }
     }

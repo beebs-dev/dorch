@@ -177,9 +177,9 @@ wadinfo:
     keyPrefix: "wads/"
   resources:
     requests:
-      memory: "32Mi"
-    limits:
       memory: "64Mi"
+    limits:
+      memory: "128Mi"
   dispatch:
     images:
       image: thavlik/dorch-wadinfo:latest

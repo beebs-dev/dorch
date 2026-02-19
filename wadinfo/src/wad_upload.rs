@@ -11,6 +11,7 @@ use axum::extract::multipart::Field;
 use reqwest::Url;
 use sha2::{Digest, Sha256};
 use tokio::sync::mpsc;
+use tokio::sync::oneshot;
 use uuid::Uuid;
 
 /// Minimum part size for S3 multipart upload (5 MiB)
@@ -175,9 +176,15 @@ impl WadUploadStore {
         let mut size_exceeded = false;
         let mut send_failed = false;
 
+        let mut chunk_count = 0;
         loop {
             match field.chunk().await {
                 Ok(Some(chunk)) => {
+                    chunk_count += 1;
+                    if chunk_count <= 3 || chunk_count % 100 == 0 {
+                        eprintln!("📦 chunk #{}: {} bytes, total_size={}", chunk_count, chunk.len(), total_size + chunk.len());
+                    }
+                    
                     // Check size limit
                     if total_size + chunk.len() > MAX_WAD_UPLOAD_BYTES {
                         size_exceeded = true;
@@ -200,9 +207,13 @@ impl WadUploadStore {
                         part_number += 1;
                     }
                 }
-                Ok(None) => break,
+                Ok(None) => {
+                    eprintln!("📦 stream complete: {} chunks, {} bytes total", chunk_count, total_size);
+                    break;
+                }
                 Err(e) => {
-                    read_error = Some(e.to_string());
+                    eprintln!("📦 chunk error after {} chunks, {} bytes: {:?}", chunk_count, total_size, e);
+                    read_error = Some(format!("{:?}", e));
                     break;
                 }
             }
@@ -360,6 +371,10 @@ fn normalize_key_prefix(key_prefix: &str) -> String {
 
 /// Long-lived task that initializes S3 multipart upload and uploads parts
 /// as they arrive via the channel. Returns (s3_upload_id, completed_parts).
+/// 
+/// CRITICAL: This task starts receiving from the channel IMMEDIATELY,
+/// buffering parts while S3 initialization happens concurrently.
+/// This prevents blocking the HTTP body reader.
 async fn upload_parts_task(
     client: Client,
     bucket: String,
@@ -367,42 +382,123 @@ async fn upload_parts_task(
     content_type: String,
     mut part_rx: mpsc::Receiver<(i32, Vec<u8>)>,
 ) -> Result<(String, Vec<CompletedPart>)> {
-    // Initialize S3 multipart upload
-    let create_response = client
-        .create_multipart_upload()
-        .bucket(&bucket)
-        .key(&key)
-        .content_type(content_type)
-        .storage_class(StorageClass::Standard)
-        .send()
-        .await
-        .context("Failed to create multipart upload")?;
+    // Start S3 multipart upload initialization concurrently
+    let client_for_init = client.clone();
+    let bucket_for_init = bucket.clone();
+    let key_for_init = key.clone();
+    let (init_tx, init_rx) = oneshot::channel();
+    
+    tokio::spawn(async move {
+        let result = client_for_init
+            .create_multipart_upload()
+            .bucket(&bucket_for_init)
+            .key(&key_for_init)
+            .content_type(content_type)
+            .storage_class(StorageClass::Standard)
+            .send()
+            .await
+            .context("Failed to create multipart upload");
+        let _ = init_tx.send(result);
+    });
 
-    let s3_upload_id = create_response
-        .upload_id()
-        .ok_or_else(|| anyhow::anyhow!("No upload_id returned from S3"))?
-        .to_string();
-
+    // Buffer parts while waiting for S3 init
+    let mut buffered_parts: Vec<(i32, Vec<u8>)> = Vec::new();
+    let mut s3_upload_id: Option<String> = None;
     let mut completed_parts: Vec<CompletedPart> = Vec::new();
+    let mut init_rx = Some(init_rx);
 
-    // Upload parts as they arrive
-    while let Some((part_number, data)) = part_rx.recv().await {
-        match upload_single_part(&client, &bucket, &key, &s3_upload_id, part_number, data).await {
-            Ok(part) => completed_parts.push(part),
-            Err(e) => {
-                // Abort the multipart upload on error
-                let _ = client
-                    .abort_multipart_upload()
-                    .bucket(&bucket)
-                    .key(&key)
-                    .upload_id(&s3_upload_id)
-                    .send()
-                    .await;
-                return Err(e);
+    // Process parts as they arrive, buffering until S3 is ready
+    loop {
+        tokio::select! {
+            biased;
+            
+            // Check if S3 init completed (only if we haven't already)
+            init_result = async { 
+                match init_rx.as_mut() {
+                    Some(rx) => rx.await.ok(),
+                    None => std::future::pending().await,
+                }
+            } => {
+                if let Some(result) = init_result {
+                    match result {
+                        Ok(response) => {
+                            let upload_id = response
+                                .upload_id()
+                                .ok_or_else(|| anyhow::anyhow!("No upload_id returned from S3"))?
+                                .to_string();
+                            s3_upload_id = Some(upload_id.clone());
+                            init_rx = None; // Don't check again
+                            
+                            // Upload all buffered parts
+                            for (part_number, data) in buffered_parts.drain(..) {
+                                let part = upload_single_part(&client, &bucket, &key, &upload_id, part_number, data).await?;
+                                completed_parts.push(part);
+                            }
+                        }
+                        Err(e) => return Err(e),
+                    }
+                }
+            }
+            
+            // Receive parts from channel (always ready to receive)
+            part = part_rx.recv() => {
+                match part {
+                    Some((part_number, data)) => {
+                        if let Some(ref upload_id) = s3_upload_id {
+                            // S3 is ready, upload directly
+                            match upload_single_part(&client, &bucket, &key, upload_id, part_number, data).await {
+                                Ok(part) => completed_parts.push(part),
+                                Err(e) => {
+                                    // Abort the multipart upload on error
+                                    let _ = client
+                                        .abort_multipart_upload()
+                                        .bucket(&bucket)
+                                        .key(&key)
+                                        .upload_id(upload_id)
+                                        .send()
+                                        .await;
+                                    return Err(e);
+                                }
+                            }
+                        } else {
+                            // S3 not ready yet, buffer the part
+                            buffered_parts.push((part_number, data));
+                        }
+                    }
+                    None => {
+                        // Channel closed, no more parts coming
+                        break;
+                    }
+                }
             }
         }
     }
 
+    // If S3 init hasn't completed yet, wait for it
+    if s3_upload_id.is_none() {
+        if let Some(rx) = init_rx {
+            match rx.await {
+                Ok(Ok(response)) => {
+                    let upload_id = response
+                        .upload_id()
+                        .ok_or_else(|| anyhow::anyhow!("No upload_id returned from S3"))?
+                        .to_string();
+                    s3_upload_id = Some(upload_id.clone());
+                    
+                    // Upload remaining buffered parts
+                    for (part_number, data) in buffered_parts.drain(..) {
+                        let part = upload_single_part(&client, &bucket, &key, &upload_id, part_number, data).await?;
+                        completed_parts.push(part);
+                    }
+                }
+                Ok(Err(e)) => return Err(e),
+                Err(_) => bail!("S3 init task was cancelled"),
+            }
+        }
+    }
+
+    let s3_upload_id = s3_upload_id.ok_or_else(|| anyhow::anyhow!("S3 upload was never initialized"))?;
+    
     Ok((s3_upload_id, completed_parts))
 }
 
