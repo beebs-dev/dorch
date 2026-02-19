@@ -3,26 +3,28 @@
 </svelte:head>
 
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { showToast } from '$lib/stores/toast';
 	import { getAccessToken, getAuthState, subscribe as authSubscribe, logout } from '$lib/stores/auth';
 	import type { UserProfileFull, UserProfileView } from '$lib/types/wadinfo';
 
-	let { data } = $props();
+	let { data: initialData } = $props();
 
-	// Initialize state from server-side data
-	let loading = $state(!data.profile && !data.notAuthenticated);
+	// Initialize state from server-side data (using untrack to capture initial values only)
+	let loading = $state(untrack(() => !initialData.profile && !initialData.notAuthenticated));
 	let saving = $state(false);
-	let notAuthenticated = $state(data.notAuthenticated ?? false);
-	let loadError = $state<string | null>(data.loadError ?? null);
+	let notAuthenticated = $state(untrack(() => initialData.notAuthenticated ?? false));
+	let loadError = $state<string | null>(untrack(() => initialData.loadError ?? null));
 
-	let profile = $state<UserProfileView | null>(data.profile ?? null);
-	let username = $state(data.profile?.username ?? '');
-	let displayName = $state(data.profile?.display_name ?? '');
+	let profile = $state<UserProfileView | null>(untrack(() => initialData.profile ?? null));
+	let username = $state(untrack(() => initialData.profile?.username ?? ''));
+	let displayName = $state(untrack(() => initialData.profile?.display_name ?? ''));
 	let privacyHideActivity = $state(
-		data.profile && 'privacy_hide_activity' in data.profile
-			? !!data.profile.privacy_hide_activity
-			: false
+		untrack(() =>
+			initialData.profile && 'privacy_hide_activity' in initialData.profile
+				? !!initialData.profile.privacy_hide_activity
+				: false
+		)
 	);
 	let avatarFile = $state<File | null>(null);
 	let uploadingAvatar = $state(false);
@@ -272,7 +274,7 @@
 
 	onMount(() => {
 		// Only load client-side if SSR didn't provide the profile
-		if (!data.profile && !data.notAuthenticated) {
+		if (untrack(() => !initialData.profile && !initialData.notAuthenticated)) {
 			loadProfile();
 		}
 	});
