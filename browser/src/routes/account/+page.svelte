@@ -20,7 +20,9 @@
 
 	const maxAvatarUploadBytes = 5 * 1024 * 1024;
 	const accessTokenCookieName = 'dorch_access_token';
+	const accessTokenExpCookieName = 'dorch_access_token_expires_at';
 	const apiBaseUrl = 'https://api.gib.gg';
+	const accessTokenComfortWindowMs = 60_000;
 
 	function readCookie(name: string): string | null {
 		if (typeof document === 'undefined') return null;
@@ -46,6 +48,67 @@
 		return trimmed.length > 0 ? trimmed : null;
 	}
 
+	function decodeJwtPayload(token: string): Record<string, unknown> | null {
+		const parts = token.split('.');
+		if (parts.length < 2) return null;
+		try {
+			const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+			const padLength = payload.length % 4;
+			const paddedPayload = payload + (padLength ? '='.repeat(4 - padLength) : '');
+			const jsonPayload = atob(paddedPayload);
+			const parsed = JSON.parse(jsonPayload);
+			return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+		} catch {
+			return null;
+		}
+	}
+
+	function parseIsoDateMs(value: string | null): number | null {
+		if (!value) return null;
+		const parsed = Date.parse(value);
+		return Number.isFinite(parsed) ? parsed : null;
+	}
+
+	function getTokenExpiryMs(token: string): number | null {
+		const payload = decodeJwtPayload(token);
+		const exp = payload?.exp;
+		const jwtExpiryMs = typeof exp === 'number' && Number.isFinite(exp) ? exp * 1000 : null;
+		const cookieExpiryMs = parseIsoDateMs(readCookie(accessTokenExpCookieName));
+
+		if (jwtExpiryMs !== null && cookieExpiryMs !== null) {
+			return Math.min(jwtExpiryMs, cookieExpiryMs);
+		}
+		return jwtExpiryMs ?? cookieExpiryMs;
+	}
+
+	function isTokenComfortablyValid(token: string): boolean {
+		const expiryMs = getTokenExpiryMs(token);
+		if (expiryMs === null) return false;
+		return Date.now() + accessTokenComfortWindowMs < expiryMs;
+	}
+
+	async function refreshAccessTokenIfPossible(): Promise<string | null> {
+		const res = await fetch('/api/session', {
+			method: 'GET',
+			headers: { accept: 'application/json' }
+		});
+		if (res.status === 401) {
+			notAuthenticated = true;
+			return null;
+		}
+		if (!res.ok) return null;
+		return getAccessToken();
+	}
+
+	async function ensureComfortableAccessToken(): Promise<string | null> {
+		const token = getAccessToken();
+		if (token && isTokenComfortablyValid(token)) return token;
+
+		const refreshedToken = await refreshAccessTokenIfPossible();
+		if (!refreshedToken) return null;
+		return isTokenComfortablyValid(refreshedToken) ? refreshedToken : null;
+	}
+
 	async function directApiWrite(path: string, init: RequestInit): Promise<Response> {
 		const buildAuthHeaders = (token: string) => {
 			const headers = new Headers(init.headers);
@@ -54,11 +117,7 @@
 			return headers;
 		};
 
-		let token = getAccessToken();
-		if (!token) {
-			await loadProfile();
-			token = getAccessToken();
-		}
+		let token = await ensureComfortableAccessToken();
 		if (!token) {
 			return new Response(JSON.stringify({ error: 'Not authenticated' }), {
 				status: 401,
@@ -74,8 +133,7 @@
 
 		if (res.status !== 401) return res;
 
-		await loadProfile();
-		token = getAccessToken();
+		token = await refreshAccessTokenIfPossible();
 		if (!token) return res;
 
 		res = await fetch(url, {

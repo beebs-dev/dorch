@@ -64,8 +64,8 @@ pub async fn run_server(
         .route("/user/profile/{user_id}", get(get_user_profile_internal).put(put_user_profile_internal))
         .route(
             "/user/profile/{user_id}/avatar",
-            post(post_user_profile_avatar_internal)
-                .put(put_user_profile_avatar_internal)
+            post(put_user_profile_avatar)
+                .put(put_user_profile_avatar)
                 .layer(DefaultBodyLimit::max(MAX_AVATAR_UPLOAD_BYTES)),
         )
         .route("/user/activity/{user_id}", post(post_user_activity))
@@ -118,6 +118,44 @@ pub async fn run_server(
 
 async fn health() -> impl IntoResponse {
     StatusCode::OK.into_response()
+}
+
+pub async fn put_user_profile_avatar(
+    State(state): State<App>,
+    Path(user_id): Path<Uuid>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> impl IntoResponse {
+    put_user_profile_avatar_common(state, user_id, headers, body).await
+}
+
+pub async fn delete_user_profile_avatar(
+    State(state): State<App>,
+    Path(user_id): Path<Uuid>,
+) -> impl IntoResponse {
+    delete_user_profile_avatar_common(state, user_id).await
+}
+
+pub async fn delete_user_profile_avatar_common(
+    state: App,
+    user_id: Uuid,
+) -> axum::response::Response {
+    match state
+        .db
+        .update_user_profile(
+            user_id,
+            &PutUserProfileRequest {
+                avatar_url: Some(None),
+                username: None,
+                privacy_hide_activity: None,
+            },
+        )
+        .await
+    {
+        Ok(Some(profile)) => (StatusCode::OK, Json(profile)).into_response(),
+        Ok(None) => response::not_found(anyhow!("User profile not found")),
+        Err(e) => response::error(e.context("Failed to update user profile avatar deletion")),
+    }
 }
 
 pub async fn get_wad_metas(
@@ -396,22 +434,6 @@ pub async fn put_user_profile_internal(
     }
 }
 
-pub async fn put_user_profile_public(
-    State(state): State<App>,
-    authenticated_user_id: UserId,
-    Path(user_id): Path<Uuid>,
-    Json(req): Json<PutUserProfileRequest>,
-) -> impl IntoResponse {
-    if authenticated_user_id.0 != user_id {
-        return response::forbidden(anyhow!("Not allowed to modify another user's profile"));
-    }
-    match state.db.update_user_profile(user_id, &req).await {
-        Ok(Some(profile)) => (StatusCode::OK, Json(profile)).into_response(),
-        Ok(None) => response::not_found(anyhow!("User profile not found")),
-        Err(e) => response::error(e.context("Failed to update user profile")),
-    }
-}
-
 pub async fn post_user_activity(
     State(state): State<App>,
     Path(user_id): Path<Uuid>,
@@ -423,48 +445,8 @@ pub async fn post_user_activity(
     }
 }
 
-pub async fn put_user_profile_avatar_internal(
-    State(state): State<App>,
-    Path(user_id): Path<Uuid>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> impl IntoResponse {
-    put_user_profile_avatar_common(state, user_id, headers, body).await
-}
 
-pub async fn post_user_profile_avatar_internal(
-    state: State<App>,
-    path: Path<Uuid>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> impl IntoResponse {
-    put_user_profile_avatar_internal(state, path, headers, body).await
-}
-
-pub async fn put_user_profile_avatar_public(
-    State(state): State<App>,
-    authenticated_user_id: UserId,
-    Path(user_id): Path<Uuid>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> impl IntoResponse {
-    if authenticated_user_id.0 != user_id {
-        return response::forbidden(anyhow!("Not allowed to modify another user's profile"));
-    }
-    put_user_profile_avatar_common(state, user_id, headers, body).await
-}
-
-pub async fn post_user_profile_avatar_public(
-    state: State<App>,
-    authenticated_user_id: UserId,
-    path: Path<Uuid>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> impl IntoResponse {
-    put_user_profile_avatar_public(state, authenticated_user_id, path, headers, body).await
-}
-
-async fn put_user_profile_avatar_common(
+pub async fn put_user_profile_avatar_common(
     state: App,
     user_id: Uuid,
     headers: HeaderMap,
@@ -486,7 +468,7 @@ async fn put_user_profile_avatar_common(
         return response::bad_request(anyhow!("Avatar must be an image upload"));
     }
 
-    let avatar_url = match state.avatar_store.upload_avatar(user_id, &body).await {
+    let avatar_url = match state.avatar_store.upload_avatar(&body).await {
         Ok(url) => url,
         Err(e) => return response::error(e.context("Failed to upload avatar")),
     };

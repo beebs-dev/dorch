@@ -1,14 +1,14 @@
 use crate::{
     app::App,
     avatar::MAX_AVATAR_UPLOAD_BYTES,
-    client::{ResolveWadURLsRequest, ResolveWadURLsResponse},
+    client::{PutUserProfileRequest, ResolveWadURLsRequest, ResolveWadURLsResponse},
     server::internal,
 };
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use axum::{
     Json, Router,
-    extract::{DefaultBodyLimit, State},
-    http::StatusCode,
+    extract::{DefaultBodyLimit, Path, State},
+    http::{HeaderMap, StatusCode},
     middleware,
     response::IntoResponse,
     routing::{get, post},
@@ -18,15 +18,13 @@ use axum_keycloak_auth::{
     instance::{KeycloakAuthInstance, KeycloakConfig},
     layer::KeycloakAuthLayer,
 };
+use bytes::Bytes;
 use dorch_common::{
-    access_log,
-    args::KeycloakArgs,
-    cors,
-    rate_limit::{RateLimiter, middleware::RateLimitLayer},
-    response,
+    access_log, args::KeycloakArgs, cors, rate_limit::{RateLimiter, middleware::RateLimitLayer}, rbac::UserId, response
 };
 use owo_colors::OwoColorize;
 use reqwest::Url;
+use uuid::Uuid;
 use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
 
@@ -58,12 +56,12 @@ pub async fn run_server(
         .route("/featured", get(internal::featured_wads))
         .route(
             "/user/profile/{user_id}",
-            get(internal::get_user_profile_public).put(internal::put_user_profile_public),
+            get(internal::get_user_profile_public).put(put_user_profile),
         )
         .route(
             "/user/profile/{user_id}/avatar",
-            post(internal::post_user_profile_avatar_public)
-                .put(internal::put_user_profile_avatar_public)
+            post(put_user_profile_avatar)
+                .put(put_user_profile_avatar)
                 .layer(DefaultBodyLimit::max(MAX_AVATAR_UPLOAD_BYTES)),
         )
         .route("/wad/{id}", get(internal::get_wad))
@@ -112,6 +110,31 @@ pub async fn run_server(
     Ok(())
 }
 
+
+pub async fn put_user_profile_avatar(
+    State(state): State<App>,
+    UserId(authenticated_user_id): UserId,
+    Path(user_id): Path<Uuid>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> impl IntoResponse {
+    if authenticated_user_id != user_id {
+        return response::forbidden(anyhow!("Not allowed to modify another user's profile"));
+    }
+    internal::put_user_profile_avatar_common(state, user_id, headers, body).await
+}
+
+pub async fn delete_user_profile_avatar(
+    State(state): State<App>,
+    UserId(authenticated_user_id): UserId,
+    Path(user_id): Path<Uuid>,
+) -> impl IntoResponse {
+    if authenticated_user_id != user_id {
+        return response::forbidden(anyhow!("Not allowed to modify another user's profile"));
+    }
+    internal::delete_user_profile_avatar_common(state, user_id).await
+}
+
 pub async fn resolve_wad_public_urls(
     State(state): State<App>,
     Json(req): Json<ResolveWadURLsRequest>,
@@ -132,4 +155,21 @@ pub async fn resolve_wad_public_urls(
         item.url = format!("https://{}.nyc3.digitaloceanspaces.com/{}", bucket, key);
     }
     (StatusCode::OK, Json(ResolveWadURLsResponse { items })).into_response()
+}
+
+
+pub async fn put_user_profile(
+    State(state): State<App>,
+    UserId(authenticated_user_id): UserId,
+    Path(user_id): Path<Uuid>,
+    Json(req): Json<PutUserProfileRequest>,
+) -> impl IntoResponse {
+    if authenticated_user_id != user_id {
+        return response::forbidden(anyhow!("Not allowed to modify another user's profile"));
+    }
+    match state.db.update_user_profile(user_id, &req).await {
+        Ok(Some(profile)) => (StatusCode::OK, Json(profile)).into_response(),
+        Ok(None) => response::not_found(anyhow!("User profile not found")),
+        Err(e) => response::error(e.context("Failed to update user profile")),
+    }
 }

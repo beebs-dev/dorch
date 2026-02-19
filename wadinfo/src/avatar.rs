@@ -9,7 +9,6 @@ use aws_sdk_s3::{
 use aws_types::region::Region;
 use image::{GenericImageView, ImageEncoder, codecs::webp::WebPEncoder, imageops::FilterType};
 use reqwest::Url;
-use uuid::Uuid;
 
 pub const MAX_AVATAR_UPLOAD_BYTES: usize = 5 * 1024 * 1024;
 pub const MAX_AVATAR_DIMENSION_PX: u32 = 256;
@@ -51,7 +50,7 @@ impl AvatarStore {
         })
     }
 
-    pub async fn upload_avatar(&self, user_id: Uuid, input: &[u8]) -> Result<String> {
+    pub async fn upload_avatar(&self, input: &[u8]) -> Result<String> {
         if input.len() > MAX_AVATAR_UPLOAD_BYTES {
             bail!(
                 "Avatar exceeds max upload size of {} bytes",
@@ -59,8 +58,8 @@ impl AvatarStore {
             );
         }
         let webp = convert_avatar_to_webp(input)?;
-        let key = format!("{}{}.webp", self.key_prefix, user_id);
-
+        let webp_md5 = hex::encode(md5::compute(&webp).0);
+        let key = format!("{}{}.webp", self.key_prefix, webp_md5);
         self.client
             .put_object()
             .bucket(&self.bucket)
@@ -83,7 +82,10 @@ impl AvatarStore {
             .host_str()
             .ok_or_else(|| anyhow::anyhow!("avatar S3 endpoint missing host"))?;
         let scheme = endpoint.scheme();
-        Ok(format!("{}://{}.{}{}{}", scheme, self.bucket, host, "/", key))
+        Ok(format!(
+            "{}://{}.{}{}{}",
+            scheme, self.bucket, host, "/", key
+        ))
     }
 }
 
