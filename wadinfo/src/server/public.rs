@@ -37,6 +37,10 @@ pub async fn run_server(
     app_state: App,
     rate_limiter: RateLimiter,
 ) -> Result<()> {
+    let allowed_origins = vec![
+        "https://gib.gg",
+        "https://www.gib.gg",
+    ];
     let keycloak_auth_instance = KeycloakAuthInstance::new(
         KeycloakConfig::builder()
             .server(Url::parse(&kc.endpoint).unwrap())
@@ -69,7 +73,7 @@ pub async fn run_server(
         .layer(keycloak_layer)
         .layer(RateLimitLayer::new(rate_limiter.clone()))
         .layer(middleware::from_fn(access_log::public))
-        .layer(cors::dev());
+        .layer(cors::prod(&allowed_origins));
 
     // Unprotected endpoints (no Keycloak middleware)
     let router = Router::new()
@@ -81,7 +85,7 @@ pub async fn run_server(
         .with_state(app_state)
         .layer(RateLimitLayer::new(rate_limiter))
         .layer(middleware::from_fn(access_log::public))
-        .layer(cors::dev());
+        .layer(cors::prod(&allowed_origins));
     let addr: SocketAddr = format!("0.0.0.0:{}", port)
         .parse()
         .expect("Invalid address");
