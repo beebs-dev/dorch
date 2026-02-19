@@ -169,7 +169,6 @@
           scene.add(mesh);
         } catch (err) {
           console.error("Failed to load panorama:", err);
-          alert("Failed to load panorama. Check the PANORAMA_URL path and that you're serving via a local web server.");
         } finally {
           if (pngObjectUrl) URL.revokeObjectURL(pngObjectUrl);
         }

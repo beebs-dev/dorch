@@ -212,38 +212,38 @@ pub async fn upload_wad(
     UserId(_user_id): UserId,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
-    // Extract file from multipart form
-    let mut filename: Option<String> = None;
-    let mut file_data: Option<Vec<u8>> = None;
-
+    // Find the file field
     while let Some(field) = multipart.next_field().await.unwrap_or(None) {
         let name = field.name().unwrap_or("").to_string();
         if name == "file" {
-            filename = field.file_name().map(|s| s.to_string());
-            match field.bytes().await {
-                Ok(bytes) => file_data = Some(bytes.to_vec()),
-                Err(e) => return response::error(anyhow!("Failed to read file data: {}", e)),
+            let filename = match field.file_name().map(|s| s.to_string()) {
+                Some(f) => f,
+                None => return response::error(anyhow!("No filename provided")),
+            };
+
+            // Stream the upload directly to S3
+            match state
+                .wad_upload_store
+                .upload_draft_stream(&filename, field)
+                .await
+            {
+                Ok((hash, upload_id, size)) => {
+                    return (
+                        StatusCode::OK,
+                        Json(UploadResponse {
+                            hash,
+                            id: upload_id,
+                            size,
+                        }),
+                    )
+                        .into_response();
+                }
+                Err(e) => return response::error(e.context("Failed to upload WAD file")),
             }
-            break;
         }
     }
 
-    let filename = match filename {
-        Some(f) => f,
-        None => return response::error(anyhow!("No filename provided")),
-    };
-
-    let data = match file_data {
-        Some(d) => d,
-        None => return response::error(anyhow!("No file data provided")),
-    };
-
-    match state.wad_upload_store.upload_draft(&filename, &data).await {
-        Ok((hash, upload_id, size)) => {
-            (StatusCode::OK, Json(UploadResponse { hash, id: upload_id, size })).into_response()
-        }
-        Err(e) => response::error(e.context("Failed to upload WAD file")),
-    }
+    response::error(anyhow!("No file field provided"))
 }
 
 // ----------------------------
