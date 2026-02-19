@@ -75,7 +75,15 @@
 		if (href === '/') return pathname === '/' || pathname.startsWith('/servers/');
 		if (href === '/wad') return pathname === '/wad' || pathname.startsWith('/wad/');
 		if (href === '/account') return pathname === '/account' || pathname.startsWith('/account/');
+		if (href === '/my-wads') return pathname === '/my-wads' || pathname.startsWith('/my-wads/');
+		if (href === '/upload') return pathname === '/upload' || pathname.startsWith('/upload/');
 		return pathname === href || pathname.startsWith(`${href}/`);
+	}
+
+	function isWadRelated(pathname: string) {
+		return pathname === '/wad' || pathname.startsWith('/wad/') ||
+		       pathname === '/my-wads' || pathname.startsWith('/my-wads/') ||
+		       pathname === '/upload' || pathname.startsWith('/upload/');
 	}
 
 	async function signOut() {
@@ -117,17 +125,70 @@
 				>
 					SERVERS
 				</a>
-				<a
-					href={resolve('/wad')}
-					aria-current={isActive('/wad', $page.url.pathname) ? 'page' : undefined}
-					class={`-mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
-						isActive('/wad', $page.url.pathname)
-							? 'border-red-400 text-zinc-100'
-							: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
-					}`}
-				>
-					WAD BROWSER
-				</a>
+				{#if authState.isAuthenticated}
+					<div class="group relative -mb-px">
+						<a
+							href={resolve('/wad')}
+							aria-current={isWadRelated($page.url.pathname) ? 'page' : undefined}
+							class={`inline-flex items-center gap-1 border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+								isWadRelated($page.url.pathname)
+									? 'border-red-400 text-zinc-100'
+									: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
+							}`}
+						>
+							WAD BROWSER
+							<svg
+								class="h-4 w-4 opacity-80"
+								viewBox="0 0 20 20"
+								fill="currentColor"
+								aria-hidden="true"
+							>
+								<path
+									fill-rule="evenodd"
+									d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.25a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
+									clip-rule="evenodd"
+								/>
+							</svg>
+						</a>
+
+						<div
+							class="absolute top-full left-0 z-50 hidden min-w-48 pt-2 group-focus-within:block group-hover:block"
+						>
+							<div class="overflow-hidden rounded-lg bg-zinc-950 ring-1 ring-zinc-800">
+								<a
+									href={resolve('/wad')}
+									class="block px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
+								>
+									Browse WADs
+								</a>
+								<a
+									href={resolve('/my-wads')}
+									class="block px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
+								>
+									Manage WADs
+								</a>
+								<a
+									href={resolve('/upload')}
+									class="block px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
+								>
+									Upload WAD
+								</a>
+							</div>
+						</div>
+					</div>
+				{:else}
+					<a
+						href={resolve('/wad')}
+						aria-current={isActive('/wad', $page.url.pathname) ? 'page' : undefined}
+						class={`-mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+							isActive('/wad', $page.url.pathname)
+								? 'border-red-400 text-zinc-100'
+								: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
+						}`}
+					>
+						WAD BROWSER
+					</a>
+				{/if}
 				{#if authState.isAuthenticated}
 					<div class="group relative -mb-px">
 						<a

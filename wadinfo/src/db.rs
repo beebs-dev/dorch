@@ -1,8 +1,8 @@
 use crate::client::{
     AbridgedMapAnalysis, AbridgedWadAnalysis, FeaturedViewResponse, FeaturedWadViewItem,
     GetWadMapResponse, ListWadsResponse, MapAnalysis, MapReference, MapThumbnail, ReadMapStat,
-    PutUserProfileRequest, ReadWad, ReadWadMetaWithTextFiles, ResolvedWadURL, UserProfileFull,
-    WadAnalysis, WadImage, WadSearchResults,
+    PutUserProfileRequest, ReadWad, ReadWadMetaWithTextFiles, ResolvedWadURL, UpdateDraftRequest,
+    UserProfileFull, WadAnalysis, WadDraft, WadImage, WadSearchResults,
 };
 use anyhow::{Context, Result, anyhow};
 use dorch_common::{
@@ -121,6 +121,15 @@ mod sql {
     pub const GET_WAD_MAP_ANALYSIS: &str = include_str!("sql/get_wad_map_analysis.sql");
     pub const GET_WAD_MAP_ANALYSIS_EXISTS: &str =
         include_str!("sql/get_wad_map_analysis_exists.sql");
+
+    // Draft management
+    pub const INSERT_DRAFT: &str = include_str!("sql/insert_draft.sql");
+    pub const LIST_DRAFTS: &str = include_str!("sql/list_drafts.sql");
+    pub const GET_DRAFT: &str = include_str!("sql/get_draft.sql");
+    pub const UPDATE_DRAFT: &str = include_str!("sql/update_draft.sql");
+    pub const DELETE_DRAFT: &str = include_str!("sql/delete_draft.sql");
+    pub const PUBLISH_DRAFT: &str = include_str!("sql/publish_draft.sql");
+    pub const GET_UNPUBLISHED_DRAFT: &str = include_str!("sql/get_unpublished_draft.sql");
 }
 
 #[derive(Clone)]
@@ -1910,6 +1919,136 @@ impl Database {
         tx.commit().await.context("commit insert_wad tx")?;
         Ok(wad_id)
     }
+
+    // ----------------------------
+    // Draft Management
+    // ----------------------------
+
+    pub async fn create_draft(&self, uploader_id: Uuid) -> Result<WadDraft> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let draft_id = Uuid::new_v4();
+        let now = unix_epoch_ms()?;
+        let stmt = conn
+            .prepare_cached(sql::INSERT_DRAFT)
+            .await
+            .context("failed to prepare INSERT_DRAFT")?;
+        let row = conn
+            .query_one(&stmt, &[&draft_id, &uploader_id, &now])
+            .await
+            .context("failed to execute INSERT_DRAFT")?;
+        row_to_draft(row)
+    }
+
+    pub async fn list_drafts(&self, uploader_id: Uuid) -> Result<Vec<WadDraft>> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::LIST_DRAFTS)
+            .await
+            .context("failed to prepare LIST_DRAFTS")?;
+        let rows = conn
+            .query(&stmt, &[&uploader_id])
+            .await
+            .context("failed to execute LIST_DRAFTS")?;
+        rows.into_iter().map(row_to_draft).collect()
+    }
+
+    pub async fn get_draft(&self, draft_id: Uuid) -> Result<Option<WadDraft>> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::GET_DRAFT)
+            .await
+            .context("failed to prepare GET_DRAFT")?;
+        let row = conn
+            .query_opt(&stmt, &[&draft_id])
+            .await
+            .context("failed to execute GET_DRAFT")?;
+        row.map(row_to_draft).transpose()
+    }
+
+    pub async fn get_unpublished_draft(&self, uploader_id: Uuid) -> Result<Option<WadDraft>> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::GET_UNPUBLISHED_DRAFT)
+            .await
+            .context("failed to prepare GET_UNPUBLISHED_DRAFT")?;
+        let row = conn
+            .query_opt(&stmt, &[&uploader_id])
+            .await
+            .context("failed to execute GET_UNPUBLISHED_DRAFT")?;
+        row.map(row_to_draft).transpose()
+    }
+
+    pub async fn update_draft(
+        &self,
+        draft_id: Uuid,
+        uploader_id: Uuid,
+        req: &UpdateDraftRequest,
+    ) -> Result<Option<WadDraft>> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let now = unix_epoch_ms()?;
+        let stmt = conn
+            .prepare_cached(sql::UPDATE_DRAFT)
+            .await
+            .context("failed to prepare UPDATE_DRAFT")?;
+        let row = conn
+            .query_opt(
+                &stmt,
+                &[
+                    &draft_id,
+                    &uploader_id,
+                    &req.title,
+                    &req.author,
+                    &req.description,
+                    &req.ai_enabled,
+                    &req.upload_id,
+                    &req.file_sha256,
+                    &req.file_size,
+                    &now,
+                ],
+            )
+            .await
+            .context("failed to execute UPDATE_DRAFT")?;
+        row.map(row_to_draft).transpose()
+    }
+
+    pub async fn delete_draft(
+        &self,
+        draft_id: Uuid,
+        uploader_id: Uuid,
+    ) -> Result<Option<(Uuid, Option<Uuid>)>> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::DELETE_DRAFT)
+            .await
+            .context("failed to prepare DELETE_DRAFT")?;
+        let row = conn
+            .query_opt(&stmt, &[&draft_id, &uploader_id])
+            .await
+            .context("failed to execute DELETE_DRAFT")?;
+        Ok(row.map(|r| {
+            let draft_id: Uuid = r.get("draft_id");
+            let upload_id: Option<Uuid> = r.get("upload_id");
+            (draft_id, upload_id)
+        }))
+    }
+
+    pub async fn publish_draft(
+        &self,
+        draft_id: Uuid,
+        uploader_id: Uuid,
+    ) -> Result<Option<WadDraft>> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let now = unix_epoch_ms()?;
+        let stmt = conn
+            .prepare_cached(sql::PUBLISH_DRAFT)
+            .await
+            .context("failed to prepare PUBLISH_DRAFT")?;
+        let row = conn
+            .query_opt(&stmt, &[&draft_id, &uploader_id, &now])
+            .await
+            .context("failed to execute PUBLISH_DRAFT")?;
+        row.map(row_to_draft).transpose()
+    }
 }
 
 fn row_to_user_profile(row: tokio_postgres::Row) -> Result<UserProfileFull> {
@@ -1921,6 +2060,23 @@ fn row_to_user_profile(row: tokio_postgres::Row) -> Result<UserProfileFull> {
         registered_at: row.try_get("registered_at")?,
         last_active_at: row.try_get("last_active_at")?,
         privacy_hide_activity: row.try_get("privacy_hide_activity")?,
+    })
+}
+
+fn row_to_draft(row: tokio_postgres::Row) -> Result<WadDraft> {
+    Ok(WadDraft {
+        draft_id: row.try_get("draft_id")?,
+        uploader_id: row.try_get("uploader_id")?,
+        upload_id: row.try_get("upload_id")?,
+        title: row.try_get("title")?,
+        author: row.try_get("author")?,
+        description: row.try_get("description")?,
+        ai_enabled: row.try_get("ai_enabled")?,
+        created_at: row.try_get("created_at")?,
+        updated_at: row.try_get("updated_at")?,
+        status: row.try_get("status")?,
+        file_sha256: row.try_get("file_sha256")?,
+        file_size: row.try_get("file_size")?,
     })
 }
 

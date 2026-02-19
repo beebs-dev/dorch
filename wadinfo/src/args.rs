@@ -61,6 +61,28 @@ pub struct ServerArgs {
 
     #[arg(long, env = "AVATAR_S3_KEY_PREFIX", required = true)]
     pub avatar_s3_key_prefix: String,
+
+    // WAD upload S3 configuration
+    #[arg(long, env = "WAD_S3_ACCESS_KEY_ID", required = true)]
+    pub wad_s3_access_key_id: String,
+
+    #[arg(long, env = "WAD_S3_SECRET_ACCESS_KEY", required = true)]
+    pub wad_s3_secret_access_key: String,
+
+    #[arg(long, env = "WAD_S3_BUCKET", required = true)]
+    pub wad_s3_bucket: String,
+
+    #[arg(long, env = "WAD_S3_REGION", required = true)]
+    pub wad_s3_region: String,
+
+    #[arg(long, env = "WAD_S3_ENDPOINT", required = true)]
+    pub wad_s3_endpoint: String,
+
+    #[arg(long, env = "WAD_S3_DRAFT_KEY_PREFIX", default_value = "drafts/")]
+    pub wad_s3_draft_key_prefix: String,
+
+    #[arg(long, env = "WAD_S3_PERMANENT_KEY_PREFIX", default_value = "wads/")]
+    pub wad_s3_permanent_key_prefix: String,
 }
 
 #[derive(Parser, Debug, Clone)]

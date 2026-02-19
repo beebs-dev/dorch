@@ -217,3 +217,42 @@ export interface RatingSummary {
 	average?: number | null; // 1..5
 	count?: number | null;
 }
+
+// ----------------------------
+// WAD Draft Types
+// ----------------------------
+
+export interface WadDraft {
+	draft_id: Uuid;
+	uploader_id: Uuid;
+	upload_id?: Uuid | null;
+	title?: string | null;
+	author?: string | null;
+	description?: string | null;
+	ai_enabled: boolean;
+	created_at: number;
+	updated_at: number;
+	status: 'draft' | 'published';
+	file_sha256?: string | null;
+	file_size?: number | null;
+}
+
+export interface UpdateDraftRequest {
+	title?: string | null;
+	author?: string | null;
+	description?: string | null;
+	ai_enabled?: boolean | null;
+	upload_id?: Uuid | null;
+	file_sha256?: string | null;
+	file_size?: number | null;
+}
+
+export interface ListDraftsResponse {
+	items: WadDraft[];
+}
+
+export interface UploadResponse {
+	hash: string;
+	id: Uuid;
+	size: number;
+}

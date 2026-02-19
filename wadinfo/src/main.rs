@@ -4,7 +4,7 @@ use dorch_common::{rate_limit::RateLimiter, shutdown::shutdown_signal};
 use owo_colors::OwoColorize;
 use tokio_util::sync::CancellationToken;
 
-use crate::{app::App, args::Commands, avatar::AvatarStore, db::Database};
+use crate::{app::App, args::Commands, avatar::AvatarStore, db::Database, wad_upload::WadUploadStore};
 
 pub mod app;
 pub mod args;
@@ -13,6 +13,7 @@ pub mod client;
 pub mod db;
 pub mod dispatch;
 pub mod server;
+pub mod wad_upload;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -93,7 +94,18 @@ async fn run_servers(args: args::ServerArgs) -> Result<()> {
     )
     .await
     .context("Failed to initialize avatar S3 store")?;
-    let app_state = App::new(cancel.clone(), db, avatar_store);
+    let wad_upload_store = WadUploadStore::new(
+        args.wad_s3_access_key_id,
+        args.wad_s3_secret_access_key,
+        args.wad_s3_bucket,
+        args.wad_s3_region,
+        args.wad_s3_endpoint,
+        args.wad_s3_draft_key_prefix,
+        args.wad_s3_permanent_key_prefix,
+    )
+    .await
+    .context("Failed to initialize WAD upload S3 store")?;
+    let app_state = App::new(cancel.clone(), db, avatar_store, wad_upload_store);
     let pool = dorch_common::redis::init_redis(&args.redis).await;
     let rate_limiter = RateLimiter::new(pool, args.rate_limiter.into());
     let mut internal_join = Box::pin(tokio::spawn({

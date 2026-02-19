@@ -1,13 +1,17 @@
 use crate::{
     app::App,
     avatar::MAX_AVATAR_UPLOAD_BYTES,
-    client::{PutUserProfileRequest, ResolveWadURLsRequest, ResolveWadURLsResponse},
+    client::{
+        ListDraftsResponse, PutUserProfileRequest, ResolveWadURLsRequest, ResolveWadURLsResponse,
+        UpdateDraftRequest, UploadResponse,
+    },
     server::internal,
+    wad_upload::MAX_WAD_UPLOAD_BYTES,
 };
 use anyhow::{Context, Result, anyhow};
 use axum::{
     Json, Router,
-    extract::{DefaultBodyLimit, Path, State},
+    extract::{DefaultBodyLimit, Multipart, Path, State},
     http::{HeaderMap, StatusCode},
     middleware,
     response::IntoResponse,
@@ -53,6 +57,17 @@ pub async fn run_server(
         .persist_raw_claims(true)
         .expected_audiences(vec!["account".to_string()])
         .build();
+
+    // Upload route needs larger body limit
+    let upload_router = Router::new()
+        .route("/upload", post(upload_wad))
+        .layer(DefaultBodyLimit::max(MAX_WAD_UPLOAD_BYTES))
+        .with_state(app_state.clone())
+        .layer(keycloak_layer.clone())
+        .layer(RateLimitLayer::new(rate_limiter.clone()))
+        .layer(middleware::from_fn(access_log::public))
+        .layer(cors::prod(&allowed_origins));
+
     let protected_router = Router::new()
         .route("/wad", get(internal::list_wads))
         .route("/featured", get(internal::featured_wads))
@@ -69,6 +84,14 @@ pub async fn run_server(
         .route("/wad/{id}", get(internal::get_wad))
         .route("/wad/{id}/map/{map}", get(internal::get_wad_map))
         .route("/search", get(internal::search))
+        // Draft management endpoints
+        .route("/draft", get(list_drafts).post(create_draft))
+        .route("/draft/resume", get(resume_or_create_draft))
+        .route(
+            "/draft/{draft_id}",
+            get(get_draft).put(update_draft).delete(delete_draft),
+        )
+        .route("/draft/{draft_id}/publish", post(publish_draft))
         .with_state(app_state.clone())
         .layer(keycloak_layer)
         .layer(RateLimitLayer::new(rate_limiter.clone()))
@@ -96,7 +119,7 @@ pub async fn run_server(
         port.green().dimmed()
     );
     let start = std::time::Instant::now();
-    axum::serve(listener, protected_router.merge(router))
+    axum::serve(listener, upload_router.merge(protected_router).merge(router))
         .with_graceful_shutdown(async move {
             cancel.cancelled().await;
         })
@@ -177,5 +200,194 @@ pub async fn put_user_profile(
         Ok(Some(profile)) => (StatusCode::OK, Json(profile)).into_response(),
         Ok(None) => response::not_found(anyhow!("User profile not found")),
         Err(e) => response::error(e.context("Failed to update user profile")),
+    }
+}
+
+// ----------------------------
+// WAD Upload Endpoint
+// ----------------------------
+
+pub async fn upload_wad(
+    State(state): State<App>,
+    UserId(_user_id): UserId,
+    mut multipart: Multipart,
+) -> impl IntoResponse {
+    // Extract file from multipart form
+    let mut filename: Option<String> = None;
+    let mut file_data: Option<Vec<u8>> = None;
+
+    while let Some(field) = multipart.next_field().await.unwrap_or(None) {
+        let name = field.name().unwrap_or("").to_string();
+        if name == "file" {
+            filename = field.file_name().map(|s| s.to_string());
+            match field.bytes().await {
+                Ok(bytes) => file_data = Some(bytes.to_vec()),
+                Err(e) => return response::error(anyhow!("Failed to read file data: {}", e)),
+            }
+            break;
+        }
+    }
+
+    let filename = match filename {
+        Some(f) => f,
+        None => return response::error(anyhow!("No filename provided")),
+    };
+
+    let data = match file_data {
+        Some(d) => d,
+        None => return response::error(anyhow!("No file data provided")),
+    };
+
+    match state.wad_upload_store.upload_draft(&filename, &data).await {
+        Ok((hash, upload_id, size)) => {
+            (StatusCode::OK, Json(UploadResponse { hash, id: upload_id, size })).into_response()
+        }
+        Err(e) => response::error(e.context("Failed to upload WAD file")),
+    }
+}
+
+// ----------------------------
+// Draft Management Endpoints
+// ----------------------------
+
+pub async fn list_drafts(
+    State(state): State<App>,
+    UserId(user_id): UserId,
+) -> impl IntoResponse {
+    match state.db.list_drafts(user_id).await {
+        Ok(items) => (StatusCode::OK, Json(ListDraftsResponse { items })).into_response(),
+        Err(e) => response::error(e.context("Failed to list drafts")),
+    }
+}
+
+pub async fn create_draft(
+    State(state): State<App>,
+    UserId(user_id): UserId,
+) -> impl IntoResponse {
+    match state.db.create_draft(user_id).await {
+        Ok(draft) => (StatusCode::CREATED, Json(draft)).into_response(),
+        Err(e) => response::error(e.context("Failed to create draft")),
+    }
+}
+
+pub async fn resume_or_create_draft(
+    State(state): State<App>,
+    UserId(user_id): UserId,
+) -> impl IntoResponse {
+    // Try to find an existing unpublished draft first
+    match state.db.get_unpublished_draft(user_id).await {
+        Ok(Some(draft)) => return (StatusCode::OK, Json(draft)).into_response(),
+        Ok(None) => {}
+        Err(e) => return response::error(e.context("Failed to check for existing draft")),
+    }
+
+    // No existing draft, create a new one
+    match state.db.create_draft(user_id).await {
+        Ok(draft) => (StatusCode::CREATED, Json(draft)).into_response(),
+        Err(e) => response::error(e.context("Failed to create draft")),
+    }
+}
+
+pub async fn get_draft(
+    State(state): State<App>,
+    UserId(user_id): UserId,
+    Path(draft_id): Path<Uuid>,
+) -> impl IntoResponse {
+    match state.db.get_draft(draft_id).await {
+        Ok(Some(draft)) => {
+            // Check ownership
+            if draft.uploader_id != user_id {
+                return response::forbidden(anyhow!("Not authorized to view this draft"));
+            }
+            (StatusCode::OK, Json(draft)).into_response()
+        }
+        Ok(None) => response::not_found(anyhow!("Draft not found")),
+        Err(e) => response::error(e.context("Failed to get draft")),
+    }
+}
+
+pub async fn update_draft(
+    State(state): State<App>,
+    UserId(user_id): UserId,
+    Path(draft_id): Path<Uuid>,
+    Json(req): Json<UpdateDraftRequest>,
+) -> impl IntoResponse {
+    match state.db.update_draft(draft_id, user_id, &req).await {
+        Ok(Some(draft)) => (StatusCode::OK, Json(draft)).into_response(),
+        Ok(None) => response::not_found(anyhow!("Draft not found or not authorized")),
+        Err(e) => response::error(e.context("Failed to update draft")),
+    }
+}
+
+pub async fn delete_draft(
+    State(state): State<App>,
+    UserId(user_id): UserId,
+    Path(draft_id): Path<Uuid>,
+) -> impl IntoResponse {
+    match state.db.delete_draft(draft_id, user_id).await {
+        Ok(Some((_, upload_id))) => {
+            // If there was an uploaded file, delete it from storage
+            if let Some(upload_id) = upload_id {
+                if let Err(e) = state.wad_upload_store.delete_draft(upload_id).await {
+                    eprintln!("Warning: Failed to delete draft file from storage: {}", e);
+                }
+            }
+            StatusCode::NO_CONTENT.into_response()
+        }
+        Ok(None) => response::not_found(anyhow!("Draft not found or not authorized")),
+        Err(e) => response::error(e.context("Failed to delete draft")),
+    }
+}
+
+pub async fn publish_draft(
+    State(state): State<App>,
+    UserId(user_id): UserId,
+    Path(draft_id): Path<Uuid>,
+) -> impl IntoResponse {
+    // First, get the draft to validate and get file info
+    let draft = match state.db.get_draft(draft_id).await {
+        Ok(Some(d)) => d,
+        Ok(None) => return response::not_found(anyhow!("Draft not found")),
+        Err(e) => return response::error(e.context("Failed to get draft")),
+    };
+
+    // Check ownership
+    if draft.uploader_id != user_id {
+        return response::forbidden(anyhow!("Not authorized to publish this draft"));
+    }
+
+    // Ensure upload_id is set
+    let upload_id = match draft.upload_id {
+        Some(id) => id,
+        None => return response::error(anyhow!("Cannot publish draft without uploaded file")),
+    };
+
+    // Get sha256 for permanent storage key
+    let sha256 = match &draft.file_sha256 {
+        Some(h) => h.clone(),
+        None => return response::error(anyhow!("Draft missing file hash")),
+    };
+
+    // Move file to permanent storage
+    // Use the title or a default filename
+    let filename = draft.title.as_deref().unwrap_or("upload.wad");
+    let _file_url = match state
+        .wad_upload_store
+        .publish_draft(upload_id, &sha256, filename)
+        .await
+    {
+        Ok(url) => url,
+        Err(e) => return response::error(e.context("Failed to move file to permanent storage")),
+    };
+
+    // Mark draft as published in database
+    match state.db.publish_draft(draft_id, user_id).await {
+        Ok(Some(published_draft)) => {
+            // TODO: Insert into wads table with the published draft metadata
+            // For now, just return the published draft
+            (StatusCode::OK, Json(published_draft)).into_response()
+        }
+        Ok(None) => response::error(anyhow!("Failed to publish draft - validation failed")),
+        Err(e) => response::error(e.context("Failed to publish draft")),
     }
 }

@@ -65,6 +65,18 @@ spec:
           value: {{ .Values.wadinfo.avatarS3.endpoint | quote }}
         - name: AVATAR_S3_KEY_PREFIX
           value: {{ .Values.wadinfo.avatarS3.keyPrefix | quote }}
+        - name: WAD_S3_ACCESS_KEY_ID
+{{ tpl (toYaml .Values.wadinfo.wadS3.accessKeyId) . | indent 10 }}
+        - name: WAD_S3_SECRET_ACCESS_KEY
+{{ tpl (toYaml .Values.wadinfo.wadS3.secretAccessKey) . | indent 10 }}
+        - name: WAD_S3_BUCKET
+          value: {{ .Values.wadinfo.wadS3.bucket | quote }}
+        - name: WAD_S3_REGION
+          value: {{ .Values.wadinfo.wadS3.region | quote }}
+        - name: WAD_S3_ENDPOINT
+          value: {{ .Values.wadinfo.wadS3.endpoint | quote }}
+        - name: WAD_S3_KEY_PREFIX
+          value: {{ .Values.wadinfo.wadS3.keyPrefix | quote }}
         - name: SERVICE_NAME
           value: wadinfo
         - name: RUST_LOG

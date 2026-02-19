@@ -434,3 +434,32 @@ create table if not exists user_profile (
 
 create index if not exists idx_user_profile_username
   on user_profile (username);
+
+-- ----------------------------
+-- WAD Drafts (user-uploaded WADs before publishing)
+-- ----------------------------
+create table if not exists wad_drafts (
+  draft_id     uuid primary key default gen_random_uuid(),
+  uploader_id  uuid not null references user_profile(id) on delete cascade,
+  upload_id    uuid,              -- set after file is uploaded
+  title        text,
+  author       text,
+  description  text,
+  ai_enabled   bool not null default true,
+  created_at   bigint not null,
+  updated_at   bigint not null,
+  status       text not null default 'draft',  -- 'draft' or 'published'
+  
+  -- File metadata (populated after upload)
+  file_sha256  char(64),
+  file_size    bigint
+);
+
+create index if not exists idx_wad_drafts_uploader_id
+  on wad_drafts (uploader_id);
+
+create index if not exists idx_wad_drafts_status
+  on wad_drafts (status);
+
+create index if not exists idx_wad_drafts_updated_at
+  on wad_drafts (updated_at desc);

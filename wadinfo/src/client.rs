@@ -294,6 +294,62 @@ pub struct MapAnalysis {
     pub origin: String,
 }
 
+// ----------------------------
+// WAD Draft Types
+// ----------------------------
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct WadDraft {
+    pub draft_id: Uuid,
+    pub uploader_id: Uuid,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upload_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub ai_enabled: bool,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_size: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct UpdateDraftRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ai_enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upload_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_size: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ListDraftsResponse {
+    pub items: Vec<WadDraft>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct UploadResponse {
+    pub hash: String,
+    pub id: Uuid,
+    pub size: i64,
+}
+
 #[derive(Clone)]
 pub struct Client {
     inner: reqwest::Client,

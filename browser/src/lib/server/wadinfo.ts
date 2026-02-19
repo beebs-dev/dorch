@@ -13,7 +13,9 @@ import type {
 	WadImage,
 	UserProfileFull,
 	UserProfileView,
-	WadSearchResults
+	WadSearchResults,
+	WadDraft,
+	ListDraftsResponse
 } from '$lib/types/wadinfo';
 
 import { getRedisClient } from '$lib/server/redis';
@@ -136,8 +138,24 @@ function getInternalBaseUrl(): string {
 	return base.endsWith('/') ? base : `${base}/`;
 }
 
-function buildUrl(path: string, opts?: { internal?: boolean }): URL {
-	const base = opts?.internal ? getInternalBaseUrl() : getBaseUrl();
+function getPublicBaseUrl(): string {
+	// For endpoints that are only on the public router (port 3000), like draft management.
+	const base = env.WADINFO_PUBLIC_BASE_URL ?? env.WADINFO_BASE_URL;
+	if (!base) {
+		throw new Error('Missing required private env var WADINFO_BASE_URL or WADINFO_PUBLIC_BASE_URL');
+	}
+	return base.endsWith('/') ? base : `${base}/`;
+}
+
+function buildUrl(path: string, opts?: { internal?: boolean; public?: boolean }): URL {
+	let base: string;
+	if (opts?.internal) {
+		base = getInternalBaseUrl();
+	} else if (opts?.public) {
+		base = getPublicBaseUrl();
+	} else {
+		base = getBaseUrl();
+	}
 	return new URL(path.replace(/^\//, ''), base);
 }
 
@@ -145,7 +163,7 @@ async function requestJson<T>(
 	fetchFn: typeof fetch,
 	path: string,
 	init?: RequestInit,
-	opts?: { internal?: boolean; forwardedFor?: string; bearerToken?: string }
+	opts?: { internal?: boolean; public?: boolean; forwardedFor?: string; bearerToken?: string }
 ): Promise<T> {
 	const url = buildUrl(path, opts);
 	const headers = new Headers(init?.headers);
@@ -334,6 +352,31 @@ export function createWadinfoClient(
 				undefined,
 				{ forwardedFor, bearerToken }
 			);
+		},
+
+		async listDrafts(): Promise<ListDraftsResponse> {
+			return requestJson<ListDraftsResponse>(fetchFn, '/draft', undefined, {
+				public: true,
+				forwardedFor,
+				bearerToken
+			});
+		},
+
+		async getDraft(draftId: string): Promise<WadDraft> {
+			return requestJson<WadDraft>(
+				fetchFn,
+				`/draft/${encodeURIComponent(draftId)}`,
+				undefined,
+				{ public: true, forwardedFor, bearerToken }
+			);
+		},
+
+		async resumeOrCreateDraft(): Promise<WadDraft> {
+			return requestJson<WadDraft>(fetchFn, '/draft/resume', undefined, {
+				public: true,
+				forwardedFor,
+				bearerToken
+			});
 		},
 
 		async putUserProfile(userId: string, req: PutUserProfileRequest): Promise<UserProfileFull> {

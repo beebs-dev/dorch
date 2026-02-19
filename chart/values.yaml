@@ -168,6 +168,13 @@ wadinfo:
     region: ""
     endpoint: ""
     keyPrefix: "avatars/"
+  wadS3:
+    accessKeyId: {}
+    secretAccessKey: {}
+    bucket: ""
+    region: ""
+    endpoint: ""
+    keyPrefix: "wads/"
   resources:
     requests:
       memory: "32Mi"

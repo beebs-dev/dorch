@@ -1,12 +1,13 @@
 use std::{ops::Deref, sync::Arc};
 use tokio_util::sync::CancellationToken;
 
-use crate::{avatar::AvatarStore, db::Database};
+use crate::{avatar::AvatarStore, db::Database, wad_upload::WadUploadStore};
 
 pub struct AppInner {
     pub cancel: CancellationToken,
     pub db: Database,
     pub avatar_store: AvatarStore,
+    pub wad_upload_store: WadUploadStore,
 }
 
 #[derive(Clone)]
@@ -23,12 +24,18 @@ impl Deref for App {
 }
 
 impl App {
-    pub fn new(cancel: CancellationToken, db: Database, avatar_store: AvatarStore) -> Self {
+    pub fn new(
+        cancel: CancellationToken,
+        db: Database,
+        avatar_store: AvatarStore,
+        wad_upload_store: WadUploadStore,
+    ) -> Self {
         Self {
             inner: Arc::new(AppInner {
                 cancel,
                 db,
                 avatar_store,
+                wad_upload_store,
             }),
         }
     }
