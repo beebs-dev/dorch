@@ -914,7 +914,7 @@ pub async fn login(State(state): State<App>, Json(req): Json<LoginRequest>) -> i
             ("client_secret", state.kc.client_secret.as_str()),
             ("username", username.as_str()),
             ("password", req.password.as_str()),
-            ("scope", "openid offline_access"),
+            ("scope", "openid"),
         ])
         .send()
         .await;

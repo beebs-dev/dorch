@@ -10,7 +10,7 @@
 
 	const apiBaseUrl = 'https://api.gib.gg';
 	const supportedExtensions = ['.wad', '.pk3', '.wad.gz', '.pk3.gz'];
-	const maxFileSize = 100 * 1024 * 1024; // 100 MiB
+	const maxFileSize = 1000 * 1024 * 1024; // 1000 MiB
 
 	let { data } = $props();
 

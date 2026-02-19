@@ -95,7 +95,7 @@ function saveToStorage(creds: UserCredentials, persist: boolean): void {
 	const accessToken = jwt.access_token;
 	const refreshToken = jwt.refresh_token;
 	const expiresIn = jwt.expires_in ?? 300; // Default 5 minutes
-	const refreshExpiresIn = jwt.refresh_expires_in ?? 86400; // Default 24 hours
+	const refreshExpiresIn = jwt.refresh_expires_in ?? (30 * 86400); // Default 30 days
 
 	const accessTokenExpMs = Date.now() + expiresIn * 1000;
 	const refreshTokenExpMs = Date.now() + refreshExpiresIn * 1000;

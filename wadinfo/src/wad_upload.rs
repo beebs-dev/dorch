@@ -11,8 +11,8 @@ use reqwest::Url;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-/// Maximum upload size: 100 MiB
-pub const MAX_WAD_UPLOAD_BYTES: usize = 100 * 1024 * 1024;
+/// Maximum upload size: 1000 MiB
+pub const MAX_WAD_UPLOAD_BYTES: usize = 1000 * 1024 * 1024;
 
 /// Supported file extensions for WAD uploads
 pub const SUPPORTED_EXTENSIONS: &[&str] = &[".wad", ".pk3", ".wad.gz", ".pk3.gz"];
