@@ -65,6 +65,10 @@ pub fn chunk_to_unix(chunk_time: i64) -> i64 {
 }
 
 pub fn init() {
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
+    
     let disable_colors = ["1", "true"].contains(
         &std::env::var("DISABLE_COLORS")
             .unwrap_or_else(|_| String::new())

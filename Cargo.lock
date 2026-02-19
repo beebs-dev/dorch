@@ -1868,6 +1868,7 @@ dependencies = [
  "tokio-util",
  "tower",
  "tower-http",
+ "tracing-subscriber",
  "uuid",
 ]
 

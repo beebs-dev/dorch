@@ -3,7 +3,6 @@ use clap::Parser;
 use dorch_common::{rate_limit::RateLimiter, shutdown::shutdown_signal};
 use owo_colors::OwoColorize;
 use tokio_util::sync::CancellationToken;
-use tracing_subscriber::EnvFilter;
 
 use crate::{app::App, args::Commands, avatar::AvatarStore, db::Database};
 
@@ -17,9 +16,6 @@ pub mod server;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
     let cli = args::Cli::parse();
     dorch_common::init();
     dorch_common::metrics::maybe_spawn_metrics_server();

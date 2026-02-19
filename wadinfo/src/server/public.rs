@@ -6,11 +6,15 @@ use crate::{
 };
 use anyhow::{Context, Result, anyhow};
 use axum::{
-    Json, Router, body::Body, extract::{DefaultBodyLimit, Path, State}, http::{HeaderMap, Request, Response, StatusCode}, middleware, response::IntoResponse, routing::{get, post}
+    Json, Router,
+    extract::{DefaultBodyLimit, Path, State},
+    http::{HeaderMap, StatusCode},
+    middleware,
+    response::IntoResponse,
+    routing::{get, post},
 };
 use axum_keycloak_auth::{
     PassthroughMode,
-    decode::{KeycloakToken, ProfileAndEmail},
     instance::{KeycloakAuthInstance, KeycloakConfig},
     layer::KeycloakAuthLayer,
 };
@@ -28,19 +32,6 @@ use reqwest::Url;
 use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
-
-use axum::{Extension, middleware::Next};
-use axum_keycloak_auth::KeycloakAuthStatus;
-
-async fn debug_auth(mut req: Request<Body>, next: Next) -> Response<Body> {
-    if let Some(token) = req.extensions().get::<KeycloakToken<String, ProfileAndEmail>>() {
-        eprintln!("Authenticated user: {}", token.subject);
-    } else {
-        eprintln!("Request has no valid KeycloakToken");
-    }
-
-    next.run(req).await
-}
 
 pub async fn run_server(
     cancel: CancellationToken,
@@ -80,7 +71,6 @@ pub async fn run_server(
         .route("/search", get(internal::search))
         .with_state(app_state.clone())
         .layer(keycloak_layer)
-        .layer(middleware::from_fn(debug_auth))
         .layer(RateLimitLayer::new(rate_limiter.clone()))
         .layer(middleware::from_fn(access_log::public))
         .layer(cors::prod(&allowed_origins));
