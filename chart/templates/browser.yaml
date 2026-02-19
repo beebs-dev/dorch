@@ -31,6 +31,12 @@ spec:
           value: http://{{ .Release.Name }}-master
         - name: IAM_BASE_URL
           value: http://{{ .Release.Name }}-iam
+        - name: WADINFO_PUBLIC_BASE_URL
+          value: http://{{ .Release.Name }}-wadinfo:3000
+        - name: MASTER_PUBLIC_BASE_URL
+          value: http://{{ .Release.Name }}-master:3000
+        - name: IAM_PUBLIC_BASE_URL
+          value: http://{{ .Release.Name }}-iam:3000
 {{ include "dorch.redis-env" . | indent 8 }}
 {{ include "dorch.ratelimiter-env" . | indent 8 }}
 ---
