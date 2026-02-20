@@ -83,6 +83,7 @@ spec:
           value: axum_keycloak_auth=trace,dorch=debug,aws_smithy_runtime=debug,aws_smithy_http_tower=debug,hyper=info,info
         - name: LOG_LEVEL
           value: {{ .Values.wadinfo.logLevel }}
+{{ include "dorch.cors-env" . | indent 8 }}
 {{ include "dorch.keycloak-env" . | indent 8 }}
 {{ include "dorch.metrics-env" . | indent 8 }}
 {{ include "dorch.postgres-env" . | indent 8 }}

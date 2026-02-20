@@ -19,8 +19,8 @@ pub async fn run_server(
     port: u16,
     app_state: App,
     kc: KeycloakArgs,
+    allowed_origins: &[&str],
 ) -> Result<()> {
-    let allowed_origins = vec!["https://gib.gg"];
     let public_router = Router::new()
         .route("/user/register", post(internal::register))
         .route("/user/login", post(internal::login))
@@ -28,7 +28,7 @@ pub async fn run_server(
         .route("/user/signout", post(internal::sign_out))
         .with_state(app_state.clone())
         .layer(middleware::from_fn(access_log::public))
-        .layer(cors::prod(&allowed_origins));
+        .layer(cors::prod(allowed_origins));
     let keycloak_auth_instance = KeycloakAuthInstance::new(
         KeycloakConfig::builder()
             .server(Url::parse(&kc.endpoint).unwrap())
@@ -49,7 +49,7 @@ pub async fn run_server(
         .with_state(app_state)
         .layer(keycloak_layer)
         .layer(middleware::from_fn(access_log::public))
-        .layer(cors::prod(&allowed_origins));
+        .layer(cors::prod(allowed_origins));
     let addr = format!("0.0.0.0:{}", port);
     let listener = TcpListener::bind(&addr)
         .await

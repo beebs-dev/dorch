@@ -1,0 +1,7 @@
+{{/*
+CORS environment variables template
+*/}}
+{{- define "dorch.cors-env" -}}
+- name: ALLOWED_ORIGINS
+  value: {{ join "," .Values.cors.allowedOrigins }}
+{{- end -}}

@@ -25,4 +25,7 @@ pub struct ServerArgs {
 
     #[arg(long, env = "PUBLIC_PORT", required = true)]
     pub public_port: u16,
+
+    #[arg(long, env = "ALLOWED_ORIGINS", default_value = "https://gib.gg,https://www.gib.gg")]
+    pub allowed_origins: Vec<String>,
 }

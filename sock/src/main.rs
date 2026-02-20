@@ -44,7 +44,20 @@ async fn main() -> Result<()> {
     });
     let rate_limiter = RateLimiter::new(pool.clone(), cli.rate_limiter.into());
     let app_state = AppState::new(cancel.clone(), pool, nats, cli.redis, cli.kc).await;
-    let result = server::run(cancel, port, app_state.clone(), keycloak, rate_limiter).await;
+    let allowed_origins = cli
+        .allowed_origins
+        .iter()
+        .map(|o| o.as_str())
+        .collect::<Vec<_>>();
+    let result = server::run(
+        cancel,
+        port,
+        app_state.clone(),
+        keycloak,
+        rate_limiter,
+        &allowed_origins,
+    )
+    .await;
     if let Err(e) = app_state.shutdown().await {
         eprintln!(
             "{}{:?}",

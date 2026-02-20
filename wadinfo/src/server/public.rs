@@ -43,8 +43,8 @@ pub async fn run_server(
     kc: KeycloakArgs,
     app_state: App,
     rate_limiter: RateLimiter,
+    allowed_origins: &[&str],
 ) -> Result<()> {
-    let allowed_origins = vec!["https://gib.gg", "https://www.gib.gg"];
     let keycloak_auth_instance = KeycloakAuthInstance::new(
         KeycloakConfig::builder()
             .server(Url::parse(&kc.endpoint).unwrap())
@@ -55,7 +55,7 @@ pub async fn run_server(
         .instance(keycloak_auth_instance)
         .passthrough_mode(PassthroughMode::Block)
         .persist_raw_claims(true)
-        .expected_audiences(vec!["account".to_string()])
+        .expected_audiences(vec![kc.client_id, "account".to_string()])
         .build();
 
     // Upload route needs larger body limit
@@ -66,7 +66,7 @@ pub async fn run_server(
         .layer(keycloak_layer.clone())
         .layer(RateLimitLayer::new(rate_limiter.clone()))
         .layer(middleware::from_fn(access_log::public))
-        .layer(cors::prod(&allowed_origins));
+        .layer(cors::prod(allowed_origins));
 
     let protected_router = Router::new()
         .route("/wad", get(internal::list_wads))
@@ -98,7 +98,7 @@ pub async fn run_server(
         .layer(keycloak_layer)
         .layer(RateLimitLayer::new(rate_limiter.clone()))
         .layer(middleware::from_fn(access_log::public))
-        .layer(cors::prod(&allowed_origins));
+        .layer(cors::prod(allowed_origins));
 
     // Unprotected endpoints (no Keycloak middleware)
     let router = Router::new()
@@ -110,7 +110,7 @@ pub async fn run_server(
         .with_state(app_state)
         .layer(RateLimitLayer::new(rate_limiter))
         .layer(middleware::from_fn(access_log::public))
-        .layer(cors::prod(&allowed_origins));
+        .layer(cors::prod(allowed_origins));
     let addr: SocketAddr = format!("0.0.0.0:{}", port)
         .parse()
         .expect("Invalid address");

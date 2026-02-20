@@ -27,6 +27,7 @@ pub async fn run(
     app_state: AppState,
     kc: KeycloakArgs,
     rate_limiter: RateLimiter,
+    allowed_origins: &[&str],
 ) -> Result<()> {
     dorch_common::metrics::maybe_spawn_metrics_server();
     println!("Using Keycloak endpoint: {}", kc.endpoint);
@@ -51,11 +52,13 @@ pub async fn run(
         .layer(keycloak_layer)
         .layer(RateLimitLayer::new(rate_limiter.clone()))
         .layer(middleware::from_fn(access_log::public))
+        .layer(cors::prod(allowed_origins))
         .with_state(app_state.clone());
     let ws_router = Router::new()
         .route("/ws", get(crate::ws::upgrade))
         .layer(RateLimitLayer::new(rate_limiter))
         .layer(middleware::from_fn(access_log::public))
+        .layer(cors::prod(allowed_origins))
         .with_state(app_state);
     let addr: SocketAddr = format!("0.0.0.0:{}", port)
         .parse()

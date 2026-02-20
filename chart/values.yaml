@@ -1,8 +1,9 @@
 registry: "" # same as "docker.io/"
 
 cors:
-  accessControlAllowOrigins:
-    - https://dorch.beebs.dev
+  allowedOrigins:
+    - https://gib.gg
+    - https://www.gib.gg
 
 prometheus:
   enabled: false

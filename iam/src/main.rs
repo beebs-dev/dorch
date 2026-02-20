@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use owo_colors::OwoColorize;
 use dorch_common::shutdown::shutdown_signal;
+use owo_colors::OwoColorize;
 use tokio_util::sync::CancellationToken;
 
 use crate::app::App;
@@ -35,9 +35,16 @@ async fn run_servers(args: args::ServerArgs) -> Result<()> {
     }));
     let cancel_clone = cancel.clone();
     let kc = args.kc.clone();
-    let mut pub_join = Box::pin(tokio::spawn(async move {
-        server::public::run_server(cancel_clone, args.public_port, app_state, kc).await
-    }));
+    let mut pub_join = Box::pin({
+        let allowed_origins = args.allowed_origins.clone();
+        tokio::spawn(async move {
+            let allowed_origins = allowed_origins
+                .iter()
+                .map(|origin| origin.as_str())
+                .collect::<Vec<_>>();
+            server::public::run_server(cancel_clone, args.public_port, app_state, kc, &allowed_origins).await
+        })
+    });
     tokio::select! {
         res = &mut internal_join => {
             cancel.cancel();

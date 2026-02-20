@@ -4,7 +4,9 @@ use dorch_common::{rate_limit::RateLimiter, shutdown::shutdown_signal};
 use owo_colors::OwoColorize;
 use tokio_util::sync::CancellationToken;
 
-use crate::{app::App, args::Commands, avatar::AvatarStore, db::Database, wad_upload::WadUploadStore};
+use crate::{
+    app::App, args::Commands, avatar::AvatarStore, db::Database, wad_upload::WadUploadStore,
+};
 
 pub mod app;
 pub mod args;
@@ -118,7 +120,22 @@ async fn run_servers(args: args::ServerArgs) -> Result<()> {
     let mut pub_join = Box::pin(tokio::spawn({
         let port = args.public_port;
         let cancel = cancel.clone();
-        async move { server::public::run_server(cancel, port, args.kc, app_state, rate_limiter).await }
+        let allowed_origins = args.allowed_origins.clone();
+        async move {
+            let allowed_origins = allowed_origins
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<&str>>();
+            server::public::run_server(
+                cancel,
+                port,
+                args.kc,
+                app_state,
+                rate_limiter,
+                &allowed_origins,
+            )
+            .await
+        }
     }));
     tokio::select! {
         res = &mut internal_join => {

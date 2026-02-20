@@ -19,4 +19,7 @@ pub(crate) struct Cli {
 
     #[command(flatten)]
     pub rate_limiter: RateLimiterArgs,
+
+    #[arg(long, env = "ALLOWED_ORIGINS", default_value = "https://gib.gg,https://www.gib.gg")]
+    pub allowed_origins: Vec<String>,
 }
