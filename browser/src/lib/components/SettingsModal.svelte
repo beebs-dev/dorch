@@ -1,9 +1,14 @@
 <script lang="ts">
-	import { onDestroy, tick } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import { browser } from '$app/environment';
 	import { showToast } from '$lib/stores/toast';
+	import { subscribe as authSubscribe, getAccessToken, type AuthState } from '$lib/stores/auth';
+	import type { UserProfileFull } from '$lib/types/wadinfo';
 
 	let { open, onClose }: { open: boolean; onClose: () => void } = $props();
+
+	const API_BASE_URL = 'https://api.gib.gg';
+	const DEBOUNCE_MS = 300;
 
 	const NAME_MAX_LEN = 20;
 	const LS_NAME_KEY = 'dorch.settings.name';
@@ -24,6 +29,12 @@
 	let nameError = $state<string | null>(null);
 	let configError = $state<string | null>(null);
 	let doom2Error = $state<string | null>(null);
+
+	// Auth state for syncing display name
+	let authState = $state<AuthState>({ isAuthenticated: false, userId: null, username: null, accessToken: null });
+	let userProfile = $state<UserProfileFull | null>(null);
+	let nameDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	let updatingName = $state(false);
 
 	let modalEl: HTMLDivElement | null = $state(null);
 	let nameEl: HTMLInputElement | null = $state(null);
@@ -137,6 +148,88 @@
 		name = next;
 		if (!browser) return;
 		window.localStorage.setItem(LS_NAME_KEY, name);
+
+		// If logged in, debounce update to user profile
+		if (authState.isAuthenticated && userProfile) {
+			if (nameDebounceTimer) {
+				clearTimeout(nameDebounceTimer);
+			}
+			nameDebounceTimer = setTimeout(() => {
+				updateDisplayName(next);
+			}, DEBOUNCE_MS);
+		}
+	}
+
+	async function updateDisplayName(displayName: string) {
+		if (!authState.isAuthenticated || !userProfile) return;
+		if (displayName.trim() === userProfile.display_name) return;
+
+		updatingName = true;
+		try {
+			const token = await getAccessToken();
+			if (!token) {
+				return;
+			}
+
+			const res = await fetch(`${API_BASE_URL}/user/profile/${encodeURIComponent(userProfile.id)}`, {
+				method: 'PUT',
+				headers: {
+					'content-type': 'application/json',
+					accept: 'application/json',
+					authorization: `Bearer ${token}`
+				},
+				body: JSON.stringify({ display_name: displayName.trim() })
+			});
+
+			if (!res.ok) {
+				let msg = 'Failed to update display name.';
+				try {
+					const body = await res.json();
+					if (typeof body?.error === 'string') msg = body.error;
+				} catch {
+					// ignore
+				}
+				showToast(msg);
+				return;
+			}
+
+			const updated = (await res.json()) as UserProfileFull;
+			userProfile = updated;
+		} catch (err: any) {
+			showToast(err?.message ?? 'Failed to update display name.');
+		} finally {
+			updatingName = false;
+		}
+	}
+
+	async function loadUserProfile() {
+		if (!authState.isAuthenticated || !authState.userId) return;
+
+		try {
+			const token = await getAccessToken();
+			if (!token) return;
+
+			const res = await fetch(`${API_BASE_URL}/user/profile/${encodeURIComponent(authState.userId)}`, {
+				method: 'GET',
+				headers: {
+					accept: 'application/json',
+					authorization: `Bearer ${token}`
+				}
+			});
+
+			if (!res.ok) return;
+
+			const profile = (await res.json()) as UserProfileFull;
+			userProfile = profile;
+
+			// Sync name from profile display_name
+			if (profile.display_name) {
+				name = profile.display_name;
+				window.localStorage.setItem(LS_NAME_KEY, name);
+			}
+		} catch {
+			// Ignore - user can still use local name
+		}
 	}
 
 	function persistConfig(next: string) {
@@ -284,6 +377,18 @@
 		persistDoom2Meta({ present: false });
 	}
 
+	// Subscribe to auth state changes (runs once on mount)
+	$effect(() => {
+		if (!browser) return;
+		const unsub = authSubscribe((state) => {
+			authState = state;
+			if (!state.isAuthenticated) {
+				userProfile = null;
+			}
+		});
+		return unsub;
+	});
+
 	$effect(() => {
 		if (!browser) return;
 		if (!open) return;
@@ -299,6 +404,11 @@
 		const prevOverflow = document.documentElement.style.overflow;
 		document.documentElement.style.overflow = 'hidden';
 
+		// Load user profile if authenticated (use untrack to avoid reactive dependency on authState)
+		if (untrack(() => authState.isAuthenticated)) {
+			loadUserProfile();
+		}
+
 		return () => {
 			document.removeEventListener('keydown', onDocKeydown);
 			document.documentElement.style.overflow = prevOverflow;
@@ -307,6 +417,9 @@
 
 	onDestroy(() => {
 		if (!browser) return;
+		if (nameDebounceTimer) {
+			clearTimeout(nameDebounceTimer);
+		}
 		queueMicrotask(() => lastActiveEl?.focus());
 	});
 </script>

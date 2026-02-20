@@ -8,7 +8,7 @@ prometheus:
   enabled: false
 
 ratelimiter:
-  burstLimit: 60
+  burstLimit: 80
   burstWindowMs: 5000
   longLimit: 200
   longWindowMs: 60000
