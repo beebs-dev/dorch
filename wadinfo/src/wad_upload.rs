@@ -303,7 +303,7 @@ impl WadUploadStore {
     pub async fn publish_draft(
         &self,
         upload_id: Uuid,
-        sha256: &str,
+        _sha256: &str,
         original_filename: &str,
     ) -> Result<String> {
         let draft_key = format!("{}{}", self.draft_key_prefix, upload_id);
@@ -314,7 +314,7 @@ impl WadUploadStore {
             .find(|ext| original_filename.to_lowercase().ends_with(*ext))
             .unwrap_or(&".wad");
 
-        let permanent_key = format!("{}{}{}", self.permanent_key_prefix, sha256, extension);
+        let permanent_key = format!("{}{}/{}{}", self.permanent_key_prefix, upload_id, original_filename, extension);
 
         // Copy from draft to permanent location
         let copy_source = format!("{}/{}", self.bucket, draft_key);

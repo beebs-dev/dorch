@@ -14,6 +14,9 @@ const STORAGE_KEY_USERNAME = 'dorch_username';
 const COOKIE_ACCESS_TOKEN = 'dorch_access_token';
 const COOKIE_USER_ID = 'dorch_user_id';
 
+// Mutex to prevent concurrent refresh token calls
+let refreshPromise: Promise<string | null> | null = null;
+
 function setCookie(name: string, value: string, maxAgeSeconds: number): void {
 	if (!browser) return;
 	document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
@@ -184,7 +187,7 @@ export function logout(): void {
 	clearAuth();
 }
 
-export async function refreshAccessToken(): Promise<string | null> {
+async function doRefreshAccessToken(): Promise<string | null> {
 	const storage = getStorage();
 	if (!storage) return null;
 
@@ -223,6 +226,19 @@ export async function refreshAccessToken(): Promise<string | null> {
 		clearAuth();
 		return null;
 	}
+}
+
+export async function refreshAccessToken(): Promise<string | null> {
+	// Deduplicate concurrent refresh calls - only one refresh at a time
+	if (refreshPromise) {
+		return refreshPromise;
+	}
+
+	refreshPromise = doRefreshAccessToken().finally(() => {
+		refreshPromise = null;
+	});
+
+	return refreshPromise;
 }
 
 /**

@@ -75,7 +75,10 @@
 			getAccessToken().then((token) => {
 				if (token) {
 					// Token refresh succeeded, reload the page data
-					invalidateAll();
+					invalidateAll().then(() => {
+						authChecking = false;
+						notAuthenticated = false;
+					});
 				} else {
 					// No valid token available
 					authChecking = false;
@@ -86,6 +89,8 @@
 		}
 
 		const unsubscribeAuth = authSubscribe((state) => {
+			// Don't update notAuthenticated while we're still checking for a valid refresh token
+			if (authChecking) return;
 			if (!state.isAuthenticated) {
 				notAuthenticated = true;
 			}

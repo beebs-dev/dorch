@@ -2114,6 +2114,61 @@ impl Database {
             .context("failed to execute UPSERT_WAD_STATUS")?;
         Ok(())
     }
+
+    /// Publish a WAD from draft in a single transaction:
+    /// 1. Insert into wads table (or update if sha1 already exists)
+    /// 2. Upsert wad_status with 'Pending'
+    /// 3. Delete the draft
+    /// Returns the wad_id.
+    pub async fn publish_wad_from_draft(
+        &self,
+        sha1: &str,
+        sha256: Option<&str>,
+        title: Option<&str>,
+        filename: Option<&str>,
+        file_size: Option<i64>,
+        file_url: &str,
+        draft_id: Uuid,
+        uploader_id: Uuid,
+    ) -> Result<Uuid> {
+        let mut conn = self.pool.get().await.context("failed to get connection")?;
+        let tx = conn
+            .transaction()
+            .await
+            .context("failed to begin transaction")?;
+
+        // Insert WAD
+        let insert_wad_stmt = tx
+            .prepare_cached(sql::INSERT_WAD_FROM_DRAFT)
+            .await
+            .context("failed to prepare INSERT_WAD_FROM_DRAFT")?;
+        let row = tx
+            .query_one(&insert_wad_stmt, &[&sha1, &sha256, &title, &filename, &file_size, &file_url])
+            .await
+            .context("failed to execute INSERT_WAD_FROM_DRAFT")?;
+        let wad_id: Uuid = row.try_get("wad_id")?;
+
+        // Upsert wad_status with 'Pending'
+        let upsert_status_stmt = tx
+            .prepare_cached(sql::UPSERT_WAD_STATUS)
+            .await
+            .context("failed to prepare UPSERT_WAD_STATUS")?;
+        tx.execute(&upsert_status_stmt, &[&wad_id, &"Pending"])
+            .await
+            .context("failed to execute UPSERT_WAD_STATUS")?;
+
+        // Delete the draft
+        let delete_draft_stmt = tx
+            .prepare_cached(sql::DELETE_DRAFT)
+            .await
+            .context("failed to prepare DELETE_DRAFT")?;
+        tx.execute(&delete_draft_stmt, &[&draft_id, &uploader_id])
+            .await
+            .context("failed to execute DELETE_DRAFT")?;
+
+        tx.commit().await.context("failed to commit publish_wad_from_draft transaction")?;
+        Ok(wad_id)
+    }
 }
 
 fn row_to_user_profile(row: tokio_postgres::Row) -> Result<UserProfileFull> {

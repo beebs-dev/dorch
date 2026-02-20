@@ -418,6 +418,7 @@
 					// Token refresh succeeded, reload the page data
 					invalidateAll().then(() => {
 						authChecking = false;
+						notAuthenticated = false;
 					});
 				} else {
 					// No valid token available
@@ -429,6 +430,8 @@
 		}
 
 		const unsubscribeAuth = authSubscribe((state) => {
+			// Don't update notAuthenticated while we're still checking for a valid refresh token
+			if (authChecking) return;
 			if (!state.isAuthenticated) {
 				notAuthenticated = true;
 			}

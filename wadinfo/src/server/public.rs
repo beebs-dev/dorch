@@ -432,34 +432,24 @@ pub async fn publish_draft(
         Err(e) => return response::error(e.context("Failed to move file to permanent storage")),
     };
 
-    // Insert into wads table
-    let wad_id = match state
+    // Insert WAD, upsert status, and delete draft in a single transaction
+    match state
         .db
-        .insert_wad_from_draft(
+        .publish_wad_from_draft(
             &sha1,
             Some(&sha256),
             draft.title.as_deref(),
             draft.filename.as_deref(),
             draft.file_size,
             &file_url,
+            draft_id,
+            user_id,
         )
         .await
     {
-        Ok(id) => id,
-        Err(e) => return response::error(e.context("Failed to insert WAD into database")),
-    };
-
-    // Insert wad_status with 'Pending'
-    if let Err(e) = state.db.upsert_wad_status(wad_id, "Pending").await {
-        return response::error(e.context("Failed to insert WAD status"));
-    }
-
-    // Mark draft as published in database
-    match state.db.publish_draft(draft_id, user_id, wad_id).await {
-        Ok(Some(published_draft)) => {
-            (StatusCode::OK, Json(published_draft)).into_response()
+        Ok(wad_id) => {
+            (StatusCode::OK, Json(serde_json::json!({ "wad_id": wad_id }))).into_response()
         }
-        Ok(None) => response::error(anyhow!("Failed to publish draft - validation failed")),
-        Err(e) => response::error(e.context("Failed to publish draft")),
+        Err(e) => response::error(e.context("Failed to publish WAD from draft")),
     }
 }
