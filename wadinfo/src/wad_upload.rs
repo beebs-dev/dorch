@@ -24,7 +24,7 @@ const PART_CHANNEL_SIZE: usize = 4;
 pub const MAX_WAD_UPLOAD_BYTES: usize = 1000 * 1024 * 1024;
 
 /// Supported file extensions for WAD uploads
-pub const SUPPORTED_EXTENSIONS: &[&str] = &[".wad", ".pk3", ".wad.gz", ".pk3.gz"];
+pub const SUPPORTED_EXTENSIONS: &[&str] = &[".wad", ".pk3"];
 
 #[derive(Clone)]
 pub struct WadUploadStore {
@@ -308,13 +308,7 @@ impl WadUploadStore {
     ) -> Result<String> {
         let draft_key = format!("{}{}", self.draft_key_prefix, upload_id);
         
-        // Determine file extension from original filename
-        let extension = SUPPORTED_EXTENSIONS
-            .iter()
-            .find(|ext| original_filename.to_lowercase().ends_with(*ext))
-            .unwrap_or(&".wad");
-
-        let permanent_key = format!("{}{}/{}{}", self.permanent_key_prefix, upload_id, original_filename, extension);
+        let permanent_key = format!("{}{}/{}", self.permanent_key_prefix, upload_id, original_filename);
 
         // Copy from draft to permanent location
         let copy_source = format!("{}/{}", self.bucket, draft_key);
@@ -355,14 +349,8 @@ impl WadUploadStore {
     }
 
     /// Delete a WAD file from permanent storage by sha256 and original filename.
-    pub async fn delete_permanent(&self, sha256: &str, original_filename: &str) -> Result<()> {
-        // Determine file extension from original filename
-        let extension = SUPPORTED_EXTENSIONS
-            .iter()
-            .find(|ext| original_filename.to_lowercase().ends_with(*ext))
-            .unwrap_or(&".wad");
-
-        let key = format!("{}{}{}", self.permanent_key_prefix, sha256, extension);
+    pub async fn delete_permanent(&self, wad_id: Uuid, original_filename: &str) -> Result<()> {
+        let key = format!("{}{}/{}", self.permanent_key_prefix, wad_id, original_filename);
         self.client
             .delete_object()
             .bucket(&self.bucket)

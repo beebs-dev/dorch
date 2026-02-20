@@ -384,7 +384,7 @@ pub async fn delete_wad(
             if let Some(sha256) = file_sha256 {
                 if let Err(e) = state
                     .wad_upload_store
-                    .delete_permanent(&sha256, &filename)
+                    .delete_permanent(wad_id, &filename)
                     .await
                 {
                     eprintln!("Warning: Failed to delete WAD file from storage: {}", e);
