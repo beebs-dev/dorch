@@ -114,6 +114,47 @@
 	function handleCancel() {
 		goto(`/wad/${data.wadId}`);
 	}
+
+	// Delete flow
+	let showDeleteModal = $state(false);
+	let deleting = $state(false);
+
+	async function handleDelete() {
+		const token = await getAccessToken();
+		if (!token) {
+			showToast('You must be logged in to delete a WAD');
+			return;
+		}
+
+		deleting = true;
+		try {
+			const res = await fetch(`https://api.gib.gg/wad/${data.wadId}`, {
+				method: 'DELETE',
+				headers: { 'Authorization': `Bearer ${token}` }
+			});
+
+			if (!res.ok) {
+				if (res.status === 401) {
+					showToast('Session expired. Please log in again.');
+					return;
+				}
+				if (res.status === 403 || res.status === 404) {
+					showToast('You are not authorized to delete this WAD.');
+					return;
+				}
+				throw new Error(`Failed to delete: ${res.status}`);
+			}
+
+			showToast('WAD deleted');
+			goto('/my-wads');
+		} catch (err) {
+			console.error('Failed to delete WAD:', err);
+			showToast('Failed to delete WAD. Please try again.');
+		} finally {
+			deleting = false;
+			showDeleteModal = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -224,6 +265,14 @@
 			<!-- Action Buttons -->
 			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-3">
+					<button
+						type="button"
+						onclick={() => (showDeleteModal = true)}
+						disabled={saving || deleting}
+						class="inline-flex items-center gap-2 rounded-lg bg-red-900/40 px-4 py-2 text-sm font-semibold text-red-400 ring-1 ring-red-800/50 hover:bg-red-900/60 hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+					>
+						Delete WAD
+					</button>
 					{#if hasUnsavedChanges}
 						<span class="text-sm text-yellow-400">Unsaved changes</span>
 					{/if}
@@ -257,3 +306,45 @@
 		</div>
 	{/if}
 </section>
+
+{#if showDeleteModal}
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+		<button
+			type="button"
+			class="absolute inset-0 bg-zinc-950/80"
+			onclick={() => { if (!deleting) showDeleteModal = false; }}
+			aria-label="Close dialog"
+		></button>
+		<div
+			class="relative w-full max-w-md rounded-xl bg-zinc-900 p-6 ring-1 ring-zinc-700 ring-inset"
+			role="dialog"
+			aria-modal="true"
+		>
+			<h2 class="text-lg font-semibold text-zinc-100">Are you sure?</h2>
+			<p class="mt-2 text-sm text-zinc-400">This cannot be undone.</p>
+			<div class="mt-6 flex items-center justify-end gap-3">
+				<button
+					type="button"
+					onclick={() => (showDeleteModal = false)}
+					disabled={deleting}
+					class="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					onclick={handleDelete}
+					disabled={deleting}
+					class="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+				>
+					{#if deleting}
+						<div class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-red-300 border-t-white mr-2"></div>
+						Deleting...
+					{:else}
+						Delete
+					{/if}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
