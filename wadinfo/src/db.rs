@@ -639,6 +639,7 @@ impl Database {
 
         let row_wad_id: Uuid = row.try_get("wad_id")?;
         let uploader_id: Option<Uuid> = row.try_get("uploader_id")?;
+        let description: Option<String> = row.try_get("description")?;
         let meta_json: serde_json::Value = row.try_get("meta_json")?;
         let mut meta: ReadWadMeta =
             serde_json::from_value(meta_json).context("deserialize ReadWadMeta")?;
@@ -778,7 +779,7 @@ impl Database {
             }
             maps
         };
-        Ok(Some(ReadWad { meta, maps, uploader_id }))
+        Ok(Some(ReadWad { meta, maps, uploader_id, description }))
     }
 
     pub async fn get_wad_metas(&self, wad_ids: &[Uuid]) -> Result<Vec<ReadWadMeta>> {
@@ -1971,12 +1972,13 @@ impl Database {
         rows.into_iter().map(row_to_user_wad).collect()
     }
 
-    /// Update a WAD's editable fields (title). Returns true if updated, false if not found or not owned.
+    /// Update a WAD's editable fields (title, description). Returns true if updated, false if not found or not owned.
     pub async fn update_wad(
         &self,
         wad_id: Uuid,
         uploader_id: Uuid,
         title: Option<&str>,
+        description: Option<&str>,
     ) -> Result<bool> {
         let conn = self.pool.get().await.context("failed to get connection")?;
         let stmt = conn
@@ -1984,7 +1986,7 @@ impl Database {
             .await
             .context("failed to prepare UPDATE_WAD")?;
         let row = conn
-            .query_opt(&stmt, &[&wad_id, &uploader_id, &title])
+            .query_opt(&stmt, &[&wad_id, &uploader_id, &title, &description])
             .await
             .context("failed to execute UPDATE_WAD")?;
         Ok(row.is_some())
@@ -2165,6 +2167,7 @@ impl Database {
         file_url: &str,
         draft_id: Uuid,
         uploader_id: Uuid,
+        description: Option<&str>,
     ) -> Result<Uuid> {
         let mut conn = self.pool.get().await.context("failed to get connection")?;
         let tx = conn
@@ -2172,13 +2175,13 @@ impl Database {
             .await
             .context("failed to begin transaction")?;
 
-        // Insert WAD (now includes uploader_id)
+        // Insert WAD (now includes uploader_id and description)
         let insert_wad_stmt = tx
             .prepare_cached(sql::INSERT_WAD_FROM_DRAFT)
             .await
             .context("failed to prepare INSERT_WAD_FROM_DRAFT")?;
         let row = tx
-            .query_one(&insert_wad_stmt, &[&sha1, &sha256, &title, &filename, &file_size, &file_url, &uploader_id])
+            .query_one(&insert_wad_stmt, &[&sha1, &sha256, &title, &filename, &file_size, &file_url, &uploader_id, &description])
             .await
             .context("failed to execute INSERT_WAD_FROM_DRAFT")?;
         let wad_id: Uuid = row.try_get("wad_id")?;

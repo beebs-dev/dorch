@@ -140,6 +140,9 @@ pub struct ReadWad {
     /// User who uploaded/published this WAD (None for imported WADs)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uploader_id: Option<Uuid>,
+    /// User-provided description (None for imported WADs or if not set)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -382,6 +385,8 @@ pub struct ListUserWadsResponse {
 pub struct UpdateWadRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

@@ -9,7 +9,8 @@ WITH input AS (
     $4::text AS preferred_filename,
     $5::bigint AS file_size_bytes,
     $6::text AS file_url,
-    $7::uuid AS uploader_id
+    $7::uuid AS uploader_id,
+    $8::text AS description
 )
 INSERT INTO wads (
   wad_id,
@@ -21,7 +22,8 @@ INSERT INTO wads (
   file_size_bytes,
   file_url,
   meta_json,
-  uploader_id
+  uploader_id,
+  description
 )
 SELECT
   wad_id,
@@ -45,7 +47,8 @@ SELECT
     ),
     'content', jsonb_build_object()
   ),
-  uploader_id
+  uploader_id,
+  description
 FROM input
 ON CONFLICT (sha1) DO UPDATE SET
   sha256 = COALESCE(excluded.sha256, wads.sha256),
@@ -54,5 +57,6 @@ ON CONFLICT (sha1) DO UPDATE SET
   file_size_bytes = COALESCE(excluded.file_size_bytes, wads.file_size_bytes),
   file_url = COALESCE(excluded.file_url, wads.file_url),
   uploader_id = COALESCE(excluded.uploader_id, wads.uploader_id),
+  description = COALESCE(excluded.description, wads.description),
   updated_at = now()
 RETURNING wads.wad_id;

@@ -142,6 +142,8 @@ export interface GetWadResponse {
 	maps: MapStat[];
 	/** User who uploaded/published this WAD (null for imported WADs) */
 	uploader_id?: Uuid | null;
+	/** User-provided description (null for imported WADs or if not set) */
+	description?: string | null;
 }
 
 export interface GetWadMetasRequest {
@@ -256,6 +258,7 @@ export interface UpdateDraftRequest {
 
 export interface UpdateWadRequest {
 	title?: string | null;
+	description?: string | null;
 }
 
 export interface ListDraftsResponse {

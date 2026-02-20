@@ -16,10 +16,12 @@
 
 	// Form fields
 	let title = $state(data.wad?.meta?.title ?? '');
+	let description = $state(data.wad?.description ?? '');
 
 	// Track initial state for change detection
 	let initialTitle = data.wad?.meta?.title ?? '';
-	let hasUnsavedChanges = $derived(title !== initialTitle);
+	let initialDescription = data.wad?.description ?? '';
+	let hasUnsavedChanges = $derived(title !== initialTitle || description !== initialDescription);
 
 	// Authorization check
 	const isOwner = $derived(() => {
@@ -59,7 +61,10 @@
 					'Content-Type': 'application/json',
 					'Authorization': `Bearer ${token}`
 				},
-				body: JSON.stringify({ title: title.trim() || null })
+				body: JSON.stringify({
+					title: title.trim() || null,
+					description: description.trim() || null
+				})
 			});
 
 			if (!res.ok) {
@@ -75,7 +80,8 @@
 			}
 
 			showToast('WAD updated successfully');
-			initialTitle = title; // Reset change tracking
+			initialTitle = title;
+			initialDescription = description;
 			goto(`/wad/${data.wadId}`);
 		} catch (err) {
 			console.error('Failed to save WAD:', err);
@@ -94,177 +100,129 @@
 	<title>Edit WAD - ɢɪʙ.ɢɢ</title>
 </svelte:head>
 
-<main class="edit-wad-page">
+<section class="mx-auto w-full max-w-4xl px-4 py-6">
+	<div class="flex items-center justify-between mb-8">
+		<h1 class="text-3xl font-semibold tracking-tight">Edit WAD</h1>
+		<a
+			href={resolve(`/wad/${data.wadId}`)}
+			class="text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+		>
+			← Back to WAD
+		</a>
+	</div>
+
 	{#if authChecking}
-		<div class="loading">Checking authentication...</div>
+		<div class="flex items-center justify-center py-12">
+			<div class="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-red-500"></div>
+		</div>
 	{:else if notAuthenticated}
-		<div class="auth-required">
-			<h1>Authentication Required</h1>
-			<p>You must be logged in to edit WADs.</p>
-			<a href={resolve('/account')} class="login-link">Log in</a>
+		<div class="rounded-lg bg-zinc-900/50 p-8 text-center">
+			<p class="text-zinc-400 mb-4">Please log in to edit WADs.</p>
+			<a
+				href="/#login"
+				class="inline-flex items-center gap-2 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors"
+			>
+				Log In
+			</a>
 		</div>
 	{:else if !data.wad}
-		<div class="error">WAD not found.</div>
+		<div class="rounded-lg bg-red-900/20 border border-red-900/50 p-6 text-center">
+			<p class="text-red-400">WAD not found.</p>
+			<a
+				href={resolve('/my-wads')}
+				class="mt-4 inline-block rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 transition-colors"
+			>
+				Back to My WADs
+			</a>
+		</div>
 	{:else if !isOwner()}
-		<div class="error">
-			<h1>Not Authorized</h1>
-			<p>You can only edit WADs that you uploaded.</p>
-			<a href={resolve(`/wad/${data.wadId}`)} class="back-link">Back to WAD</a>
+		<div class="rounded-lg bg-red-900/20 border border-red-900/50 p-6 text-center">
+			<p class="text-red-400 mb-2 font-semibold">Not Authorized</p>
+			<p class="text-zinc-400 mb-4">You can only edit WADs that you uploaded.</p>
+			<a
+				href={resolve(`/wad/${data.wadId}`)}
+				class="inline-block rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 transition-colors"
+			>
+				Back to WAD
+			</a>
 		</div>
 	{:else}
-		<div class="edit-form-container">
-			<h1>Edit WAD</h1>
-			<p class="wad-info">
-				Editing: <strong>{wadLabel(data.wad.meta)}</strong>
-			</p>
+		<div class="space-y-6">
+			<!-- WAD Info -->
+			<div class="rounded-lg bg-zinc-900/60 ring-1 ring-zinc-800 p-6">
+				<div class="flex items-center gap-3">
+					<svg class="h-8 w-8 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+					</svg>
+					<div>
+						<p class="font-medium text-zinc-100">{wadLabel(data.wad.meta)}</p>
+						<p class="text-sm text-zinc-400">Published WAD • File cannot be changed</p>
+					</div>
+				</div>
+			</div>
 
-			<form onsubmit={(e) => { e.preventDefault(); handleSave(); }}>
-				<div class="form-group">
-					<label for="title">Title</label>
-					<input
-						type="text"
-						id="title"
-						bind:value={title}
-						placeholder="Enter WAD title"
-						maxlength="255"
-					/>
-					<p class="help-text">The display title for this WAD. Leave empty to use the filename.</p>
+			<!-- Edit Details Section -->
+			<div class="rounded-lg bg-zinc-900/60 ring-1 ring-zinc-800 p-6">
+				<h2 class="text-lg font-semibold mb-4">Details</h2>
+
+				<div class="space-y-4">
+					<div>
+						<label for="title" class="block text-sm font-medium text-zinc-300 mb-1">Title</label>
+						<input
+							id="title"
+							type="text"
+							bind:value={title}
+							placeholder="My Awesome WAD"
+							class="w-full rounded-lg bg-zinc-800 px-4 py-2 text-zinc-100 ring-1 ring-zinc-700 placeholder:text-zinc-500 focus:ring-2 focus:ring-red-500 focus:outline-none"
+						/>
+					</div>
+
+					<div>
+						<label for="description" class="block text-sm font-medium text-zinc-300 mb-1">Description</label>
+						<textarea
+							id="description"
+							bind:value={description}
+							rows="4"
+							placeholder="Describe your WAD..."
+							class="w-full rounded-lg bg-zinc-800 px-4 py-2 text-zinc-100 ring-1 ring-zinc-700 placeholder:text-zinc-500 focus:ring-2 focus:ring-red-500 focus:outline-none resize-none"
+						></textarea>
+					</div>
+				</div>
+			</div>
+
+			<!-- Action Buttons -->
+			<div class="flex items-center justify-between">
+				<div class="flex items-center gap-3">
+					{#if hasUnsavedChanges}
+						<span class="text-sm text-yellow-400">Unsaved changes</span>
+					{/if}
 				</div>
 
-				<div class="form-actions">
-					<button type="button" class="cancel-btn" onclick={handleCancel} disabled={saving}>
+				<div class="flex items-center gap-3">
+					<button
+						type="button"
+						onclick={handleCancel}
+						disabled={saving}
+						class="inline-flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+					>
 						Cancel
 					</button>
-					<button type="submit" class="save-btn" disabled={saving || !hasUnsavedChanges}>
+
+					<button
+						type="button"
+						onclick={handleSave}
+						disabled={!hasUnsavedChanges || saving}
+						class="inline-flex items-center gap-2 rounded-lg bg-red-700 px-6 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+					>
 						{#if saving}
+							<div class="h-4 w-4 animate-spin rounded-full border-2 border-red-300 border-t-white"></div>
 							Saving...
 						{:else}
 							Save Changes
 						{/if}
 					</button>
 				</div>
-			</form>
+			</div>
 		</div>
 	{/if}
-</main>
-
-<style>
-	.edit-wad-page {
-		max-width: 800px;
-		margin: 0 auto;
-		padding: 2rem;
-	}
-
-	.loading,
-	.auth-required,
-	.error {
-		text-align: center;
-		padding: 3rem;
-	}
-
-	.auth-required h1,
-	.error h1 {
-		margin-bottom: 1rem;
-	}
-
-	.login-link,
-	.back-link {
-		display: inline-block;
-		margin-top: 1rem;
-		padding: 0.75rem 1.5rem;
-		background: var(--color-accent, #0066cc);
-		color: white;
-		border-radius: 6px;
-		text-decoration: none;
-	}
-
-	.login-link:hover,
-	.back-link:hover {
-		background: var(--color-accent-hover, #0052a3);
-	}
-
-	.edit-form-container h1 {
-		margin-bottom: 0.5rem;
-	}
-
-	.wad-info {
-		color: var(--color-text-secondary, #666);
-		margin-bottom: 2rem;
-	}
-
-	.form-group {
-		margin-bottom: 1.5rem;
-	}
-
-	.form-group label {
-		display: block;
-		margin-bottom: 0.5rem;
-		font-weight: 500;
-	}
-
-	.form-group input {
-		width: 100%;
-		padding: 0.75rem;
-		font-size: 1rem;
-		border: 1px solid var(--color-border, #ccc);
-		border-radius: 6px;
-		background: var(--color-input-bg, #fff);
-		color: var(--color-text, #333);
-	}
-
-	.form-group input:focus {
-		outline: none;
-		border-color: var(--color-accent, #0066cc);
-		box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
-	}
-
-	.help-text {
-		margin-top: 0.5rem;
-		font-size: 0.875rem;
-		color: var(--color-text-secondary, #666);
-	}
-
-	.form-actions {
-		display: flex;
-		gap: 1rem;
-		justify-content: flex-end;
-		margin-top: 2rem;
-		padding-top: 1.5rem;
-		border-top: 1px solid var(--color-border, #eee);
-	}
-
-	.cancel-btn,
-	.save-btn {
-		padding: 0.75rem 1.5rem;
-		font-size: 1rem;
-		border-radius: 6px;
-		cursor: pointer;
-		transition: background-color 0.2s;
-	}
-
-	.cancel-btn {
-		background: var(--color-bg-secondary, #f0f0f0);
-		color: var(--color-text, #333);
-		border: 1px solid var(--color-border, #ccc);
-	}
-
-	.cancel-btn:hover:not(:disabled) {
-		background: var(--color-bg-tertiary, #e0e0e0);
-	}
-
-	.save-btn {
-		background: var(--color-accent, #0066cc);
-		color: white;
-		border: none;
-	}
-
-	.save-btn:hover:not(:disabled) {
-		background: var(--color-accent-hover, #0052a3);
-	}
-
-	.save-btn:disabled,
-	.cancel-btn:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
-	}
-</style>
+</section>

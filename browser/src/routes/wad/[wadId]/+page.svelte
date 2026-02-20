@@ -432,6 +432,13 @@
 					</dl>
 				</div>
 
+				{#if data.wad.description}
+					<div class="shrink-0 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
+						<h2 class="text-sm font-semibold text-zinc-200">Description</h2>
+						<p class="mt-3 text-sm leading-relaxed text-zinc-300 whitespace-pre-wrap">{data.wad.description}</p>
+					</div>
+				{/if}
+
 				<div class="flex min-h-0 flex-1 flex-col rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
 					<h2 class="text-sm font-semibold text-zinc-200">Guesses</h2>
 					<div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">

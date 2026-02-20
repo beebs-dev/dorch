@@ -2,6 +2,7 @@
 UPDATE wads
 SET 
   title = COALESCE($3, title),
+  description = COALESCE($4, description),
   meta_json = jsonb_set(
     meta_json,
     '{title}',
