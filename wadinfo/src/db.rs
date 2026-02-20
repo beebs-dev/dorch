@@ -2157,8 +2157,9 @@ impl Database {
 
     /// Publish a WAD from draft in a single transaction:
     /// 1. Insert into wads table (or update if sha1 already exists)
-    /// 2. Upsert wad_status with 'Pending'
-    /// 3. Delete the draft
+    /// 2. Insert authors into wad_authors table
+    /// 3. Upsert wad_status with 'Pending'
+    /// 4. Delete the draft
     /// Returns the wad_id.
     pub async fn publish_wad_from_draft(
         &self,
@@ -2171,6 +2172,7 @@ impl Database {
         draft_id: Uuid,
         uploader_id: Uuid,
         description: Option<&str>,
+        author: Option<&str>,
     ) -> Result<Uuid> {
         let mut conn = self.pool.get().await.context("failed to get connection")?;
         let tx = conn
@@ -2188,6 +2190,19 @@ impl Database {
             .await
             .context("failed to execute INSERT_WAD_FROM_DRAFT")?;
         let wad_id: Uuid = row.try_get("wad_id")?;
+
+        // Insert authors from comma-separated string
+        if let Some(author_str) = author {
+            let insert_author_stmt = tx
+                .prepare_cached(sql::INSERT_WAD_AUTHOR)
+                .await
+                .context("failed to prepare INSERT_WAD_AUTHOR")?;
+            for (ord, author_name) in author_str.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).enumerate() {
+                tx.execute(&insert_author_stmt, &[&wad_id, &author_name, &(ord as i32)])
+                    .await
+                    .context("failed to insert author")?;
+            }
+        }
 
         // Upsert wad_status with 'Pending'
         let upsert_status_stmt = tx

@@ -470,6 +470,7 @@ pub async fn publish_draft(
             draft_id,
             user_id,
             draft.description.as_deref(),
+            draft.author.as_deref(),
         )
         .await
     {
