@@ -44,8 +44,10 @@
 
 	// Track unsaved changes
 	let hasUnsavedChanges = $state(false);
-	let initialState = $state<{ title: string; author: string; description: string; aiEnabled: boolean } | null>(
-		data.draft ? { title: data.draft.title ?? '', author: data.draft.author ?? '', description: data.draft.description ?? '', aiEnabled: data.draft.ai_enabled } : null
+	let initialState = $state<{ title: string; author: string; description: string; aiEnabled: boolean }>(
+		data.draft
+			? { title: data.draft.title ?? '', author: data.draft.author ?? '', description: data.draft.description ?? '', aiEnabled: data.draft.ai_enabled }
+			: { title: '', author: '', description: '', aiEnabled: true }
 	);
 
 	// Debounce timer for auto-save (plain variable to avoid reactivity)
@@ -53,17 +55,18 @@
 	// Snapshot of last saved values (non-reactive to prevent effect loops)
 	let lastSavedState = data.draft
 		? { title: data.draft.title ?? '', author: data.draft.author ?? '', description: data.draft.description ?? '', aiEnabled: data.draft.ai_enabled }
-		: null;
+		: { title: '', author: '', description: '', aiEnabled: true };
+
+	// Flag to prevent concurrent draft creation
+	let creatingDraft = false;
 
 	// Compute unsaved changes by comparing current state to initial
 	$effect(() => {
-		if (initialState) {
-			hasUnsavedChanges =
-				title !== initialState.title ||
-				author !== initialState.author ||
-				description !== initialState.description ||
-				aiEnabled !== initialState.aiEnabled;
-		}
+		hasUnsavedChanges =
+			title !== initialState.title ||
+			author !== initialState.author ||
+			description !== initialState.description ||
+			aiEnabled !== initialState.aiEnabled;
 	});
 
 	// Auto-save with 300ms debounce when fields change
@@ -74,8 +77,8 @@
 		const _description = description;
 		const _aiEnabled = aiEnabled;
 		
-		// Only proceed if we have a draft and initial state (not first render)
-		if (!draft || !lastSavedState) return;
+		// Only proceed if we have saved state to compare against
+		if (!lastSavedState) return;
 		
 		// Check if there are actual changes compared to last save
 		const changed =
@@ -142,9 +145,44 @@
 		return token;
 	}
 
+	/** Lazily create a draft on first interaction. Returns true if draft is available. */
+	async function ensureDraft(): Promise<boolean> {
+		if (draft) return true;
+		if (creatingDraft) return false;
+
+		const token = await getValidAccessToken();
+		if (!token) return false;
+
+		creatingDraft = true;
+		try {
+			const res = await fetch(`${apiBaseUrl}/draft/resume`, {
+				headers: {
+					authorization: `Bearer ${token}`,
+					accept: 'application/json'
+				}
+			});
+			if (!res.ok) {
+				throw new Error(`Failed to create draft: ${res.status}`);
+			}
+			const newDraft: WadDraft = await res.json();
+			draft = newDraft;
+			return true;
+		} catch (e) {
+			showToast('Failed to create draft');
+			return false;
+		} finally {
+			creatingDraft = false;
+		}
+	}
+
 	async function saveDraft() {
-		if (!draft) return;
 		if (saving) return;
+
+		// Don't save if no fields have been edited and no file has been uploaded
+		if (!hasUnsavedChanges && !uploadedFile) return;
+
+		// Lazily create a draft on first save
+		if (!(await ensureDraft())) return;
 
 		const token = await getValidAccessToken();
 		if (!token) return;
@@ -252,7 +290,8 @@
 	}
 
 	async function uploadFile(file: File) {
-		if (!draft) return;
+		// Lazily create a draft on first upload
+		if (!(await ensureDraft())) return;
 
 		const token = await getValidAccessToken();
 		if (!token) return;
@@ -400,7 +439,7 @@
 			}
 
 			showToast('WAD published successfully!');
-			await goto(resolve('/my-wads'));
+			await goto(resolve('/my-wads'), { invalidateAll: true });
 		} catch (e) {
 			const message = e instanceof Error ? e.message : 'Publish failed';
 			showToast(message);
@@ -502,7 +541,7 @@
 				Retry
 			</a>
 		</div>
-	{:else if draft}
+	{:else}
 		<div class="space-y-6">
 			<!-- File Upload Section -->
 			<div class="rounded-lg bg-zinc-900/60 ring-1 ring-zinc-800 p-6">

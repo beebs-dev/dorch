@@ -18,13 +18,14 @@ export const load: PageServerLoad = async ({ cookies, fetch, request, url }) => 
 	try {
 		const wadinfo = createWadinfoClient(fetch, { forwardedFor, bearerToken: accessToken });
 
-		let draft: WadDraft;
+		let draft: WadDraft | null = null;
 		if (draftId) {
 			// Load specific draft
 			draft = await wadinfo.getDraft(draftId);
 		} else {
-			// Resume existing unpublished or create new
-			draft = await wadinfo.resumeOrCreateDraft();
+			// Resume an existing unpublished draft if one exists (don't create a new one)
+			const draftsResp = await wadinfo.listDrafts();
+			draft = draftsResp.items.find((d) => d.status === 'draft') ?? null;
 		}
 
 		return {
