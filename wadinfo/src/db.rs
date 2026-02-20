@@ -2,7 +2,7 @@ use crate::client::{
     AbridgedMapAnalysis, AbridgedWadAnalysis, FeaturedViewResponse, FeaturedWadViewItem,
     GetWadMapResponse, ListWadsResponse, MapAnalysis, MapReference, MapThumbnail, ReadMapStat,
     PutUserProfileRequest, ReadWad, ReadWadMetaWithTextFiles, ResolvedWadURL, UpdateDraftRequest,
-    UserProfileFull, WadAnalysis, WadDraft, WadImage, WadSearchResults,
+    UserProfileFull, UserWad, WadAnalysis, WadDraft, WadImage, WadSearchResults,
 };
 use anyhow::{Context, Result, anyhow};
 use dorch_common::{
@@ -133,6 +133,7 @@ mod sql {
     pub const GET_UNPUBLISHED_DRAFT: &str = include_str!("sql/get_unpublished_draft.sql");
     pub const INSERT_WAD_FROM_DRAFT: &str = include_str!("sql/insert_wad_from_draft.sql");
     pub const UPSERT_WAD_STATUS: &str = include_str!("sql/upsert_wad_status.sql");
+    pub const LIST_USER_WADS: &str = include_str!("sql/list_user_wads.sql");
 }
 
 #[derive(Clone)]
@@ -1955,6 +1956,19 @@ impl Database {
         rows.into_iter().map(row_to_draft).collect()
     }
 
+    pub async fn list_user_wads(&self, uploader_id: Uuid) -> Result<Vec<UserWad>> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::LIST_USER_WADS)
+            .await
+            .context("failed to prepare LIST_USER_WADS")?;
+        let rows = conn
+            .query(&stmt, &[&uploader_id])
+            .await
+            .context("failed to execute LIST_USER_WADS")?;
+        rows.into_iter().map(row_to_user_wad).collect()
+    }
+
     pub async fn get_draft(&self, draft_id: Uuid) -> Result<Option<WadDraft>> {
         let conn = self.pool.get().await.context("failed to get connection")?;
         let stmt = conn
@@ -2137,13 +2151,13 @@ impl Database {
             .await
             .context("failed to begin transaction")?;
 
-        // Insert WAD
+        // Insert WAD (now includes uploader_id)
         let insert_wad_stmt = tx
             .prepare_cached(sql::INSERT_WAD_FROM_DRAFT)
             .await
             .context("failed to prepare INSERT_WAD_FROM_DRAFT")?;
         let row = tx
-            .query_one(&insert_wad_stmt, &[&sha1, &sha256, &title, &filename, &file_size, &file_url])
+            .query_one(&insert_wad_stmt, &[&sha1, &sha256, &title, &filename, &file_size, &file_url, &uploader_id])
             .await
             .context("failed to execute INSERT_WAD_FROM_DRAFT")?;
         let wad_id: Uuid = row.try_get("wad_id")?;
@@ -2200,6 +2214,19 @@ fn row_to_draft(row: tokio_postgres::Row) -> Result<WadDraft> {
         filename: row.try_get("filename")?,
         file_sha1: row.try_get("file_sha1")?,
         wad_id: row.try_get("wad_id")?,
+    })
+}
+
+fn row_to_user_wad(row: tokio_postgres::Row) -> Result<UserWad> {
+    Ok(UserWad {
+        wad_id: row.try_get("wad_id")?,
+        sha1: row.try_get("sha1")?,
+        title: row.try_get("title")?,
+        preferred_filename: row.try_get("preferred_filename")?,
+        file_size_bytes: row.try_get("file_size_bytes")?,
+        file_url: row.try_get("file_url")?,
+        created_at: row.try_get("created_at")?,
+        updated_at: row.try_get("updated_at")?,
     })
 }
 

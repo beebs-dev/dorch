@@ -46,7 +46,10 @@ create table if not exists wads (
   meta_json           jsonb not null,
 
   created_at          timestamptz not null default now(),
-  updated_at          timestamptz not null default now()
+  updated_at          timestamptz not null default now(),
+
+  -- user who uploaded/published this WAD (NULL for imported WADs)
+  uploader_id         uuid references user_profile(id) on delete set null
 );
 
 -- Backfill-friendly: add new columns for existing deployments.
@@ -56,6 +59,7 @@ create table if not exists wads (
 --alter table wads add column if not exists can_download boolean not null default true;
 --alter table wads add column if not exists adult boolean not null default false;
 --alter table wads add column if not exists hidden boolean not null default false;
+--alter table wads add column if not exists uploader_id uuid references user_profile(id) on delete set null;
 
 create index if not exists idx_wads_title_trgm
   on wads using gin (title gin_trgm_ops);
@@ -68,6 +72,10 @@ create index if not exists idx_wads_hidden
 
 create index if not exists idx_wads_can_download
   on wads (can_download);
+
+-- Index for looking up user's published WADs
+create index if not exists idx_wads_uploader_id
+  on wads (uploader_id) where uploader_id is not null;
 
 -- Common eligibility filter (e.g. featured sampling queries)
 create index if not exists idx_wads_hidden_can_download_wad_id

@@ -256,6 +256,22 @@ export interface ListDraftsResponse {
 	items: WadDraft[];
 }
 
+/** A WAD owned by a user (published) */
+export interface UserWad {
+	wad_id: Uuid;
+	sha1: string;
+	title?: string | null;
+	preferred_filename?: string | null;
+	file_size_bytes?: number | null;
+	file_url?: string | null;
+	created_at: number;
+	updated_at: number;
+}
+
+export interface ListUserWadsResponse {
+	items: UserWad[];
+}
+
 export interface UploadResponse {
 	hash: string;
 	sha1: string;

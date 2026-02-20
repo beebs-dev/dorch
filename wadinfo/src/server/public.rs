@@ -2,7 +2,7 @@ use crate::{
     app::App,
     avatar::MAX_AVATAR_UPLOAD_BYTES,
     client::{
-        ListDraftsResponse, PutUserProfileRequest, ResolveWadURLsRequest, ResolveWadURLsResponse,
+        ListDraftsResponse, ListUserWadsResponse, PutUserProfileRequest, ResolveWadURLsRequest, ResolveWadURLsResponse,
         UpdateDraftRequest, UploadResponse,
     },
     server::internal,
@@ -92,6 +92,8 @@ pub async fn run_server(
             get(get_draft).put(update_draft).delete(delete_draft),
         )
         .route("/draft/{draft_id}/publish", post(publish_draft))
+        // User's published WADs
+        .route("/my-wads", get(list_user_wads))
         .with_state(app_state.clone())
         .layer(keycloak_layer)
         .layer(RateLimitLayer::new(rate_limiter.clone()))
@@ -279,6 +281,16 @@ pub async fn list_drafts(
     match state.db.list_drafts(user_id).await {
         Ok(items) => (StatusCode::OK, Json(ListDraftsResponse { items })).into_response(),
         Err(e) => response::error(e.context("Failed to list drafts")),
+    }
+}
+
+pub async fn list_user_wads(
+    State(state): State<App>,
+    UserId(user_id): UserId,
+) -> impl IntoResponse {
+    match state.db.list_user_wads(user_id).await {
+        Ok(items) => (StatusCode::OK, Json(ListUserWadsResponse { items })).into_response(),
+        Err(e) => response::error(e.context("Failed to list user WADs")),
     }
 }
 

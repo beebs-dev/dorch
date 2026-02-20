@@ -353,6 +353,28 @@ pub struct ListDraftsResponse {
     pub items: Vec<WadDraft>,
 }
 
+/// A WAD owned by a user (published)
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct UserWad {
+    pub wad_id: Uuid,
+    pub sha1: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preferred_filename: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_size_bytes: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_url: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ListUserWadsResponse {
+    pub items: Vec<UserWad>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct UploadResponse {
     pub hash: String,

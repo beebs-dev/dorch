@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { getAccessToken, subscribe as authSubscribe } from '$lib/stores/auth';
 	import { showToast } from '$lib/stores/toast';
-	import type { WadDraft } from '$lib/types/wadinfo';
+	import type { WadDraft, UserWad } from '$lib/types/wadinfo';
 	import { humanBytes } from '$lib/utils/format';
 	import { onMount } from 'svelte';
 
@@ -12,6 +12,7 @@
 	let { data } = $props();
 
 	let drafts = $state<WadDraft[]>(data.drafts);
+	let publishedWads = $state<UserWad[]>(data.publishedWads);
 	let error = $state<string | null>(data.loadError ?? null);
 	let notAuthenticated = $state(data.notAuthenticated);
 	let deleting = $state(false);
@@ -20,6 +21,7 @@
 	// Sync with SSR data changes (e.g., after invalidateAll)
 	$effect(() => {
 		drafts = data.drafts;
+		publishedWads = data.publishedWads;
 		error = data.loadError ?? null;
 		notAuthenticated = data.notAuthenticated;
 		// If we successfully loaded data, we're no longer checking
@@ -111,9 +113,8 @@
 		});
 	}
 
-	// Separate drafts and published WADs
+	// Filter drafts to only show actual drafts (not published ones that might still be in the drafts table)
 	const draftItems = $derived(drafts.filter((d) => d.status === 'draft'));
-	const publishedItems = $derived(drafts.filter((d) => d.status === 'published'));
 </script>
 
 <svelte:head>
@@ -159,7 +160,7 @@
 				Retry
 			</button>
 		</div>
-	{:else if drafts.length === 0}
+	{:else if drafts.length === 0 && publishedWads.length === 0}
 		<div class="rounded-lg bg-zinc-900/50 p-8 text-center">
 			<p class="text-zinc-400 mb-4">You haven't uploaded any WADs yet.</p>
 			<a
@@ -214,25 +215,22 @@
 			</section>
 		{/if}
 
-		{#if publishedItems.length > 0}
+		{#if publishedWads.length > 0}
 			<section>
 				<h2 class="text-xl font-semibold mb-4 text-zinc-300">Published WADs</h2>
 				<div class="space-y-3">
-					{#each publishedItems as wad (wad.draft_id)}
+					{#each publishedWads as wad (wad.wad_id)}
 						<a
-							href={wad.wad_id ? resolve(`/wad/${wad.wad_id}`) : '#'}
+							href={resolve(`/wad/${wad.wad_id}`)}
 							class="flex items-center justify-between rounded-lg bg-zinc-900/60 ring-1 ring-zinc-800 p-4 hover:bg-zinc-800/60 transition-colors cursor-pointer"
 						>
 							<div class="flex-1 min-w-0">
 								<h3 class="font-medium text-zinc-100 truncate">
-									{wad.title || 'Untitled WAD'}
+									{wad.title || wad.preferred_filename || 'Untitled WAD'}
 								</h3>
 								<div class="flex items-center gap-4 mt-1 text-sm text-zinc-400">
-									{#if wad.author}
-										<span>by {wad.author}</span>
-									{/if}
-									{#if wad.file_size}
-										<span>{humanBytes(wad.file_size)}</span>
+									{#if wad.file_size_bytes}
+										<span>{humanBytes(wad.file_size_bytes)}</span>
 									{/if}
 									<span>Published {formatDate(wad.updated_at)}</span>
 								</div>
@@ -241,13 +239,6 @@
 								<span class="px-2 py-1 rounded text-xs font-medium bg-green-900/50 text-green-300">
 									Published
 								</span>
-								<button
-									type="button"
-									onclick={(e) => { e.preventDefault(); e.stopPropagation(); goto(resolve(`/upload?draft=${wad.draft_id}`)); }}
-									class="inline-flex items-center gap-1 rounded-lg bg-zinc-800 px-3 py-1.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 transition-colors"
-								>
-									Manage
-								</button>
 							</div>
 						</a>
 					{/each}

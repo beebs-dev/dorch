@@ -5,6 +5,7 @@ import type {
 	GetWadMetasResponse,
 	FeaturedViewResponse,
 	ListWadsResponse,
+	ListUserWadsResponse,
 	MapReference,
 	MapThumbnail,
 	ResolveMapThumbnailsResponse,
@@ -356,6 +357,14 @@ export function createWadinfoClient(
 
 		async listDrafts(): Promise<ListDraftsResponse> {
 			return requestJson<ListDraftsResponse>(fetchFn, '/draft', undefined, {
+				public: true,
+				forwardedFor,
+				bearerToken
+			});
+		},
+
+		async listUserWads(): Promise<ListUserWadsResponse> {
+			return requestJson<ListUserWadsResponse>(fetchFn, '/my-wads', undefined, {
 				public: true,
 				forwardedFor,
 				bearerToken
