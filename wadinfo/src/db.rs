@@ -1972,21 +1972,24 @@ impl Database {
         rows.into_iter().map(row_to_user_wad).collect()
     }
 
-    /// Update a WAD's editable fields (title, description). Returns true if updated, false if not found or not owned.
+    /// Update a WAD's editable fields (title, description, authors). Returns true if updated, false if not found or not owned.
     pub async fn update_wad(
         &self,
         wad_id: Uuid,
         uploader_id: Uuid,
         title: Option<&str>,
         description: Option<&str>,
+        authors: Option<&[String]>,
     ) -> Result<bool> {
+        let authors_json: Option<serde_json::Value> =
+            authors.map(|a| serde_json::to_value(a).unwrap_or_default());
         let conn = self.pool.get().await.context("failed to get connection")?;
         let stmt = conn
             .prepare_cached(sql::UPDATE_WAD)
             .await
             .context("failed to prepare UPDATE_WAD")?;
         let row = conn
-            .query_opt(&stmt, &[&wad_id, &uploader_id, &title, &description])
+            .query_opt(&stmt, &[&wad_id, &uploader_id, &title, &description, &authors_json])
             .await
             .context("failed to execute UPDATE_WAD")?;
         Ok(row.is_some())

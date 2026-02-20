@@ -403,7 +403,7 @@ pub async fn update_wad(
     Path(wad_id): Path<Uuid>,
     Json(request): Json<UpdateWadRequest>,
 ) -> impl IntoResponse {
-    match state.db.update_wad(wad_id, user_id, request.title.as_deref(), request.description.as_deref()).await {
+    match state.db.update_wad(wad_id, user_id, request.title.as_deref(), request.description.as_deref(), request.authors.as_deref()).await {
         Ok(true) => StatusCode::NO_CONTENT.into_response(),
         Ok(false) => response::not_found(anyhow!("WAD not found or not authorized")),
         Err(e) => response::error(e.context("Failed to update WAD")),

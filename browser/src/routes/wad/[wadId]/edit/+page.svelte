@@ -17,11 +17,27 @@
 	// Form fields
 	let title = $state(data.wad?.meta?.title ?? '');
 	let description = $state(data.wad?.description ?? '');
+	let authors = $state((data.wad?.meta?.authors ?? []).join(', '));
 
 	// Track initial state for change detection
-	let initialTitle = data.wad?.meta?.title ?? '';
-	let initialDescription = data.wad?.description ?? '';
-	let hasUnsavedChanges = $derived(title !== initialTitle || description !== initialDescription);
+	let initialTitle = $state(data.wad?.meta?.title ?? '');
+	let initialDescription = $state(data.wad?.description ?? '');
+	let initialAuthors = $state((data.wad?.meta?.authors ?? []).join(', '));
+	let hasUnsavedChanges = $derived(title !== initialTitle || description !== initialDescription || authors !== initialAuthors);
+
+	// Re-sync form fields when data changes (e.g. after auth-triggered reload)
+	$effect(() => {
+		const wad = data.wad;
+		const t = wad?.meta?.title ?? '';
+		const d = wad?.description ?? '';
+		const a = (wad?.meta?.authors ?? []).join(', ');
+		title = t;
+		description = d;
+		authors = a;
+		initialTitle = t;
+		initialDescription = d;
+		initialAuthors = a;
+	});
 
 	// Authorization check
 	const isOwner = $derived(() => {
@@ -47,7 +63,7 @@
 	});
 
 	async function handleSave() {
-		const token = getAccessToken();
+		const token = await getAccessToken();
 		if (!token) {
 			showToast('You must be logged in to save changes');
 			return;
@@ -63,7 +79,10 @@
 				},
 				body: JSON.stringify({
 					title: title.trim() || null,
-					description: description.trim() || null
+					description: description.trim() || null,
+					authors: authors.trim()
+						? authors.split(',').map((a: string) => a.trim()).filter((a: string) => a.length > 0)
+						: null
 				})
 			});
 
@@ -82,6 +101,7 @@
 			showToast('WAD updated successfully');
 			initialTitle = title;
 			initialDescription = description;
+			initialAuthors = authors;
 			goto(`/wad/${data.wadId}`);
 		} catch (err) {
 			console.error('Failed to save WAD:', err);
@@ -173,6 +193,17 @@
 							type="text"
 							bind:value={title}
 							placeholder="My Awesome WAD"
+							class="w-full rounded-lg bg-zinc-800 px-4 py-2 text-zinc-100 ring-1 ring-zinc-700 placeholder:text-zinc-500 focus:ring-2 focus:ring-red-500 focus:outline-none"
+						/>
+					</div>
+
+					<div>
+						<label for="authors" class="block text-sm font-medium text-zinc-300 mb-1">Authors <span class="text-xs text-zinc-500 font-normal">(comma-separated list of authors)</span></label>
+						<input
+							id="authors"
+							type="text"
+							bind:value={authors}
+							placeholder="Author1, Author2"
 							class="w-full rounded-lg bg-zinc-800 px-4 py-2 text-zinc-100 ring-1 ring-zinc-700 placeholder:text-zinc-500 focus:ring-2 focus:ring-red-500 focus:outline-none"
 						/>
 					</div>

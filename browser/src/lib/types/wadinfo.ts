@@ -259,6 +259,7 @@ export interface UpdateDraftRequest {
 export interface UpdateWadRequest {
 	title?: string | null;
 	description?: string | null;
+	authors?: string[] | null;
 }
 
 export interface ListDraftsResponse {

@@ -607,7 +607,7 @@
 					</div>
 
 					<div>
-						<label for="author" class="block text-sm font-medium text-zinc-300 mb-1">Author</label>
+						<label for="author" class="block text-sm font-medium text-zinc-300 mb-1">Authors <span class="text-xs text-zinc-500 font-normal">(comma-separated list of authors)</span></label>
 						<input
 							id="author"
 							type="text"
