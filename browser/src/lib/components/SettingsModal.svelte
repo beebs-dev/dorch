@@ -444,7 +444,6 @@
 			<div class="flex items-center justify-between border-b border-zinc-800/80 px-5 py-4">
 				<div>
 					<h2 class="text-base font-semibold tracking-wide text-zinc-100">Game Settings</h2>
-					<p class="mt-1 text-xs text-zinc-400">Local, browser-only configuration. No account required.</p>
 				</div>
 				<button
 					type="button"
@@ -459,8 +458,8 @@
 			<div class="px-5 py-4">
 				<div class="grid gap-6">
 					<section>
-						<h3 class="text-xs font-semibold tracking-wide text-zinc-300">Name</h3>
-						<p class="mt-1 text-xs text-zinc-500">Your display name. Max {NAME_MAX_LEN} characters.</p>
+						<h3 class="text-xs font-semibold tracking-wide text-zinc-300">Display Name</h3>
+						<p class="mt-1 text-xs text-zinc-500">Your in-game display name. Max {NAME_MAX_LEN} characters.</p>
 						<input
 							bind:this={nameEl}
 							value={name}
