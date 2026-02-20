@@ -10,7 +10,8 @@ WITH input AS (
     $5::bigint AS file_size_bytes,
     $6::text AS file_url,
     $7::uuid AS uploader_id,
-    $8::text AS description
+    $8::text AS description,
+    $9::text AS authors_csv
 )
 INSERT INTO wads (
   wad_id,
@@ -40,6 +41,11 @@ SELECT
     'sha256', sha256,
     'title', title,
     'filename', preferred_filename,
+    'authors', CASE
+      WHEN authors_csv IS NOT NULL AND authors_csv != '' THEN
+        (SELECT jsonb_agg(trim(a)) FROM unnest(string_to_array(authors_csv, ',')) AS a WHERE trim(a) != '')
+      ELSE '[]'::jsonb
+    END,
     'file', jsonb_build_object(
       'type', 'PWAD',
       'size', file_size_bytes,
@@ -58,5 +64,13 @@ ON CONFLICT (sha1) DO UPDATE SET
   file_url = COALESCE(excluded.file_url, wads.file_url),
   uploader_id = COALESCE(excluded.uploader_id, wads.uploader_id),
   description = COALESCE(excluded.description, wads.description),
+  meta_json = jsonb_set(
+    wads.meta_json,
+    '{authors}',
+    CASE
+      WHEN excluded.meta_json->'authors' IS NOT NULL AND excluded.meta_json->'authors' != '[]'::jsonb THEN excluded.meta_json->'authors'
+      ELSE COALESCE(wads.meta_json->'authors', '[]'::jsonb)
+    END
+  ),
   updated_at = now()
 RETURNING wads.wad_id;

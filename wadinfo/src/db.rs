@@ -2180,13 +2180,13 @@ impl Database {
             .await
             .context("failed to begin transaction")?;
 
-        // Insert WAD (now includes uploader_id and description)
+        // Insert WAD (now includes uploader_id, description, and authors)
         let insert_wad_stmt = tx
             .prepare_cached(sql::INSERT_WAD_FROM_DRAFT)
             .await
             .context("failed to prepare INSERT_WAD_FROM_DRAFT")?;
         let row = tx
-            .query_one(&insert_wad_stmt, &[&sha1, &sha256, &title, &filename, &file_size, &file_url, &uploader_id, &description])
+            .query_one(&insert_wad_stmt, &[&sha1, &sha256, &title, &filename, &file_size, &file_url, &uploader_id, &description, &author])
             .await
             .context("failed to execute INSERT_WAD_FROM_DRAFT")?;
         let wad_id: Uuid = row.try_get("wad_id")?;
