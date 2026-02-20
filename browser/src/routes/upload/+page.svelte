@@ -18,6 +18,7 @@
 	let saving = $state(false);
 	let uploading = $state(false);
 	let publishing = $state(false);
+	let deleting = $state(false);
 	let notAuthenticated = $state(data.notAuthenticated);
 	let error = $state<string | null>(data.loadError ?? null);
 
@@ -29,7 +30,7 @@
 	let aiEnabled = $state(data.draft?.ai_enabled ?? true);
 	let uploadedFile = $state<{ name: string; size: number; hash: string } | null>(
 		data.draft?.upload_id && data.draft?.file_size && data.draft?.file_sha256
-			? { name: 'Previously uploaded file', size: data.draft.file_size, hash: data.draft.file_sha256 }
+			? { name: data.draft.filename ?? 'Previously uploaded file', size: data.draft.file_size, hash: data.draft.file_sha256 }
 			: null
 	);
 
@@ -38,6 +39,13 @@
 	let initialState = $state<{ title: string; author: string; description: string; aiEnabled: boolean } | null>(
 		data.draft ? { title: data.draft.title ?? '', author: data.draft.author ?? '', description: data.draft.description ?? '', aiEnabled: data.draft.ai_enabled } : null
 	);
+
+	// Debounce timer for auto-save (plain variable to avoid reactivity)
+	let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+	// Snapshot of last saved values (non-reactive to prevent effect loops)
+	let lastSavedState = data.draft
+		? { title: data.draft.title ?? '', author: data.draft.author ?? '', description: data.draft.description ?? '', aiEnabled: data.draft.ai_enabled }
+		: null;
 
 	// Compute unsaved changes by comparing current state to initial
 	$effect(() => {
@@ -48,6 +56,45 @@
 				description !== initialState.description ||
 				aiEnabled !== initialState.aiEnabled;
 		}
+	});
+
+	// Auto-save with 300ms debounce when fields change
+	$effect(() => {
+		// Track the fields we care about
+		const _title = title;
+		const _author = author;
+		const _description = description;
+		const _aiEnabled = aiEnabled;
+		
+		// Only proceed if we have a draft and initial state (not first render)
+		if (!draft || !lastSavedState) return;
+		
+		// Check if there are actual changes compared to last save
+		const changed =
+			_title !== lastSavedState.title ||
+			_author !== lastSavedState.author ||
+			_description !== lastSavedState.description ||
+			_aiEnabled !== lastSavedState.aiEnabled;
+		
+		if (!changed) return;
+		
+		// Clear previous timer
+		if (autoSaveTimer) {
+			clearTimeout(autoSaveTimer);
+		}
+		
+		// Set new debounced save
+		autoSaveTimer = setTimeout(() => {
+			// Update lastSavedState before saving to prevent re-trigger
+			lastSavedState = { title: _title, author: _author, description: _description, aiEnabled: _aiEnabled };
+			saveDraft();
+		}, 300);
+		
+		return () => {
+			if (autoSaveTimer) {
+				clearTimeout(autoSaveTimer);
+			}
+		};
 	});
 
 	async function getValidAccessToken(): Promise<string | null> {
@@ -102,6 +149,44 @@
 			showToast('Failed to save draft');
 		} finally {
 			saving = false;
+		}
+	}
+
+	async function deleteDraft() {
+		if (!draft) return;
+		if (deleting) return;
+
+		if (!confirm('Are you sure you want to delete this draft? This cannot be undone.')) {
+			return;
+		}
+
+		const token = await getValidAccessToken();
+		if (!token) return;
+
+		deleting = true;
+
+		try {
+			const endpoint = draft.status === 'published' && draft.wad_id
+				? `${apiBaseUrl}/wad/${draft.wad_id}`
+				: `${apiBaseUrl}/draft/${draft.draft_id}`;
+
+			const res = await fetch(endpoint, {
+				method: 'DELETE',
+				headers: {
+					authorization: `Bearer ${token}`
+				}
+			});
+
+			if (!res.ok) {
+				throw new Error(`Failed to delete: ${res.status}`);
+			}
+
+			showToast('Deleted successfully');
+			goto(resolve('/my-wads'));
+		} catch (e) {
+			showToast('Failed to delete');
+		} finally {
+			deleting = false;
 		}
 	}
 
@@ -174,7 +259,9 @@
 			const updateReq: UpdateDraftRequest = {
 				upload_id: uploadData.id,
 				file_sha256: uploadData.hash,
-				file_size: uploadData.size
+				file_sha1: uploadData.sha1,
+				file_size: uploadData.size,
+				filename: file.name
 			};
 
 			const updateRes = await fetch(`${apiBaseUrl}/draft/${draft.draft_id}`, {
@@ -335,16 +422,18 @@
 								<p class="text-sm text-zinc-400">{humanBytes(uploadedFile.size)}</p>
 							</div>
 						</div>
-						<label class="cursor-pointer rounded-lg bg-zinc-700 px-3 py-1.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-600 transition-colors">
-							Replace
-							<input
-								type="file"
-								accept=".wad,.pk3,.gz"
-								class="hidden"
-								onchange={handleFileSelect}
-								disabled={uploading}
-							/>
-						</label>
+						{#if !isPublished}
+							<label class="cursor-pointer rounded-lg bg-zinc-700 px-3 py-1.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-600 transition-colors">
+								Replace
+								<input
+									type="file"
+									accept=".wad,.pk3,.gz"
+									class="hidden"
+									onchange={handleFileSelect}
+									disabled={uploading}
+								/>
+							</label>
+						{/if}
 					</div>
 				{:else}
 					<label class="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-zinc-500 transition-colors">
@@ -440,7 +529,21 @@
 							<div class="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-200"></div>
 							Saving...
 						{:else}
-							Save Draft
+							Save
+						{/if}
+					</button>
+
+					<button
+						type="button"
+						onclick={deleteDraft}
+						disabled={deleting}
+						class="inline-flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-red-400 hover:bg-zinc-700 hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+					>
+						{#if deleting}
+							<div class="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-red-400"></div>
+							Deleting...
+						{:else}
+							Delete
 						{/if}
 					</button>
 

@@ -9,6 +9,7 @@ use aws_sdk_s3::{
 use aws_types::region::Region;
 use axum::extract::multipart::Field;
 use reqwest::Url;
+use sha1::Sha1;
 use sha2::{Digest, Sha256};
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
@@ -67,8 +68,8 @@ impl WadUploadStore {
     }
 
     /// Upload a WAD file to draft storage.
-    /// Returns (sha256_hash, upload_id, file_size_bytes).
-    pub async fn upload_draft(&self, filename: &str, data: &[u8]) -> Result<(String, Uuid, i64)> {
+    /// Returns (sha256_hash, sha1_hash, upload_id, file_size_bytes).
+    pub async fn upload_draft(&self, filename: &str, data: &[u8]) -> Result<(String, String, Uuid, i64)> {
         if data.len() > MAX_WAD_UPLOAD_BYTES {
             bail!(
                 "File exceeds max upload size of {} bytes",
@@ -88,10 +89,13 @@ impl WadUploadStore {
             );
         }
 
-        // Compute SHA256 hash
-        let mut hasher = Sha256::new();
-        hasher.update(data);
-        let hash = hex::encode(hasher.finalize());
+        // Compute SHA256 and SHA1 hashes
+        let mut sha256_hasher = Sha256::new();
+        let mut sha1_hasher = Sha1::new();
+        sha256_hasher.update(data);
+        sha1_hasher.update(data);
+        let sha256_hash = hex::encode(sha256_hasher.finalize());
+        let sha1_hash = hex::encode(sha1_hasher.finalize());
 
         // Generate upload ID
         let upload_id = Uuid::new_v4();
@@ -118,18 +122,18 @@ impl WadUploadStore {
             .await
             .context("Failed to upload WAD file to S3")?;
 
-        Ok((hash, upload_id, data.len() as i64))
+        Ok((sha256_hash, sha1_hash, upload_id, data.len() as i64))
     }
 
     /// Upload a WAD file to draft storage using streaming to avoid loading
     /// the entire file into memory. Uses S3 multipart upload with two long-lived
     /// tasks: one reads HTTP body, one uploads parts to S3.
-    /// Returns (sha256_hash, upload_id, file_size_bytes).
+    /// Returns (sha256_hash, sha1_hash, upload_id, file_size_bytes).
     pub async fn upload_draft_stream(
         &self,
         filename: &str,
         mut field: Field<'_>,
-    ) -> Result<(String, Uuid, i64)> {
+    ) -> Result<(String, String, Uuid, i64)> {
         // Validate file extension
         let lower_filename = filename.to_lowercase();
         let has_valid_extension = SUPPORTED_EXTENSIONS
@@ -168,7 +172,8 @@ impl WadUploadStore {
         });
 
         // Main task: read HTTP body chunks, compute hash, send parts to uploader
-        let mut hasher = Sha256::new();
+        let mut sha256_hasher = Sha256::new();
+        let mut sha1_hasher = Sha1::new();
         let mut total_size: usize = 0;
         let mut part_number: i32 = 1;
         let mut buffer: Vec<u8> = Vec::with_capacity(MIN_PART_SIZE);
@@ -191,8 +196,9 @@ impl WadUploadStore {
                         break;
                     }
 
-                    // Update hash and size
-                    hasher.update(&chunk);
+                    // Update hashes and size
+                    sha256_hasher.update(&chunk);
+                    sha1_hasher.update(&chunk);
                     total_size += chunk.len();
                     buffer.extend_from_slice(&chunk);
 
@@ -276,8 +282,9 @@ impl WadUploadStore {
             .await
             .context("Failed to complete multipart upload")?;
 
-        let hash = hex::encode(hasher.finalize());
-        Ok((hash, upload_id, total_size as i64))
+        let sha256_hash = hex::encode(sha256_hasher.finalize());
+        let sha1_hash = hex::encode(sha1_hasher.finalize());
+        Ok((sha256_hash, sha1_hash, upload_id, total_size as i64))
     }
 
     /// Abort a multipart upload (best effort, ignores errors)
@@ -345,6 +352,25 @@ impl WadUploadStore {
             .send()
             .await
             .context("Failed to delete draft WAD file")?;
+        Ok(())
+    }
+
+    /// Delete a WAD file from permanent storage by sha256 and original filename.
+    pub async fn delete_permanent(&self, sha256: &str, original_filename: &str) -> Result<()> {
+        // Determine file extension from original filename
+        let extension = SUPPORTED_EXTENSIONS
+            .iter()
+            .find(|ext| original_filename.to_lowercase().ends_with(*ext))
+            .unwrap_or(&".wad");
+
+        let key = format!("{}{}{}", self.permanent_key_prefix, sha256, extension);
+        self.client
+            .delete_object()
+            .bucket(&self.bucket)
+            .key(&key)
+            .send()
+            .await
+            .context("Failed to delete permanent WAD file")?;
         Ok(())
     }
 

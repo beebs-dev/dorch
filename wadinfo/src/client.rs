@@ -318,6 +318,12 @@ pub struct WadDraft {
     pub file_sha256: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file_size: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filename: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_sha1: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wad_id: Option<Uuid>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -336,6 +342,10 @@ pub struct UpdateDraftRequest {
     pub file_sha256: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file_size: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filename: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_sha1: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -346,6 +356,7 @@ pub struct ListDraftsResponse {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct UploadResponse {
     pub hash: String,
+    pub sha1: String,
     pub id: Uuid,
     pub size: i64,
 }

@@ -81,7 +81,7 @@ pub async fn run_server(
                 .put(put_user_profile_avatar)
                 .layer(DefaultBodyLimit::max(MAX_AVATAR_UPLOAD_BYTES)),
         )
-        .route("/wad/{id}", get(internal::get_wad))
+        .route("/wad/{id}", get(internal::get_wad).delete(delete_wad))
         .route("/wad/{id}/map/{map}", get(internal::get_wad_map))
         .route("/search", get(internal::search))
         // Draft management endpoints
@@ -234,12 +234,13 @@ pub async fn upload_wad(
                         .upload_draft_stream(&filename, field)
                         .await
                     {
-                        Ok((hash, upload_id, size)) => {
-                            eprintln!("📥 upload_wad: SUCCESS hash={} size={}", hash, size);
+                        Ok((hash, sha1, upload_id, size)) => {
+                            eprintln!("📥 upload_wad: SUCCESS hash={} sha1={} size={}", hash, sha1, size);
                             return (
                                 StatusCode::OK,
                                 Json(UploadResponse {
                                     hash,
+                                    sha1,
                                     id: upload_id,
                                     size,
                                 }),
@@ -360,6 +361,30 @@ pub async fn delete_draft(
     }
 }
 
+pub async fn delete_wad(
+    State(state): State<App>,
+    UserId(user_id): UserId,
+    Path(wad_id): Path<Uuid>,
+) -> impl IntoResponse {
+    match state.db.delete_wad(wad_id, user_id).await {
+        Ok(Some((_, file_sha256, filename))) => {
+            // If there was a file in permanent storage, delete it
+            if let Some(sha256) = file_sha256 {
+                if let Err(e) = state
+                    .wad_upload_store
+                    .delete_permanent(&sha256, &filename)
+                    .await
+                {
+                    eprintln!("Warning: Failed to delete WAD file from storage: {}", e);
+                }
+            }
+            StatusCode::NO_CONTENT.into_response()
+        }
+        Ok(None) => response::not_found(anyhow!("WAD not found or not authorized")),
+        Err(e) => response::error(e.context("Failed to delete WAD")),
+    }
+}
+
 pub async fn publish_draft(
     State(state): State<App>,
     UserId(user_id): UserId,
@@ -389,23 +414,49 @@ pub async fn publish_draft(
         None => return response::error(anyhow!("Draft missing file hash")),
     };
 
+    // Get sha1 for wads table lookup
+    let sha1 = match &draft.file_sha1 {
+        Some(h) => h.clone(),
+        None => return response::error(anyhow!("Draft missing SHA1 hash")),
+    };
+
     // Move file to permanent storage
-    // Use the title or a default filename
-    let filename = draft.title.as_deref().unwrap_or("upload.wad");
-    let _file_url = match state
+    // Use the original filename for the permanent key extension
+    let original_filename = draft.filename.as_deref().unwrap_or("upload.wad");
+    let file_url = match state
         .wad_upload_store
-        .publish_draft(upload_id, &sha256, filename)
+        .publish_draft(upload_id, &sha256, original_filename)
         .await
     {
         Ok(url) => url,
         Err(e) => return response::error(e.context("Failed to move file to permanent storage")),
     };
 
+    // Insert into wads table
+    let wad_id = match state
+        .db
+        .insert_wad_from_draft(
+            &sha1,
+            Some(&sha256),
+            draft.title.as_deref(),
+            draft.filename.as_deref(),
+            draft.file_size,
+            &file_url,
+        )
+        .await
+    {
+        Ok(id) => id,
+        Err(e) => return response::error(e.context("Failed to insert WAD into database")),
+    };
+
+    // Insert wad_status with 'Pending'
+    if let Err(e) = state.db.upsert_wad_status(wad_id, "Pending").await {
+        return response::error(e.context("Failed to insert WAD status"));
+    }
+
     // Mark draft as published in database
-    match state.db.publish_draft(draft_id, user_id).await {
+    match state.db.publish_draft(draft_id, user_id, wad_id).await {
         Ok(Some(published_draft)) => {
-            // TODO: Insert into wads table with the published draft metadata
-            // For now, just return the published draft
             (StatusCode::OK, Json(published_draft)).into_response()
         }
         Ok(None) => response::error(anyhow!("Failed to publish draft - validation failed")),

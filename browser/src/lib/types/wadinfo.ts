@@ -235,6 +235,9 @@ export interface WadDraft {
 	status: 'draft' | 'published';
 	file_sha256?: string | null;
 	file_size?: number | null;
+	filename?: string | null;
+	file_sha1?: string | null;
+	wad_id?: Uuid | null;
 }
 
 export interface UpdateDraftRequest {
@@ -245,6 +248,8 @@ export interface UpdateDraftRequest {
 	upload_id?: Uuid | null;
 	file_sha256?: string | null;
 	file_size?: number | null;
+	filename?: string | null;
+	file_sha1?: string | null;
 }
 
 export interface ListDraftsResponse {
@@ -253,6 +258,7 @@ export interface ListDraftsResponse {
 
 export interface UploadResponse {
 	hash: string;
+	sha1: string;
 	id: Uuid;
 	size: number;
 }

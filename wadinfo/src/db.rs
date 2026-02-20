@@ -128,8 +128,11 @@ mod sql {
     pub const GET_DRAFT: &str = include_str!("sql/get_draft.sql");
     pub const UPDATE_DRAFT: &str = include_str!("sql/update_draft.sql");
     pub const DELETE_DRAFT: &str = include_str!("sql/delete_draft.sql");
+    pub const DELETE_WAD: &str = include_str!("sql/delete_wad.sql");
     pub const PUBLISH_DRAFT: &str = include_str!("sql/publish_draft.sql");
     pub const GET_UNPUBLISHED_DRAFT: &str = include_str!("sql/get_unpublished_draft.sql");
+    pub const INSERT_WAD_FROM_DRAFT: &str = include_str!("sql/insert_wad_from_draft.sql");
+    pub const UPSERT_WAD_STATUS: &str = include_str!("sql/upsert_wad_status.sql");
 }
 
 #[derive(Clone)]
@@ -2003,6 +2006,8 @@ impl Database {
                     &req.upload_id,
                     &req.file_sha256,
                     &req.file_size,
+                    &req.filename,
+                    &req.file_sha1,
                     &now,
                 ],
             )
@@ -2032,10 +2037,35 @@ impl Database {
         }))
     }
 
+    /// Delete a WAD (only if owned by user via draft).
+    /// Returns (wad_id, file_sha256, filename) if deleted.
+    pub async fn delete_wad(
+        &self,
+        wad_id: Uuid,
+        uploader_id: Uuid,
+    ) -> Result<Option<(Uuid, Option<String>, String)>> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::DELETE_WAD)
+            .await
+            .context("failed to prepare DELETE_WAD")?;
+        let row = conn
+            .query_opt(&stmt, &[&wad_id, &uploader_id])
+            .await
+            .context("failed to execute DELETE_WAD")?;
+        Ok(row.map(|r| {
+            let wad_id: Uuid = r.get("wad_id");
+            let file_sha256: Option<String> = r.get("file_sha256");
+            let filename: String = r.get("filename");
+            (wad_id, file_sha256, filename)
+        }))
+    }
+
     pub async fn publish_draft(
         &self,
         draft_id: Uuid,
         uploader_id: Uuid,
+        wad_id: Uuid,
     ) -> Result<Option<WadDraft>> {
         let conn = self.pool.get().await.context("failed to get connection")?;
         let now = unix_epoch_ms()?;
@@ -2044,10 +2074,45 @@ impl Database {
             .await
             .context("failed to prepare PUBLISH_DRAFT")?;
         let row = conn
-            .query_opt(&stmt, &[&draft_id, &uploader_id, &now])
+            .query_opt(&stmt, &[&draft_id, &uploader_id, &now, &wad_id])
             .await
             .context("failed to execute PUBLISH_DRAFT")?;
         row.map(row_to_draft).transpose()
+    }
+
+    /// Insert a WAD row from draft metadata, returns the wad_id
+    pub async fn insert_wad_from_draft(
+        &self,
+        sha1: &str,
+        sha256: Option<&str>,
+        title: Option<&str>,
+        filename: Option<&str>,
+        file_size: Option<i64>,
+        file_url: &str,
+    ) -> Result<Uuid> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::INSERT_WAD_FROM_DRAFT)
+            .await
+            .context("failed to prepare INSERT_WAD_FROM_DRAFT")?;
+        let row = conn
+            .query_one(&stmt, &[&sha1, &sha256, &title, &filename, &file_size, &file_url])
+            .await
+            .context("failed to execute INSERT_WAD_FROM_DRAFT")?;
+        Ok(row.try_get("wad_id")?)
+    }
+
+    /// Upsert WAD status
+    pub async fn upsert_wad_status(&self, wad_id: Uuid, status: &str) -> Result<()> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::UPSERT_WAD_STATUS)
+            .await
+            .context("failed to prepare UPSERT_WAD_STATUS")?;
+        conn.execute(&stmt, &[&wad_id, &status])
+            .await
+            .context("failed to execute UPSERT_WAD_STATUS")?;
+        Ok(())
     }
 }
 
@@ -2077,6 +2142,9 @@ fn row_to_draft(row: tokio_postgres::Row) -> Result<WadDraft> {
         status: row.try_get("status")?,
         file_sha256: row.try_get("file_sha256")?,
         file_size: row.try_get("file_size")?,
+        filename: row.try_get("filename")?,
+        file_sha1: row.try_get("file_sha1")?,
+        wad_id: row.try_get("wad_id")?,
     })
 }
 

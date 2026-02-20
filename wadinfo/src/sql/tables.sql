@@ -452,7 +452,10 @@ create table if not exists wad_drafts (
   
   -- File metadata (populated after upload)
   file_sha256  char(64),
-  file_size    bigint
+  file_size    bigint,
+  filename     text not null,      -- original filename from upload
+  file_sha1    char(40),           -- SHA1 hash (for wads table lookup)
+  wad_id       uuid                -- set after wad is inserted into wads table
 );
 
 create index if not exists idx_wad_drafts_uploader_id
@@ -463,3 +466,11 @@ create index if not exists idx_wad_drafts_status
 
 create index if not exists idx_wad_drafts_updated_at
   on wad_drafts (updated_at desc);
+
+-- ----------------------------
+-- WAD Status (tracks analysis progress)
+-- ----------------------------
+create table if not exists wad_status (
+  wad_id       uuid primary key references wads(wad_id) on delete cascade,
+  status       text not null       -- 'Pending', 'Analyzing', 'Complete', 'Failed'
+);

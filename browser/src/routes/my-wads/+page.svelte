@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { getAccessToken, subscribe as authSubscribe } from '$lib/stores/auth';
 	import { showToast } from '$lib/stores/toast';
@@ -189,7 +189,10 @@
 				<h2 class="text-xl font-semibold mb-4 text-zinc-300">Published WADs</h2>
 				<div class="space-y-3">
 					{#each publishedItems as wad (wad.draft_id)}
-						<div class="flex items-center justify-between rounded-lg bg-zinc-900/60 ring-1 ring-zinc-800 p-4">
+						<a
+							href={wad.wad_id ? resolve(`/wad/${wad.wad_id}`) : '#'}
+							class="flex items-center justify-between rounded-lg bg-zinc-900/60 ring-1 ring-zinc-800 p-4 hover:bg-zinc-800/60 transition-colors cursor-pointer"
+						>
 							<div class="flex-1 min-w-0">
 								<h3 class="font-medium text-zinc-100 truncate">
 									{wad.title || 'Untitled WAD'}
@@ -208,14 +211,15 @@
 								<span class="px-2 py-1 rounded text-xs font-medium bg-green-900/50 text-green-300">
 									Published
 								</span>
-								<a
-									href={`/upload?draft=${wad.draft_id}`}
+								<button
+									type="button"
+									onclick={(e) => { e.preventDefault(); e.stopPropagation(); goto(resolve(`/upload?draft=${wad.draft_id}`)); }}
 									class="inline-flex items-center gap-1 rounded-lg bg-zinc-800 px-3 py-1.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 transition-colors"
 								>
 									Manage
-								</a>
+								</button>
 							</div>
-						</div>
+						</a>
 					{/each}
 				</div>
 			</section>
