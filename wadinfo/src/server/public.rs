@@ -379,16 +379,14 @@ pub async fn delete_wad(
     Path(wad_id): Path<Uuid>,
 ) -> impl IntoResponse {
     match state.db.delete_wad(wad_id, user_id).await {
-        Ok(Some((_, file_sha256, filename))) => {
+        Ok(Some((_, _, filename))) => {
             // If there was a file in permanent storage, delete it
-            if let Some(sha256) = file_sha256 {
-                if let Err(e) = state
-                    .wad_upload_store
-                    .delete_permanent(wad_id, &filename)
-                    .await
-                {
-                    eprintln!("Warning: Failed to delete WAD file from storage: {}", e);
-                }
+            if let Err(e) = state
+                .wad_upload_store
+                .delete_permanent(wad_id, &filename)
+                .await
+            {
+                eprintln!("Warning: Failed to delete WAD file from storage: {}", e);
             }
             StatusCode::NO_CONTENT.into_response()
         }
