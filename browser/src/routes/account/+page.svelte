@@ -432,7 +432,7 @@
 							maxlength="50"
 							class="mt-2 w-full rounded-lg bg-zinc-950 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none"
 						/>
-						<p class="mt-1 text-xs text-zinc-500">The name shown to other users. Can be changed anytime.</p>
+						<p class="mt-1 text-xs text-zinc-500">The name shown to other users and what is used in-game. Can be changed anytime.</p>
 					</label>
 
 					{#if isFullProfile(profile)}
