@@ -4,6 +4,7 @@
 
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
+	import { invalidateAll } from '$app/navigation';
 	import { showToast } from '$lib/stores/toast';
 	import { getAccessToken, getAuthState, subscribe as authSubscribe, logout } from '$lib/stores/auth';
 	import type { UserProfileFull, UserProfileView } from '$lib/types/wadinfo';
@@ -14,6 +15,7 @@
 	let loading = $state(untrack(() => !initialData.profile && !initialData.notAuthenticated));
 	let saving = $state(false);
 	let notAuthenticated = $state(untrack(() => initialData.notAuthenticated ?? false));
+	let authChecking = $state(untrack(() => initialData.notAuthenticated ?? false)); // True if we need to check for token refresh
 	let loadError = $state<string | null>(untrack(() => initialData.loadError ?? null));
 
 	let profile = $state<UserProfileView | null>(untrack(() => initialData.profile ?? null));
@@ -273,8 +275,28 @@
 	}
 
 	onMount(() => {
+		// If SSR returned notAuthenticated, try to refresh the token
+		// (the access token cookie may have expired but refresh token in localStorage is still valid)
+		if (untrack(() => initialData.notAuthenticated)) {
+			getAccessToken().then((token) => {
+				if (token) {
+					// Token refresh succeeded, reload the page data
+					invalidateAll().then(() => {
+						authChecking = false;
+						notAuthenticated = false;
+						// Also load the profile since invalidateAll won't automatically update our state
+						loadProfile();
+					});
+				} else {
+					// No valid token available
+					authChecking = false;
+				}
+			}).catch(() => {
+				authChecking = false;
+			});
+		}
 		// Only load client-side if SSR didn't provide the profile
-		if (untrack(() => !initialData.profile && !initialData.notAuthenticated)) {
+		else if (untrack(() => !initialData.profile && !initialData.notAuthenticated)) {
 			loadProfile();
 		}
 	});
@@ -288,9 +310,12 @@
 		</p>
 	</div>
 
-	{#if loading}
+	{#if loading || authChecking}
 		<div class="rounded-xl border border-zinc-800 bg-zinc-950/80 p-6">
-			<p class="text-sm text-zinc-300">Loading profile…</p>
+			<div class="flex items-center gap-3">
+				<div class="h-5 w-5 animate-spin rounded-full border-2 border-zinc-700 border-t-red-500"></div>
+				<p class="text-sm text-zinc-300">Loading profile…</p>
+			</div>
 		</div>
 	{:else if notAuthenticated}
 		<div class="rounded-xl border border-zinc-800 bg-zinc-950/80 p-6">

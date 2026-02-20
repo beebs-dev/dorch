@@ -15,12 +15,17 @@
 	let error = $state<string | null>(data.loadError ?? null);
 	let notAuthenticated = $state(data.notAuthenticated);
 	let deleting = $state(false);
+	let authChecking = $state(data.notAuthenticated); // True if we need to check for token refresh
 
 	// Sync with SSR data changes (e.g., after invalidateAll)
 	$effect(() => {
 		drafts = data.drafts;
 		error = data.loadError ?? null;
 		notAuthenticated = data.notAuthenticated;
+		// If we successfully loaded data, we're no longer checking
+		if (!data.notAuthenticated) {
+			authChecking = false;
+		}
 	});
 
 	async function getValidAccessToken(): Promise<string | null> {
@@ -64,6 +69,22 @@
 	}
 
 	onMount(() => {
+		// If SSR returned notAuthenticated, try to refresh the token
+		// (the access token cookie may have expired but refresh token in localStorage is still valid)
+		if (data.notAuthenticated) {
+			getAccessToken().then((token) => {
+				if (token) {
+					// Token refresh succeeded, reload the page data
+					invalidateAll();
+				} else {
+					// No valid token available
+					authChecking = false;
+				}
+			}).catch(() => {
+				authChecking = false;
+			});
+		}
+
 		const unsubscribeAuth = authSubscribe((state) => {
 			if (!state.isAuthenticated) {
 				notAuthenticated = true;
@@ -108,7 +129,11 @@
 		</a>
 	</div>
 
-	{#if notAuthenticated}
+	{#if authChecking}
+		<div class="flex items-center justify-center py-12">
+			<div class="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-red-500"></div>
+		</div>
+	{:else if notAuthenticated}
 		<div class="rounded-lg bg-zinc-900/50 p-8 text-center">
 			<p class="text-zinc-400 mb-4">Please log in to manage your WADs.</p>
 			<a

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { browser } from '$app/environment';
 	import { getAccessToken, subscribe as authSubscribe } from '$lib/stores/auth';
@@ -19,7 +19,15 @@
 	let uploading = $state(false);
 	let publishing = $state(false);
 	let deleting = $state(false);
+
+	// Upload progress tracking
+	let uploadProgress = $state(0); // 0-100
+	let uploadedBytes = $state(0);
+	let totalBytes = $state(0);
+	let uploadStartTime = $state(0);
+	let uploadSpeed = $state(0); // bytes per second
 	let notAuthenticated = $state(data.notAuthenticated);
+	let authChecking = $state(data.notAuthenticated); // True if we need to check for token refresh
 	let error = $state<string | null>(data.loadError ?? null);
 
 	// Draft data - initialize from SSR
@@ -95,6 +103,34 @@
 				clearTimeout(autoSaveTimer);
 			}
 		};
+	});
+
+	// Format upload speed in appropriate units
+	function formatSpeed(bytesPerSec: number): string {
+		if (bytesPerSec < 1024) return `${bytesPerSec.toFixed(0)} B/s`;
+		if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+		return `${(bytesPerSec / (1024 * 1024)).toFixed(2)} MB/s`;
+	}
+
+	// Format remaining time
+	function formatEta(seconds: number): string {
+		if (!isFinite(seconds) || seconds <= 0) return '--';
+		if (seconds < 60) return `${Math.ceil(seconds)}s`;
+		if (seconds < 3600) {
+			const mins = Math.floor(seconds / 60);
+			const secs = Math.ceil(seconds % 60);
+			return `${mins}m ${secs}s`;
+		}
+		const hours = Math.floor(seconds / 3600);
+		const mins = Math.floor((seconds % 3600) / 60);
+		return `${hours}h ${mins}m`;
+	}
+
+	// Calculate estimated time remaining
+	const estimatedTimeRemaining = $derived(() => {
+		if (uploadSpeed <= 0 || uploadedBytes >= totalBytes) return 0;
+		const remainingBytes = totalBytes - uploadedBytes;
+		return remainingBytes / uploadSpeed;
 	});
 
 	async function getValidAccessToken(): Promise<string | null> {
@@ -222,6 +258,11 @@
 		if (!token) return;
 
 		uploading = true;
+		uploadProgress = 0;
+		uploadedBytes = 0;
+		totalBytes = file.size;
+		uploadStartTime = Date.now();
+		uploadSpeed = 0;
 
 		try {
 			// Read file as ArrayBuffer and compute hash locally
@@ -230,24 +271,51 @@
 			const hashArray = Array.from(new Uint8Array(hashBuffer));
 			const localHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 
-			// Upload to server
+			// Upload to server using XMLHttpRequest for progress tracking
 			const formData = new FormData();
 			formData.append('file', file);
 
-			const uploadRes = await fetch(`${apiBaseUrl}/upload`, {
-				method: 'POST',
-				headers: {
-					authorization: `Bearer ${token}`
-				},
-				body: formData
+			const uploadData = await new Promise<UploadResponse>((resolve, reject) => {
+				const xhr = new XMLHttpRequest();
+
+				xhr.upload.addEventListener('progress', (e) => {
+					if (e.lengthComputable) {
+						uploadedBytes = e.loaded;
+						totalBytes = e.total;
+						uploadProgress = Math.round((e.loaded / e.total) * 100);
+
+						// Calculate speed (bytes per second)
+						const elapsedMs = Date.now() - uploadStartTime;
+						if (elapsedMs > 0) {
+							uploadSpeed = (e.loaded / elapsedMs) * 1000;
+						}
+					}
+				});
+
+				xhr.addEventListener('load', () => {
+					if (xhr.status >= 200 && xhr.status < 300) {
+						try {
+							resolve(JSON.parse(xhr.responseText));
+						} catch {
+							reject(new Error('Invalid response from server'));
+						}
+					} else {
+						reject(new Error(`Upload failed: ${xhr.status} - ${xhr.responseText}`));
+					}
+				});
+
+				xhr.addEventListener('error', () => {
+					reject(new Error('Network error during upload'));
+				});
+
+				xhr.addEventListener('abort', () => {
+					reject(new Error('Upload cancelled'));
+				});
+
+				xhr.open('POST', `${apiBaseUrl}/upload`);
+				xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+				xhr.send(formData);
 			});
-
-			if (!uploadRes.ok) {
-				const text = await uploadRes.text();
-				throw new Error(`Upload failed: ${uploadRes.status} - ${text}`);
-			}
-
-			const uploadData: UploadResponse = await uploadRes.json();
 
 			// Verify hash matches
 			if (uploadData.hash !== localHash) {
@@ -293,6 +361,10 @@
 			showToast(message);
 		} finally {
 			uploading = false;
+			uploadProgress = 0;
+			uploadedBytes = 0;
+			totalBytes = 0;
+			uploadSpeed = 0;
 		}
 	}
 
@@ -338,6 +410,24 @@
 	}
 
 	onMount(() => {
+		// If SSR returned notAuthenticated, try to refresh the token
+		// (the access token cookie may have expired but refresh token in localStorage is still valid)
+		if (data.notAuthenticated) {
+			getAccessToken().then((token) => {
+				if (token) {
+					// Token refresh succeeded, reload the page data
+					invalidateAll().then(() => {
+						authChecking = false;
+					});
+				} else {
+					// No valid token available
+					authChecking = false;
+				}
+			}).catch(() => {
+				authChecking = false;
+			});
+		}
+
 		const unsubscribeAuth = authSubscribe((state) => {
 			if (!state.isAuthenticated) {
 				notAuthenticated = true;
@@ -385,7 +475,11 @@
 		</a>
 	</div>
 
-	{#if notAuthenticated}
+	{#if authChecking}
+		<div class="flex items-center justify-center py-12">
+			<div class="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-red-500"></div>
+		</div>
+	{:else if notAuthenticated}
 		<div class="rounded-lg bg-zinc-900/50 p-8 text-center">
 			<p class="text-zinc-400 mb-4">Please log in to upload WADs.</p>
 			<a
@@ -436,11 +530,41 @@
 						{/if}
 					</div>
 				{:else}
-					<label class="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-zinc-500 transition-colors">
+					<label class="flex flex-col items-center justify-center w-full border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-zinc-500 transition-colors" class:h-40={!uploading} class:py-6={uploading} class:cursor-default={uploading}>
 						{#if uploading}
-							<div class="flex flex-col items-center">
-								<div class="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-red-500 mb-2"></div>
-								<p class="text-sm text-zinc-400">Uploading...</p>
+							<div class="w-full px-6 space-y-4">
+								<!-- Progress Header -->
+								<div class="flex items-center justify-between">
+									<span class="text-sm font-medium text-zinc-200">Uploading...</span>
+									<span class="text-sm font-semibold text-red-400">{uploadProgress}%</span>
+								</div>
+
+								<!-- Progress Bar -->
+								<div class="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+									<div
+										class="h-full bg-gradient-to-r from-red-600 to-red-500 transition-all duration-150 ease-out"
+										style="width: {uploadProgress}%"
+									></div>
+								</div>
+
+								<!-- Stats Grid -->
+								<div class="grid grid-cols-3 gap-4 text-center">
+									<div class="bg-zinc-800/50 rounded-lg px-3 py-2">
+										<p class="text-xs text-zinc-500 uppercase tracking-wide">Uploaded</p>
+										<p class="text-sm font-medium text-zinc-200">{humanBytes(uploadedBytes)}</p>
+										<p class="text-xs text-zinc-500">of {humanBytes(totalBytes)}</p>
+									</div>
+									<div class="bg-zinc-800/50 rounded-lg px-3 py-2">
+										<p class="text-xs text-zinc-500 uppercase tracking-wide">Speed</p>
+										<p class="text-sm font-medium text-zinc-200">{formatSpeed(uploadSpeed)}</p>
+										<p class="text-xs text-zinc-500">average</p>
+									</div>
+									<div class="bg-zinc-800/50 rounded-lg px-3 py-2">
+										<p class="text-xs text-zinc-500 uppercase tracking-wide">Remaining</p>
+										<p class="text-sm font-medium text-zinc-200">{formatEta(estimatedTimeRemaining())}</p>
+										<p class="text-xs text-zinc-500">estimated</p>
+									</div>
+								</div>
 							</div>
 						{:else}
 							<div class="flex flex-col items-center">
