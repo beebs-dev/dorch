@@ -134,6 +134,7 @@ mod sql {
     pub const INSERT_WAD_FROM_DRAFT: &str = include_str!("sql/insert_wad_from_draft.sql");
     pub const UPSERT_WAD_STATUS: &str = include_str!("sql/upsert_wad_status.sql");
     pub const LIST_USER_WADS: &str = include_str!("sql/list_user_wads.sql");
+    pub const UPDATE_WAD: &str = include_str!("sql/update_wad.sql");
 }
 
 #[derive(Clone)]
@@ -637,6 +638,7 @@ impl Database {
         };
 
         let row_wad_id: Uuid = row.try_get("wad_id")?;
+        let uploader_id: Option<Uuid> = row.try_get("uploader_id")?;
         let meta_json: serde_json::Value = row.try_get("meta_json")?;
         let mut meta: ReadWadMeta =
             serde_json::from_value(meta_json).context("deserialize ReadWadMeta")?;
@@ -776,7 +778,7 @@ impl Database {
             }
             maps
         };
-        Ok(Some(ReadWad { meta, maps }))
+        Ok(Some(ReadWad { meta, maps, uploader_id }))
     }
 
     pub async fn get_wad_metas(&self, wad_ids: &[Uuid]) -> Result<Vec<ReadWadMeta>> {
@@ -1967,6 +1969,25 @@ impl Database {
             .await
             .context("failed to execute LIST_USER_WADS")?;
         rows.into_iter().map(row_to_user_wad).collect()
+    }
+
+    /// Update a WAD's editable fields (title). Returns true if updated, false if not found or not owned.
+    pub async fn update_wad(
+        &self,
+        wad_id: Uuid,
+        uploader_id: Uuid,
+        title: Option<&str>,
+    ) -> Result<bool> {
+        let conn = self.pool.get().await.context("failed to get connection")?;
+        let stmt = conn
+            .prepare_cached(sql::UPDATE_WAD)
+            .await
+            .context("failed to prepare UPDATE_WAD")?;
+        let row = conn
+            .query_opt(&stmt, &[&wad_id, &uploader_id, &title])
+            .await
+            .context("failed to execute UPDATE_WAD")?;
+        Ok(row.is_some())
     }
 
     pub async fn get_draft(&self, draft_id: Uuid) -> Result<Option<WadDraft>> {

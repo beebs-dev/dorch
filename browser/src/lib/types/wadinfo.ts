@@ -140,6 +140,8 @@ export interface FeaturedViewResponse {
 export interface GetWadResponse {
 	meta: WadMeta;
 	maps: MapStat[];
+	/** User who uploaded/published this WAD (null for imported WADs) */
+	uploader_id?: Uuid | null;
 }
 
 export interface GetWadMetasRequest {
@@ -250,6 +252,10 @@ export interface UpdateDraftRequest {
 	file_size?: number | null;
 	filename?: string | null;
 	file_sha1?: string | null;
+}
+
+export interface UpdateWadRequest {
+	title?: string | null;
 }
 
 export interface ListDraftsResponse {

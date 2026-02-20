@@ -137,6 +137,9 @@ pub struct ReadWadMetaWithTextFiles {
 pub struct ReadWad {
     pub meta: ReadWadMetaWithTextFiles,
     pub maps: Vec<ReadMapStat>,
+    /// User who uploaded/published this WAD (None for imported WADs)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uploader_id: Option<Uuid>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -373,6 +376,12 @@ pub struct UserWad {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ListUserWadsResponse {
     pub items: Vec<UserWad>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct UpdateWadRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

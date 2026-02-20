@@ -9,8 +9,25 @@
 	import type { WadImage } from '$lib/types/wadinfo';
 	import { ellipsize, humanBytes, wadLabel, withParams } from '$lib/utils/format';
 	import { showToast } from '$lib/stores/toast';
+	import { subscribe as authSubscribe } from '$lib/stores/auth';
+	import { onMount } from 'svelte';
 
 	let { data }: { data: PageData } = $props();
+
+	// Auth state for showing Edit button
+	let currentUserId = $state<string | null>(null);
+	
+	onMount(() => {
+		const unsubscribeAuth = authSubscribe((state) => {
+			currentUserId = state.userId;
+		});
+		return () => unsubscribeAuth();
+	});
+
+	const canEdit = $derived(() => {
+		if (!currentUserId || !data.wad.uploader_id) return false;
+		return currentUserId === data.wad.uploader_id;
+	});
 
 	type TabKey = 'overview' | 'maps' | 'screenshots' | 'statistics';
 	const tabs: Array<{ key: TabKey; label: string }> = [
@@ -244,6 +261,30 @@
 		<div class="flex w-full justify-end sm:w-auto">
 			<div class="shrink-0 rounded-xl bg-zinc-950/40 p-1.5 ring-1 ring-red-950/60 ring-inset">
 				<div class="flex items-center gap-1">
+					{#if canEdit()}
+						<a
+							href={resolve(`/wad/${encodeURIComponent(data.wad.meta.id)}/edit`)}
+							class="flex h-12 items-center justify-center gap-2 rounded-lg bg-zinc-900/60 px-4 text-sm font-semibold text-zinc-200 ring-1 ring-red-950/60 ring-inset hover:bg-zinc-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+							aria-label="Edit WAD"
+							title="Edit WAD"
+						>
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+							>
+								<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+								<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+							</svg>
+							Edit
+						</a>
+					{/if}
 					<button
 						type="button"
 						class="flex h-12 w-12 items-center justify-center rounded-lg bg-zinc-900/60 text-zinc-200 ring-1 ring-red-950/60 ring-inset hover:bg-zinc-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"

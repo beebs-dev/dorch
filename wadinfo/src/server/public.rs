@@ -3,7 +3,7 @@ use crate::{
     avatar::MAX_AVATAR_UPLOAD_BYTES,
     client::{
         ListDraftsResponse, ListUserWadsResponse, PutUserProfileRequest, ResolveWadURLsRequest, ResolveWadURLsResponse,
-        UpdateDraftRequest, UploadResponse,
+        UpdateDraftRequest, UpdateWadRequest, UploadResponse,
     },
     server::internal,
     wad_upload::MAX_WAD_UPLOAD_BYTES,
@@ -81,7 +81,7 @@ pub async fn run_server(
                 .put(put_user_profile_avatar)
                 .layer(DefaultBodyLimit::max(MAX_AVATAR_UPLOAD_BYTES)),
         )
-        .route("/wad/{id}", get(internal::get_wad).delete(delete_wad))
+        .route("/wad/{id}", get(internal::get_wad).put(update_wad).delete(delete_wad))
         .route("/wad/{id}/map/{map}", get(internal::get_wad_map))
         .route("/search", get(internal::search))
         // Draft management endpoints
@@ -394,6 +394,19 @@ pub async fn delete_wad(
         }
         Ok(None) => response::not_found(anyhow!("WAD not found or not authorized")),
         Err(e) => response::error(e.context("Failed to delete WAD")),
+    }
+}
+
+pub async fn update_wad(
+    State(state): State<App>,
+    UserId(user_id): UserId,
+    Path(wad_id): Path<Uuid>,
+    Json(request): Json<UpdateWadRequest>,
+) -> impl IntoResponse {
+    match state.db.update_wad(wad_id, user_id, request.title.as_deref()).await {
+        Ok(true) => StatusCode::NO_CONTENT.into_response(),
+        Ok(false) => response::not_found(anyhow!("WAD not found or not authorized")),
+        Err(e) => response::error(e.context("Failed to update WAD")),
     }
 }
 

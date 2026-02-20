@@ -208,8 +208,10 @@ pub mod wad {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub added: Option<String>,
 
+        #[serde(default)]
         pub file: FileMeta,
 
+        #[serde(default)]
         pub content: ContentMeta,
     }
 
@@ -354,9 +356,9 @@ pub mod wad {
         pub contents: String,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize, Default)]
     pub struct FileMeta {
-        #[serde(rename = "type")]
+        #[serde(default, rename = "type")]
         pub file_type: String,
 
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -376,7 +378,7 @@ pub mod wad {
         pub corrupt_message: Option<String>,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize, Default)]
     pub struct ContentMeta {
         /// Prefer extracted maps if present; else WAD Archive maps.
         #[serde(default, skip_serializing_if = "Option::is_none")]

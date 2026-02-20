@@ -10,6 +10,7 @@ import type {
 	MapThumbnail,
 	ResolveMapThumbnailsResponse,
 	PutUserProfileRequest,
+	UpdateWadRequest,
 	WadMeta,
 	WadImage,
 	UserProfileFull,
@@ -369,6 +370,32 @@ export function createWadinfoClient(
 				forwardedFor,
 				bearerToken
 			});
+		},
+
+		async updateWad(wadId: string, req: UpdateWadRequest): Promise<void> {
+			const url = buildUrl(`/wad/${encodeURIComponent(wadId)}`, { public: true });
+			const headers = new Headers();
+			headers.set('content-type', 'application/json');
+			if (forwardedFor) headers.set('x-forwarded-for', forwardedFor);
+			if (bearerToken) headers.set('authorization', `Bearer ${bearerToken}`);
+			const res = await fetchFn(url, {
+				method: 'PUT',
+				headers,
+				body: JSON.stringify(req)
+			});
+			if (!res.ok) {
+				let body: string | undefined;
+				try {
+					body = await res.text();
+				} catch {
+					// ignore
+				}
+				throw new WadinfoHttpError(
+					`wadinfo request failed: ${res.status} ${res.statusText}`,
+					res.status,
+					body
+				);
+			}
 		},
 
 		async getDraft(draftId: string): Promise<WadDraft> {

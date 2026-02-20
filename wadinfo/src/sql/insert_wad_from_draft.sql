@@ -32,7 +32,19 @@ SELECT
   'PWAD',
   file_size_bytes,
   file_url,
-  jsonb_build_object('id', wad_id, 'title', title),
+  jsonb_build_object(
+    'id', wad_id,
+    'sha1', sha1,
+    'sha256', sha256,
+    'title', title,
+    'filename', preferred_filename,
+    'file', jsonb_build_object(
+      'type', 'PWAD',
+      'size', file_size_bytes,
+      'url', file_url
+    ),
+    'content', jsonb_build_object()
+  ),
   uploader_id
 FROM input
 ON CONFLICT (sha1) DO UPDATE SET
