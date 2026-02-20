@@ -256,7 +256,7 @@
 			}
 
 			showToast('Deleted successfully');
-			goto(resolve('/my-wads'));
+			goto(resolve('/my-wads'), { invalidateAll: true });
 		} catch (e) {
 			showToast('Failed to delete');
 		} finally {
