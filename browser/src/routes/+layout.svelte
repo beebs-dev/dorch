@@ -289,6 +289,13 @@
 			</a>
 			<span class="text-zinc-300">•</span>
 			<a
+				href="/privacy-policy"
+				class="text-sm text-zinc-300 underline underline-offset-4 opacity-50 transition-colors hover:text-zinc-100 hover:opacity-100"
+			>
+				PRIVACY POLICY
+			</a>
+			<span class="text-zinc-300">•</span>
+			<a
 				href="https://www.doomworld.com/forum/topic/156982-the-best-doom-experience-in-a-browser-gibgg"
 				target="_blank"
 				rel="noopener noreferrer"
