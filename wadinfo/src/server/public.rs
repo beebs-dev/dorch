@@ -3,7 +3,7 @@ use crate::{
     avatar::MAX_AVATAR_UPLOAD_BYTES,
     client::{
         ListDraftsResponse, ListUserWadsResponse, PutUserProfileRequest, ResolveWadURLsRequest, ResolveWadURLsResponse,
-        UpdateDraftRequest, UpdateWadRequest, UploadResponse,
+        UpdateDraftRequest, UpdateWadRequest, UploadResponse, UserProfilePublic, UserProfileView,
     },
     server::internal,
     wad_upload::MAX_WAD_UPLOAD_BYTES,
@@ -73,7 +73,7 @@ pub async fn run_server(
         .route("/featured", get(internal::featured_wads))
         .route(
             "/user/profile/{user_id}",
-            get(internal::get_user_profile_public).put(put_user_profile),
+            get(get_user_profile).put(put_user_profile),
         )
         .route(
             "/user/profile/{user_id}/avatar",
@@ -202,6 +202,35 @@ pub async fn put_user_profile(
         Ok(Some(profile)) => (StatusCode::OK, Json(profile)).into_response(),
         Ok(None) => response::not_found(anyhow!("User profile not found")),
         Err(e) => response::error(e.context("Failed to update user profile")),
+    }
+}
+
+pub async fn get_user_profile(
+    State(state): State<App>,
+    UserId(authenticated_user_id): UserId,
+    Path(user_id): Path<Uuid>,
+) -> impl IntoResponse {
+    match state.db.get_user_profile(user_id).await {
+        Ok(Some(profile)) => {
+            if authenticated_user_id == user_id {
+                return (StatusCode::OK, Json(UserProfileView::Full(profile))).into_response();
+            }
+            let public = UserProfilePublic {
+                id: profile.id,
+                username: profile.username,
+                display_name: profile.display_name,
+                avatar_url: profile.avatar_url,
+                registered_at: profile.registered_at,
+                last_active_at: if profile.privacy_hide_activity {
+                    None
+                } else {
+                    profile.last_active_at
+                },
+            };
+            (StatusCode::OK, Json(UserProfileView::Public(public))).into_response()
+        }
+        Ok(None) => response::not_found(anyhow!("User profile not found")),
+        Err(e) => response::error(e.context("Failed to get user profile")),
     }
 }
 

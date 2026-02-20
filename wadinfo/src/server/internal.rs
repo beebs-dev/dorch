@@ -5,7 +5,7 @@ use crate::{
         GetWadMetasRequest, GetWadMetasResponse, ListWadsRequest, MapAnalysis,
         PutUserProfileRequest,
         ResolveMapThumbnailsRequest, ResolveMapThumbnailsResponse, ResolveWadURLsRequest,
-        ResolveWadURLsResponse, UserProfilePublic, UserProfileView, WadAnalysis, WadImage,
+        ResolveWadURLsResponse, UserProfileView, WadAnalysis, WadImage,
         WadSearchRequest,
     },
 };
@@ -22,7 +22,6 @@ use axum::{
 use dorch_common::{
     access_log,
     rate_limit::{RateLimiter, middleware::RateLimitLayer},
-    rbac::UserId,
     response,
     types::wad::InsertWad,
 };
@@ -392,34 +391,7 @@ pub async fn get_user_profile_internal(
     }
 }
 
-pub async fn get_user_profile_public(
-    State(state): State<App>,
-    authenticated_user_id: UserId,
-    Path(user_id): Path<Uuid>,
-) -> impl IntoResponse {
-    match state.db.get_user_profile(user_id).await {
-        Ok(Some(profile)) => {
-            if authenticated_user_id.0 == user_id {
-                return (StatusCode::OK, Json(UserProfileView::Full(profile))).into_response();
-            }
-            let public = UserProfilePublic {
-                id: profile.id,
-                username: profile.username,
-                display_name: profile.display_name,
-                avatar_url: profile.avatar_url,
-                registered_at: profile.registered_at,
-                last_active_at: if profile.privacy_hide_activity {
-                    None
-                } else {
-                    profile.last_active_at
-                },
-            };
-            (StatusCode::OK, Json(UserProfileView::Public(public))).into_response()
-        }
-        Ok(None) => response::not_found(anyhow!("User profile not found")),
-        Err(e) => response::error(e.context("Failed to get user profile")),
-    }
-}
+
 
 pub async fn put_user_profile_internal(
     State(state): State<App>,
