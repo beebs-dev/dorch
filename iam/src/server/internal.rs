@@ -844,32 +844,33 @@ async fn create_user(state: &App, req: RegisterRequest) -> Result<RegisterRespon
 }
 
 pub async fn register(
-    State(state): State<App>,
-    Json(req): Json<RegisterRequest>,
+    State(_state): State<App>,
+    Json(_req): Json<RegisterRequest>,
 ) -> impl IntoResponse {
-    if !is_valid_username(&req.username) {
-        return response::bad_request(anyhow::anyhow!(
-            "Invalid username: must be 3-30 characters, alphanumeric/underscore/dash/dot"
-        ));
-    }
-    if !is_valid_password(&req.password) {
-        return response::bad_request(anyhow::anyhow!(
-            "Invalid password: must be at least 8 characters, include a number and a special character"
-        ));
-    }
-    match create_user(&state, req.clone()).await {
-        Ok(resp) => {
-            println!(
-                "{}{}{}{}",
-                "🆕 User registered successfully • username=".cyan(),
-                req.username.cyan().dimmed(),
-                " • id=".cyan(),
-                resp.id.cyan().dimmed()
-            );
-            (StatusCode::CREATED, Json(resp)).into_response()
-        }
-        Err(e) => response::error(e.context("Failed to create user")),
-    }
+    return response::not_found(anyhow::anyhow!("Page not found"));
+    // if !is_valid_username(&req.username) {
+    //     return response::bad_request(anyhow::anyhow!(
+    //         "Invalid username: must be 3-30 characters, alphanumeric/underscore/dash/dot"
+    //     ));
+    // }
+    // if !is_valid_password(&req.password) {
+    //     return response::bad_request(anyhow::anyhow!(
+    //         "Invalid password: must be at least 8 characters, include a number and a special character"
+    //     ));
+    // }
+    // match create_user(&state, req.clone()).await {
+    //     Ok(resp) => {
+    //         println!(
+    //             "{}{}{}{}",
+    //             "🆕 User registered successfully • username=".cyan(),
+    //             req.username.cyan().dimmed(),
+    //             " • id=".cyan(),
+    //             resp.id.cyan().dimmed()
+    //         );
+    //         (StatusCode::CREATED, Json(resp)).into_response()
+    //     }
+    //     Err(e) => response::error(e.context("Failed to create user")),
+    // }
 }
 
 pub async fn login(State(state): State<App>, Json(req): Json<LoginRequest>) -> impl IntoResponse {
