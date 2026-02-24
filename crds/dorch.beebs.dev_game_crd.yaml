@@ -36,6 +36,27 @@ spec:
                 type: array
               game_id:
                 type: string
+              gamemode:
+                enum:
+                - Cooperative
+                - Survival
+                - Invasion
+                - Deathmatch
+                - Teamplay
+                - Duel
+                - Terminator
+                - LastManStanding
+                - TeamLMS
+                - Possession
+                - TeamPossession
+                - TeamGame
+                - CTF
+                - OneFlagCTF
+                - SkullTag
+                - Domination
+                - null
+                nullable: true
+                type: string
               iwad:
                 type: string
               max_players:
@@ -83,6 +104,19 @@ spec:
                       x-kubernetes-int-or-string: true
                     description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
+                type: object
+              rotation:
+                nullable: true
+                properties:
+                  maps:
+                    items:
+                      type: string
+                    type: array
+                  random:
+                    nullable: true
+                    type: boolean
+                required:
+                - maps
                 type: object
               s3_secret_name:
                 type: string

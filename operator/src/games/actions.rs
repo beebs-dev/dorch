@@ -141,6 +141,13 @@ fn game_pod(
     if let Some(files) = instance.spec.files.as_deref() {
         wad_list.extend(files.iter().cloned());
     }
+    if let Some(gamemode) = instance.spec.gamemode {
+        server_env.push(EnvVar {
+            name: "GAMEMODE".to_string(),
+            value: Some(gamemode.to_string()),
+            ..Default::default()
+        });
+    }
     if !wad_list.is_empty() {
         server_env.push(EnvVar {
             name: "WAD_LIST".to_string(),
@@ -154,6 +161,20 @@ fn game_pod(
             value: Some(warp.to_string()),
             ..Default::default()
         });
+    }
+    if let Some(rotation) = instance.spec.rotation.as_ref() {
+        server_env.push(EnvVar {
+            name: "ROTATION".to_string(),
+            value: Some(rotation.maps.join("\n")),
+            ..Default::default()
+        });
+        if rotation.random == Some(true) {
+            server_env.push(EnvVar {
+                name: "ROTATION_RANDOM".to_string(),
+                value: Some("1".to_string()),
+                ..Default::default()
+            });
+        }
     }
     if let Some(skill) = instance.spec.skill {
         server_env.push(EnvVar {

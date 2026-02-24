@@ -4,6 +4,41 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Default, JsonSchema)]
+pub enum Gamemode {
+    #[default]
+    Cooperative = 0,
+    Survival,
+    Invasion,
+    Deathmatch,
+    Teamplay,
+    Duel,
+    Terminator,
+    LastManStanding,
+    TeamLMS,
+    Possession,
+    TeamPossession,
+    TeamGame,
+    CTF,
+    OneFlagCTF,
+    SkullTag,
+    Domination,
+}
+
+impl fmt::Display for Gamemode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", *self)
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default, JsonSchema)]
+pub struct MapRotationSpec {
+    pub maps: Vec<String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub random: Option<bool>,
+}
+
 #[derive(CustomResource, Serialize, Deserialize, Default, Debug, PartialEq, Clone, JsonSchema)]
 #[kube(
     group = "dorch.beebs.dev",
@@ -23,12 +58,28 @@ use std::{fmt, str::FromStr};
 )]
 pub struct GameSpec {
     pub game_id: String,
+
     pub s3_secret_name: String,
+
     pub iwad: String,
+
     pub max_players: i32,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub files: Option<Vec<String>>,
+
     pub name: String,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub warp: Option<String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<MapRotationSpec>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gamemode: Option<Gamemode>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skill: Option<i32>,
 
     /// If true, doom1.wad will be prepended to the file list automatically.
