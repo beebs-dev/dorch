@@ -2,17 +2,18 @@
 apiVersion: dorch.beebs.dev/v1
 kind: Game
 metadata:
-  name: game-96a118c0-7250-4562-ac14-d6711a7fff05
+  name: game-db650291-95fa-4f9c-a7fa-2bcaf9e48888
   namespace: dorch
 spec:
-  game_id: 96a118c0-7250-4562-ac14-d6711a7fff05
-  name: "M A G N O L I A"
+  game_id: db650291-95fa-4f9c-a7fa-2bcaf9e48888
+  name: "DWANGO5 DEATHMATCH"
   max_players: 64
   s3_secret_name: game-spaces-cred
   iwad: 17bdc0a8-8a81-4b00-90d1-972bf406fa10
   use_doom1_assets: false
   skill: 4
   warp: MAP01
+  gamemode: 3
   files:
     - 22a0ca23-f044-4319-a7a6-f3b60276d0ce
-    - a1ccd9ce-0867-414b-8f79-b39a87dd94e9
+    - 0fb08024-1ece-4352-97dd-432c58bd32d1
