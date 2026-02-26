@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.6
 
-ARG BASE_IMAGE=rust:1-slim-bookworm
+ARG BASE_IMAGE=rust:1-slim-trixie
 
 FROM ${BASE_IMAGE} AS chef
 RUN cargo install cargo-chef --locked

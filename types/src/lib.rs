@@ -25,9 +25,9 @@ pub enum Gamemode {
     Domination,
 }
 
-impl fmt::Display for Gamemode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", *self)
+impl Gamemode {
+    pub fn to_i32(self) -> i32 {
+        self as i32
     }
 }
 

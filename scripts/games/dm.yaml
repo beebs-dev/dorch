@@ -13,7 +13,7 @@ spec:
   use_doom1_assets: false
   skill: 4
   warp: MAP01
-  gamemode: 3
+  gamemode: Deathmatch
   files:
     - 22a0ca23-f044-4319-a7a6-f3b60276d0ce
     - 0fb08024-1ece-4352-97dd-432c58bd32d1

@@ -144,7 +144,7 @@ fn game_pod(
     if let Some(gamemode) = instance.spec.gamemode {
         server_env.push(EnvVar {
             name: "GAMEMODE".to_string(),
-            value: Some(gamemode.to_string()),
+            value: Some(gamemode.to_i32().to_string()),
             ..Default::default()
         });
     }
