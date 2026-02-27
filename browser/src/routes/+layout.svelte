@@ -24,7 +24,7 @@
 	const motdMessages = [
 		'27 FEB - ALL SERVICES BACK ONLINE',
 		'100% FREE CLASSIC MULTIPLAYER',
-		'OPEN REGISTRATION & CUSTOM SERVERS COMING SOON'
+		'OPEN REGISTRATION COMING SOON'
 	];
 	let motdIndex = $state(0);
 	let motdVisibleText = $state('');
