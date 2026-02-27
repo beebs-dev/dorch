@@ -49,6 +49,7 @@ export type GameSummary = {
 	spec: {
 		name: string;
 		max_players: number;
+		gamemode?: string | null;
 		skill?: number | null;
 		warp?: string | null;
 		private: boolean;

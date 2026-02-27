@@ -765,6 +765,7 @@ fn game_to_summary(g: dorch_types::Game, info: Option<GameInfo>) -> Result<GameS
         spec: crate::client::GameSpecSummary {
             name: g.spec.name.clone(),
             max_players: g.spec.max_players,
+            gamemode: g.spec.gamemode,
             skill: g.spec.skill,
             warp: g.spec.warp.clone(),
             private: g.spec.private.unwrap_or(false),

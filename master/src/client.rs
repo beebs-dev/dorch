@@ -1,4 +1,5 @@
 use dorch_common::{Pagination, types::GameInfo};
+use dorch_types::Gamemode;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -91,6 +92,9 @@ pub struct GameSpecSummary {
     pub name: String,
 
     pub max_players: i32,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gamemode: Option<Gamemode>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skill: Option<i32>,

@@ -167,6 +167,7 @@
 					<tr class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-200">
 						<th class="px-4 py-3">MAP</th>
 						<th class="px-4 py-3">SERVER</th>
+						<th class="px-4 py-3">GAME MODE</th>
 						<th class="px-4 py-3">PLAYERS</th>
 						<th class="px-4 py-3">KILLS</th>
 						<th class="px-4 py-3">Base Game <span class="text-xs text-zinc-400">(IWAD)</span></th>
@@ -176,7 +177,7 @@
 				<tbody class="divide-y divide-red-950/40">
 					{#if rows().length === 0}
 						<tr>
-							<td class="px-4 py-5 text-sm text-zinc-400" colspan="5">No servers found.</td>
+							<td class="px-4 py-5 text-sm text-zinc-400" colspan="7">No servers found.</td>
 						</tr>
 					{:else}
 						{#each rows() as row (row.game.game_id)}
@@ -229,6 +230,12 @@
 												{difficultyLabel(row.game.info?.skill)}
 											</div>
 										</div>
+									</div>
+								</td>
+
+								<td class="px-4 py-3">
+									<div class="text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100">
+										{row.game.spec.gamemode ?? 'Cooperative'}
 									</div>
 								</td>
 
