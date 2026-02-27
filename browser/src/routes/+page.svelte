@@ -7,8 +7,10 @@
 	let { data }: { data: PageData } = $props();
 
 	let refreshing = $state(false);
+	let lastRefreshMs = $state<number | null>(null);
 
 	async function refresh() {
+		if (refreshing) return;
 		refreshing = true;
 		try {
 			await invalidateAll();
@@ -16,6 +18,20 @@
 			refreshing = false;
 		}
 	}
+
+	$effect(() => {
+		if (data.fetchedAt) {
+			lastRefreshMs = data.fetchedAt;
+		}
+	});
+
+	$effect(() => {
+		const timer = setInterval(() => {
+			void refresh();
+		}, 10_000);
+
+		return () => clearInterval(timer);
+	});
 
 	function randomIdent(): string {
 		const adjectives = [
@@ -96,7 +112,7 @@
 	}
 
 	const rows = $derived(() => data.rows ?? []);
-	const fetchedAt = $derived(() => (data.fetchedAt ? new Date(data.fetchedAt) : null));
+	const fetchedAt = $derived(() => (lastRefreshMs ? new Date(lastRefreshMs) : null));
 	const jumbotronItems = $derived(() => data.jumbotronItems ?? []);
 </script>
 
