@@ -21,10 +21,65 @@
 		username: null,
 		accessToken: null
 	});
+	const motdMessages = [
+		'27 FEB - ALL SERVICES BACK ONLINE',
+		'100% FREE CLASSIC MULTIPLAYER',
+		'OPEN REGISTRATION & CUSTOM SERVERS COMING SOON'
+	];
+	let motdIndex = $state(0);
+	let motdVisibleText = $state('');
+	let motdAnimating = $state(false);
+	let motdTypingTimer: ReturnType<typeof setInterval> | undefined;
+	let motdRotateTimer: ReturnType<typeof setInterval> | undefined;
 
 	function syncLoginFromUrl() {
 		if (!browser) return;
 		loginOpen = window.location.hash === '#login';
+	}
+
+	function stopMotdTypingTimer() {
+		if (!motdTypingTimer) return;
+		clearInterval(motdTypingTimer);
+		motdTypingTimer = undefined;
+	}
+
+	function stopMotdRotateTimer() {
+		if (!motdRotateTimer) return;
+		clearInterval(motdRotateTimer);
+		motdRotateTimer = undefined;
+	}
+
+	function playMotdTypewriter(text: string) {
+		if (!browser || $page.url.pathname !== resolve('/')) return;
+
+		stopMotdTypingTimer();
+		motdVisibleText = '';
+		motdAnimating = true;
+
+		let index = 0;
+		motdTypingTimer = setInterval(() => {
+			index += 1;
+			motdVisibleText = text.slice(0, index);
+
+			if (index >= text.length) {
+				stopMotdTypingTimer();
+				motdAnimating = false;
+			}
+		}, 55);
+	}
+
+	function playCurrentMotd() {
+		playMotdTypewriter(motdMessages[motdIndex]);
+	}
+
+	function startMotdRotation() {
+		if (!browser || $page.url.pathname !== resolve('/')) return;
+
+		stopMotdRotateTimer();
+		motdRotateTimer = setInterval(() => {
+			motdIndex = (motdIndex + 1) % motdMessages.length;
+			playCurrentMotd();
+		}, 5000);
 	}
 
 	onMount(() => {
@@ -39,8 +94,13 @@
 		syncLoginFromUrl();
 		window.addEventListener('hashchange', syncLoginFromUrl);
 		window.addEventListener('popstate', syncLoginFromUrl);
+		motdIndex = Math.floor(Math.random() * motdMessages.length);
+		playCurrentMotd();
+		startMotdRotation();
 
 		return () => {
+			stopMotdTypingTimer();
+			stopMotdRotateTimer();
 			unsubscribeAuth();
 			window.removeEventListener('hashchange', syncLoginFromUrl);
 			window.removeEventListener('popstate', syncLoginFromUrl);
@@ -125,6 +185,16 @@
 			<div class="shrink-0">
 				<DorchLogo />
 			</div>
+			{#if $page.url.pathname === resolve('/')}
+				<div class="min-w-0">
+					<div
+						class={`dorch-motd inline-flex max-w-full items-center truncate text-xs font-[var(--dorch-mono)] tracking-[0.14em] text-red-200 sm:text-sm ${motdAnimating ? 'is-typing' : ''}`}
+						aria-live="polite"
+					>
+						{motdVisibleText}
+					</div>
+				</div>
+			{/if}
 			<nav
 				class="ml-auto flex flex-wrap items-center justify-end gap-x-6 gap-y-1"
 				aria-label="Primary"

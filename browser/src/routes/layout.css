@@ -114,8 +114,43 @@
 		filter: brightness(0.85) saturate(1.1) contrast(1.05);
 	}
 
-	.dorch-texture > * {
+	.dorch-texture>* {
 		position: relative;
 		z-index: 1;
+	}
+
+	.dorch-motd {
+		position: relative;
+		text-shadow: 0 0 10px color-mix(in oklab, var(--color-red-900) 45%, transparent);
+	}
+
+	.dorch-motd::after {
+		content: '';
+		display: inline-block;
+		width: 1px;
+		height: 1.05em;
+		margin-left: 0.38rem;
+		background: color-mix(in oklab, var(--color-zinc-100) 92%, transparent);
+		vertical-align: -0.15em;
+		opacity: 0;
+		transition: opacity 220ms ease;
+	}
+
+	.dorch-motd.is-typing::after {
+		opacity: 0.8;
+		animation: dorch-motd-caret-blink 900ms steps(1, end) infinite;
+	}
+
+	@keyframes dorch-motd-caret-blink {
+
+		0%,
+		45% {
+			opacity: 0.8;
+		}
+
+		46%,
+		100% {
+			opacity: 0;
+		}
 	}
 }
