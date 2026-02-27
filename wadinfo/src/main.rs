@@ -123,8 +123,8 @@ async fn run_servers(args: args::ServerArgs) -> Result<()> {
         let allowed_origins = args.allowed_origins.clone();
         async move {
             let allowed_origins = allowed_origins
-                .iter()
-                .map(|s| s.as_str())
+                .split(',')
+                .map(|s| s.trim())
                 .collect::<Vec<&str>>();
             server::public::run_server(
                 cancel,
