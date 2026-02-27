@@ -81,9 +81,24 @@
 	}
 
 	function isWadRelated(pathname: string) {
-		return pathname === '/wad' || pathname.startsWith('/wad/') ||
-		       pathname === '/my-wads' || pathname.startsWith('/my-wads/') ||
-		       pathname === '/upload' || pathname.startsWith('/upload/');
+		return (
+			pathname === '/wad' ||
+			pathname.startsWith('/wad/') ||
+			pathname === '/my-wads' ||
+			pathname.startsWith('/my-wads/') ||
+			pathname === '/upload' ||
+			pathname.startsWith('/upload/')
+		);
+	}
+
+	function isServersRelated(pathname: string) {
+		return (
+			pathname === '/' ||
+			pathname === '/servers' ||
+			pathname.startsWith('/servers/') ||
+			pathname === '/manage' ||
+			pathname.startsWith('/manage/')
+		);
 	}
 
 	async function signOut() {
@@ -114,17 +129,70 @@
 				class="ml-auto flex flex-wrap items-center justify-end gap-x-6 gap-y-1"
 				aria-label="Primary"
 			>
-				<a
-					href={resolve('/')}
-					aria-current={isActive('/', $page.url.pathname) ? 'page' : undefined}
-					class={`-mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
-						isActive('/', $page.url.pathname)
-							? 'border-red-400 text-zinc-100'
-							: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
-					}`}
-				>
-					SERVERS
-				</a>
+				{#if authState.isAuthenticated}
+					<div class="group relative -mb-px">
+						<a
+							href={resolve('/servers')}
+							aria-current={isServersRelated($page.url.pathname) ? 'page' : undefined}
+							class={`inline-flex items-center gap-1 border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+								isServersRelated($page.url.pathname)
+									? 'border-red-400 text-zinc-100'
+									: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
+							}`}
+						>
+							SERVERS
+							<svg
+								class="h-4 w-4 opacity-80"
+								viewBox="0 0 20 20"
+								fill="currentColor"
+								aria-hidden="true"
+							>
+								<path
+									fill-rule="evenodd"
+									d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.25a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
+									clip-rule="evenodd"
+								/>
+							</svg>
+						</a>
+
+						<div
+							class="absolute top-full left-0 z-50 hidden min-w-48 pt-2 group-focus-within:block group-hover:block"
+						>
+							<div class="overflow-hidden rounded-lg bg-zinc-950 ring-1 ring-zinc-800">
+								<a
+									href={resolve('/servers')}
+									class="block px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
+								>
+									SERVER LIST
+								</a>
+								<a
+									href={resolve('/manage')}
+									class="block px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
+								>
+									MY SERVERS
+								</a>
+								<a
+									href={resolve('/manage/create')}
+									class="block px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
+								>
+									CREATE SERVER
+								</a>
+							</div>
+						</div>
+					</div>
+				{:else}
+					<a
+						href={resolve('/')}
+						aria-current={isActive('/', $page.url.pathname) ? 'page' : undefined}
+						class={`-mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+							isActive('/', $page.url.pathname)
+								? 'border-red-400 text-zinc-100'
+								: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
+						}`}
+					>
+						SERVERS
+					</a>
+				{/if}
 				{#if authState.isAuthenticated}
 					<div class="group relative -mb-px">
 						<a
@@ -266,13 +334,24 @@
 					aria-label="Open settings"
 					title="Settings"
 				>
-					<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+					<svg
+						class="h-4 w-4"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						aria-hidden="true"
+					>
 						<path
 							stroke-linecap="round"
 							stroke-linejoin="round"
 							d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
 						/>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+						/>
 					</svg>
 				</button>
 			</nav>

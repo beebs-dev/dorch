@@ -39,10 +39,17 @@ async fn run_servers(args: args::ServerArgs) -> Result<()> {
         let allowed_origins = args.allowed_origins.clone();
         tokio::spawn(async move {
             let allowed_origins = allowed_origins
-                .iter()
-                .map(|origin| origin.as_str())
+                .split(',')
+                .map(|origin| origin.trim())
                 .collect::<Vec<_>>();
-            server::public::run_server(cancel_clone, args.public_port, app_state, kc, &allowed_origins).await
+            server::public::run_server(
+                cancel_clone,
+                args.public_port,
+                app_state,
+                kc,
+                &allowed_origins,
+            )
+            .await
         })
     });
     tokio::select! {

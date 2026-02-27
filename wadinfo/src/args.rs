@@ -84,8 +84,12 @@ pub struct ServerArgs {
     #[arg(long, env = "WAD_S3_PERMANENT_KEY_PREFIX", default_value = "wads/")]
     pub wad_s3_permanent_key_prefix: String,
 
-    #[arg(long, env = "ALLOWED_ORIGINS", default_value = "https://gib.gg,https://www.gib.gg")]
-    pub allowed_origins: Vec<String>,
+    #[arg(
+        long,
+        env = "ALLOWED_ORIGINS",
+        default_value = "https://gib.gg,https://www.gib.gg"
+    )]
+    pub allowed_origins: String,
 }
 
 #[derive(Parser, Debug, Clone)]

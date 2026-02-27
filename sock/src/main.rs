@@ -46,8 +46,8 @@ async fn main() -> Result<()> {
     let app_state = AppState::new(cancel.clone(), pool, nats, cli.redis, cli.kc).await;
     let allowed_origins = cli
         .allowed_origins
-        .iter()
-        .map(|o| o.as_str())
+        .split(',')
+        .map(|origin| origin.trim())
         .collect::<Vec<_>>();
     let result = server::run(
         cancel,
