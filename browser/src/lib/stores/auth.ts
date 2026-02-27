@@ -10,6 +10,7 @@ const STORAGE_KEY_REFRESH_TOKEN = 'dorch_refresh_token';
 const STORAGE_KEY_REFRESH_TOKEN_EXP = 'dorch_refresh_token_exp';
 const STORAGE_KEY_USER_ID = 'dorch_user_id';
 const STORAGE_KEY_USERNAME = 'dorch_username';
+const STORAGE_KEY_SETTINGS_NAME = 'dorch.settings.name';
 
 const COOKIE_ACCESS_TOKEN = 'dorch_access_token';
 const COOKIE_USER_ID = 'dorch_user_id';
@@ -126,6 +127,35 @@ function saveToStorage(creds: UserCredentials, persist: boolean): void {
 	notifyListeners();
 }
 
+type UserProfileDisplayNameResponse = {
+	display_name?: string | null;
+};
+
+async function syncSettingsDisplayNameFromProfile(userId: string, accessToken: string): Promise<void> {
+	const storage = getStorage();
+	if (!storage) return;
+
+	try {
+		const res = await fetch(`${API_BASE_URL}/user/profile/${encodeURIComponent(userId)}`, {
+			method: 'GET',
+			headers: {
+				accept: 'application/json',
+				authorization: `Bearer ${accessToken}`
+			}
+		});
+
+		if (!res.ok) return;
+
+		const profile = (await res.json()) as UserProfileDisplayNameResponse;
+		const displayName = typeof profile.display_name === 'string' ? profile.display_name.trim() : '';
+		if (!displayName) return;
+
+		storage.setItem(STORAGE_KEY_SETTINGS_NAME, displayName);
+	} catch {
+		// Fail open: auth login should still succeed if profile sync fails.
+	}
+}
+
 function clearStorage(): void {
 	const storage = getStorage();
 	if (!storage) return;
@@ -180,6 +210,7 @@ export async function login(
 
 	const creds: UserCredentials = await res.json();
 	saveToStorage(creds, rememberMe);
+	await syncSettingsDisplayNameFromProfile(creds.id, creds.jwt.access_token);
 	return creds;
 }
 
