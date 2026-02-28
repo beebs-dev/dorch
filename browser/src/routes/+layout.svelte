@@ -187,10 +187,10 @@
 			</div>
 			{#if $page.url.pathname === resolve('/')}
 				<div
-					class="order-last flex min-w-0 basis-full justify-center sm:order-none sm:block sm:basis-auto"
+					class="order-last flex h-5 min-w-0 basis-full items-center justify-center sm:order-none sm:block sm:h-auto sm:basis-auto"
 				>
 					<div
-						class={`dorch-motd inline-flex max-w-full items-center text-center text-xs font-[var(--dorch-mono)] tracking-[0.14em] text-red-200 sm:text-left sm:text-sm ${motdAnimating ? 'is-typing' : ''}`}
+						class={`dorch-motd inline-flex max-w-full items-center overflow-hidden text-center text-xs font-[var(--dorch-mono)] tracking-[0.14em] text-ellipsis whitespace-nowrap text-red-200 sm:overflow-visible sm:text-left sm:text-sm sm:whitespace-normal ${motdAnimating ? 'is-typing' : ''}`}
 						aria-live="polite"
 					>
 						{motdVisibleText}
