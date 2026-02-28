@@ -182,7 +182,7 @@
 <div class="dorch-texture flex min-h-dvh flex-col bg-zinc-950 text-zinc-100">
 	<header class="sticky top-0 z-10 border-b border-red-950/60 bg-red-950/35 backdrop-blur">
 		<div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-			<div class="shrink-0">
+			<div class="min-w-0 flex-1 sm:flex-none sm:shrink-0">
 				<DorchLogo />
 			</div>
 			{#if $page.url.pathname === resolve('/')}
@@ -198,7 +198,7 @@
 				</div>
 			{/if}
 			<nav
-				class="ml-auto flex flex-wrap items-center justify-end gap-x-6 gap-y-1"
+				class="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-x-6 gap-y-1"
 				aria-label="Primary"
 			>
 				{#if authState.isAuthenticated}

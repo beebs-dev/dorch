@@ -5,7 +5,7 @@
 <a
 	href={resolve('/')}
 	aria-label="GIB.GG"
-	class="group inline-flex items-center gap-2 text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+	class="group inline-flex max-w-full items-center gap-2 text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
 >
 	<img class="logo-img" src={`${base}/logo.png`} alt="GIB.GG" />
 </a>
@@ -14,6 +14,7 @@
 	.logo-img {
 		height: 32px;
 		width: auto;
+		max-width: 100%;
 		display: block;
 		user-select: none;
 		filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.35));
