@@ -186,9 +186,11 @@
 				<DorchLogo />
 			</div>
 			{#if $page.url.pathname === resolve('/')}
-				<div class="min-w-0">
+				<div
+					class="order-last flex min-w-0 basis-full justify-center sm:order-none sm:block sm:basis-auto"
+				>
 					<div
-						class={`dorch-motd inline-flex max-w-full items-center truncate text-xs font-[var(--dorch-mono)] tracking-[0.14em] text-red-200 sm:text-sm ${motdAnimating ? 'is-typing' : ''}`}
+						class={`dorch-motd inline-flex max-w-full items-center text-center text-xs font-[var(--dorch-mono)] tracking-[0.14em] text-red-200 sm:text-left sm:text-sm ${motdAnimating ? 'is-typing' : ''}`}
 						aria-live="polite"
 					>
 						{motdVisibleText}
