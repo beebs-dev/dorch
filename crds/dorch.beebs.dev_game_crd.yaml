@@ -39,6 +39,11 @@ spec:
                   type: string
                 nullable: true
                 type: array
+              frag_limit:
+                format: uint64
+                minimum: 0.0
+                nullable: true
+                type: integer
               game_id:
                 type: string
               gamemode:
@@ -127,6 +132,11 @@ spec:
                 type: string
               skill:
                 format: int32
+                nullable: true
+                type: integer
+              time_limit:
+                format: uint64
+                minimum: 0.0
                 nullable: true
                 type: integer
               use_doom1_assets:

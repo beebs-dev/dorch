@@ -27,6 +27,7 @@ use kube::{
     api::{ObjectMeta, Patch, PatchParams},
 };
 use owo_colors::OwoColorize;
+use serde::Serialize;
 use std::{
     collections::BTreeMap,
     net::SocketAddr,
@@ -53,6 +54,7 @@ pub async fn run_server(
             get(get_game).delete(delete_game).post(new_game),
         )
         .route("/game/{game_id}/info", post(update_game_info))
+        .route("/game/{game_id}/recency", get(get_game_recency))
         .route(
             "/game/{game_id}/liveshot",
             get(get_live_shot).post(post_live_shot),
@@ -89,6 +91,11 @@ pub async fn run_server(
 
 async fn health() -> impl IntoResponse {
     StatusCode::OK.into_response()
+}
+
+#[derive(Serialize)]
+struct GameRecencyResponse {
+    last_active: i64,
 }
 
 pub async fn get_live_shot(
@@ -387,6 +394,19 @@ pub async fn update_game_info(
     StatusCode::OK.into_response()
 }
 
+pub async fn get_game_recency(
+    State(state): State<App>,
+    Path(game_id): Path<Uuid>,
+) -> impl IntoResponse {
+    match state.store.get_game_last_active_at(game_id).await {
+        Ok(Some(last_active)) => {
+            (StatusCode::OK, Json(GameRecencyResponse { last_active })).into_response()
+        }
+        Ok(None) => response::not_found(anyhow!("Game recency not found")),
+        Err(e) => response::error(e.context("Failed to get game recency")),
+    }
+}
+
 pub async fn list_jumbotron_urls(State(state): State<App>) -> impl IntoResponse {
     match home_inner(state).await {
         Ok(resp) => (StatusCode::OK, Json(resp.jumbotron)).into_response(),
@@ -504,6 +524,8 @@ fn game_resource(
             private: Some(req.private),
             skill: req.skill,
             dmflags: req.dmflags,
+            frag_limit: req.frag_limit,
+            time_limit: req.time_limit,
             warp: req.warp.clone(),
             max_players: req.max_players,
             iwad: req.iwad,
@@ -789,6 +811,8 @@ fn game_to_summary(g: dorch_types::Game, info: Option<GameInfo>) -> Result<GameS
             gamemode: g.spec.gamemode,
             skill: g.spec.skill,
             dmflags: g.spec.dmflags,
+            frag_limit: g.spec.frag_limit,
+            time_limit: g.spec.time_limit,
             warp: g.spec.warp.clone(),
             private: g.spec.private.unwrap_or(false),
         },

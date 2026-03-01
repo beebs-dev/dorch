@@ -39,6 +39,12 @@ pub struct NewGameRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dmflags: Option<u32>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frag_limit: Option<u64>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_limit: Option<u64>,
+
     #[serde(default = "default_max_players")]
     pub max_players: i32,
 }
@@ -111,6 +117,12 @@ pub struct GameSpecSummary {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dmflags: Option<u32>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frag_limit: Option<u64>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub time_limit: Option<u64>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub warp: Option<String>,

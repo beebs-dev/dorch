@@ -65,6 +65,9 @@ enum Command {
         #[arg(long, env = "WADINFO_BASE_URL", required = true)]
         wadinfo_base_url: String,
 
+        #[arg(long, env = "MASTER_BASE_URL", default_value = "http://dorch-master")]
+        master_base_url: String,
+
         #[arg(long, env = "SRS_BASE_URL")]
         strim_base_url: Option<String>,
 
@@ -111,6 +114,7 @@ async fn run(client: Client) {
             livekit_secret,
             downloader_image,
             wadinfo_base_url,
+            master_base_url,
             strim_base_url,
             essential_container_names,
             essential_init_container_names,
@@ -124,6 +128,7 @@ async fn run(client: Client) {
                 livekit_url,
                 livekit_secret,
                 wadinfo_base_url,
+                master_base_url,
                 strim_base_url,
                 essential_container_names.into_iter().collect(),
                 essential_init_container_names.into_iter().collect(),

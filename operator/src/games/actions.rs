@@ -10,6 +10,7 @@ use k8s_openapi::{
 };
 use kube::{
     Api, Client,
+    ResourceExt,
     api::{ObjectMeta, Resource},
 };
 
@@ -51,6 +52,28 @@ pub async fn delete_pod(client: Client, instance: &Game, reason: String) -> Resu
     let pods: Api<Pod> =
         Api::namespaced(client.clone(), instance.meta().namespace.as_ref().unwrap());
     pods.delete(pod_name, &Default::default()).await?;
+    Ok(())
+}
+
+pub async fn delete_game(client: Client, instance: &Game, reason: String) -> Result<(), Error> {
+    let game_name = instance.name_any();
+    let namespace = instance.meta().namespace.as_ref().ok_or_else(|| {
+        Error::UserInput("Expected Game resource to be namespaced".to_owned())
+    })?;
+
+    println!(
+        "Deleting Game '{}/{}' • reason: {}",
+        namespace, game_name, reason
+    );
+
+    patch_status(client.clone(), instance, |status| {
+        status.phase = GamePhase::Terminating;
+        status.message = Some(reason.clone());
+    })
+    .await?;
+
+    let games: Api<Game> = Api::namespaced(client, namespace);
+    games.delete(&game_name, &Default::default()).await?;
     Ok(())
 }
 
@@ -152,6 +175,20 @@ fn game_pod(
         server_env.push(EnvVar {
             name: "DMFLAGS".to_string(),
             value: Some(dmflags.to_string()),
+            ..Default::default()
+        });
+    }
+    if let Some(frag_limit) = instance.spec.frag_limit {
+        server_env.push(EnvVar {
+            name: "FRAG_LIMIT".to_string(),
+            value: Some(frag_limit.to_string()),
+            ..Default::default()
+        });
+    }
+    if let Some(time_limit) = instance.spec.time_limit {
+        server_env.push(EnvVar {
+            name: "TIME_LIMIT".to_string(),
+            value: Some(time_limit.to_string()),
             ..Default::default()
         });
     }

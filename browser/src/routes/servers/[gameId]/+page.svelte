@@ -863,6 +863,16 @@
 					<span class="col-span-2 leading-none font-[var(--dorch-mono)] tracking-wide text-zinc-200"
 						>{spec().dmflags != null ? String(spec().dmflags) : '—'}</span
 					>
+
+					<span class="text-zinc-400">Frag Limit</span>
+					<span class="col-span-2 leading-none font-[var(--dorch-mono)] tracking-wide text-zinc-200"
+						>{spec().frag_limit != null ? String(spec().frag_limit) : '—'}</span
+					>
+
+					<span class="text-zinc-400">Time Limit</span>
+					<span class="col-span-2 leading-none font-[var(--dorch-mono)] tracking-wide text-zinc-200"
+						>{spec().time_limit != null ? String(spec().time_limit) : '—'}</span
+					>
 				</div>
 			</div>
 		</div>

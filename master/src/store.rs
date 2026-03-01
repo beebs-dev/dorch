@@ -80,6 +80,31 @@ impl GameInfoStore {
         Ok(())
     }
 
+    pub async fn get_game_last_active_at(&self, game_id: Uuid) -> Result<Option<i64>> {
+        let key = key_game_info(game_id.to_string().as_str());
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .context("Failed to get Redis connection")?;
+
+        let (raw,): (Option<String>,) = redis::pipe()
+            .hget(&key, "last_active_at")
+            .expire(&key, TTL_SECONDS)
+            .ignore()
+            .query_async(&mut conn)
+            .await
+            .context("Failed to fetch last_active_at from Redis")?;
+
+        match raw {
+            None => Ok(None),
+            Some(value) => value
+                .parse::<i64>()
+                .map(Some)
+                .context("Invalid 'last_active_at' in game info hash"),
+        }
+    }
+
     pub async fn get_game_info(&self, game_id: Uuid) -> Result<Option<GameInfo>> {
         let key = key_game_info(game_id.to_string().as_str());
         let mut conn = self

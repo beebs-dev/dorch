@@ -139,6 +139,8 @@ spec:
           value: {{ .Values.livekit.internalUrl }}
         - name: LIVEKIT_SECRET
           value: {{ .Values.livekit.secret }}
+        - name: MASTER_BASE_URL
+          value: http://{{ .Release.Name }}-master
         - name: POD_NAME
           valueFrom:
             fieldRef:

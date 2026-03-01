@@ -100,6 +100,12 @@ pub struct GameSpec {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dmflags: Option<u32>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frag_limit: Option<u64>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub time_limit: Option<u64>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default, JsonSchema)]

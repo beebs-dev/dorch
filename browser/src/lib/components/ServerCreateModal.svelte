@@ -31,6 +31,8 @@
 	let singlePlayer = $state(true);
 	let maxPlayers = $state<number>(8);
 	let dmflags = $state('');
+	let fragLimit = $state('');
+	let timeLimit = $state('');
 	let pwadKeyCounter = 0;
 	let creatingMultiplayer = $state(false);
 
@@ -88,6 +90,8 @@
 	let skillError = $state<string | null>(null);
 	let maxPlayersError = $state<string | null>(null);
 	let dmflagsError = $state<string | null>(null);
+	let fragLimitError = $state<string | null>(null);
+	let timeLimitError = $state<string | null>(null);
 
 	let didInit = $state(false);
 
@@ -112,6 +116,8 @@
 		singlePlayer?: boolean;
 		maxPlayers?: number;
 		dmflags?: string;
+		fragLimit?: string;
+		timeLimit?: string;
 	} {
 		if (!browser) return {};
 		try {
@@ -122,12 +128,16 @@
 				singlePlayer?: unknown;
 				maxPlayers?: unknown;
 				dmflags?: unknown;
+				fragLimit?: unknown;
+				timeLimit?: unknown;
 			};
 			return {
 				skill: parsed?.skill == null ? undefined : clampSkill(parsed.skill),
 				singlePlayer: typeof parsed?.singlePlayer === 'boolean' ? parsed.singlePlayer : undefined,
 				maxPlayers: parsed?.maxPlayers == null ? undefined : clampMaxPlayers(parsed.maxPlayers),
-				dmflags: typeof parsed?.dmflags === 'string' ? parsed.dmflags.trim() : undefined
+				dmflags: typeof parsed?.dmflags === 'string' ? parsed.dmflags.trim() : undefined,
+				fragLimit: typeof parsed?.fragLimit === 'string' ? parsed.fragLimit.trim() : undefined,
+				timeLimit: typeof parsed?.timeLimit === 'string' ? parsed.timeLimit.trim() : undefined
 			};
 		} catch {
 			return {};
@@ -350,6 +360,8 @@
 		skillError = null;
 		maxPlayersError = null;
 		dmflagsError = null;
+		fragLimitError = null;
+		timeLimitError = null;
 
 		if (!serverName.trim()) nameError = 'Server name is required.';
 		if (!iwadUuid.trim()) iwadError = 'IWAD UUID is required.';
@@ -371,6 +383,28 @@
 					}
 				}
 			}
+
+			if (fragLimit.trim()) {
+				if (!/^\d+$/.test(fragLimit.trim())) {
+					fragLimitError = 'Frag Limit must be a non-negative integer.';
+				} else {
+					const parsed = Number(fragLimit.trim());
+					if (!Number.isSafeInteger(parsed) || parsed < 0) {
+						fragLimitError = 'Frag Limit must be a non-negative integer.';
+					}
+				}
+			}
+
+			if (timeLimit.trim()) {
+				if (!/^\d+$/.test(timeLimit.trim())) {
+					timeLimitError = 'Time Limit must be a non-negative integer.';
+				} else {
+					const parsed = Number(timeLimit.trim());
+					if (!Number.isSafeInteger(parsed) || parsed < 0) {
+						timeLimitError = 'Time Limit must be a non-negative integer.';
+					}
+				}
+			}
 		}
 
 		return !(
@@ -380,7 +414,9 @@
 			warpError ||
 			skillError ||
 			maxPlayersError ||
-			dmflagsError
+			dmflagsError ||
+			fragLimitError ||
+			timeLimitError
 		);
 	}
 
@@ -395,6 +431,8 @@
 
 		const pwadIds = normalizeUuidList(pwads.map((p) => p.id));
 		const dmflagsValue = dmflags.trim() ? Number(dmflags.trim()) : null;
+		const fragLimitValue = fragLimit.trim() ? Number(fragLimit.trim()) : null;
+		const timeLimitValue = timeLimit.trim() ? Number(timeLimit.trim()) : null;
 
 		if (singlePlayer) {
 			const u = new URL('https://gib.gg/play/');
@@ -428,6 +466,8 @@
 					warp: warp.trim(),
 					skill,
 					dmflags: dmflagsValue == null ? undefined : dmflagsValue,
+					frag_limit: fragLimitValue == null ? undefined : fragLimitValue,
+					time_limit: timeLimitValue == null ? undefined : timeLimitValue,
 					max_players: maxPlayers,
 					private: false,
 					user_ids: []
@@ -547,6 +587,8 @@
 			singlePlayer = persisted.singlePlayer ?? true;
 			maxPlayers = persisted.maxPlayers ?? 8;
 			dmflags = persisted.dmflags ?? '';
+			fragLimit = persisted.fragLimit ?? '';
+			timeLimit = persisted.timeLimit ?? '';
 		}
 
 		if (!browser) return;
@@ -580,7 +622,9 @@
 					skill: clampSkill(skill),
 					singlePlayer: Boolean(singlePlayer),
 					maxPlayers: clampMaxPlayers(maxPlayers),
-					dmflags: dmflags.trim()
+					dmflags: dmflags.trim(),
+					fragLimit: fragLimit.trim(),
+					timeLimit: timeLimit.trim()
 				})
 			);
 		} catch {
@@ -1065,6 +1109,48 @@
 						/>
 						{#if dmflagsError}
 							<p class="mt-2 text-xs text-red-300">{dmflagsError}</p>
+						{/if}
+					</section>
+
+					<section>
+						<h3 class="text-xs font-semibold tracking-wide text-zinc-300">Frag Limit</h3>
+						<p class="mt-0.5 text-xs text-zinc-500">Optional. Non-negative integer.</p>
+						<input
+							type="text"
+							inputmode="numeric"
+							value={fragLimit}
+							oninput={(e) => {
+								fragLimit = (e.currentTarget as HTMLInputElement).value;
+								fragLimitError = null;
+							}}
+							disabled={singlePlayer}
+							class="mt-1.5 w-full rounded-lg bg-zinc-950 px-3 py-1.5 font-mono text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none disabled:opacity-50"
+							placeholder="20"
+							autocomplete="off"
+						/>
+						{#if fragLimitError}
+							<p class="mt-2 text-xs text-red-300">{fragLimitError}</p>
+						{/if}
+					</section>
+
+					<section>
+						<h3 class="text-xs font-semibold tracking-wide text-zinc-300">Time Limit</h3>
+						<p class="mt-0.5 text-xs text-zinc-500">Optional. Non-negative integer.</p>
+						<input
+							type="text"
+							inputmode="numeric"
+							value={timeLimit}
+							oninput={(e) => {
+								timeLimit = (e.currentTarget as HTMLInputElement).value;
+								timeLimitError = null;
+							}}
+							disabled={singlePlayer}
+							class="mt-1.5 w-full rounded-lg bg-zinc-950 px-3 py-1.5 font-mono text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none disabled:opacity-50"
+							placeholder="15"
+							autocomplete="off"
+						/>
+						{#if timeLimitError}
+							<p class="mt-2 text-xs text-red-300">{timeLimitError}</p>
 						{/if}
 					</section>
 

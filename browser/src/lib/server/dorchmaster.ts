@@ -25,6 +25,25 @@ export type HomeResponse = {
 	jumbotron: JumbotronResponse;
 };
 
+export type CreateGameRequest = {
+	name: string;
+	iwad: string;
+	user_ids: string[];
+	private?: boolean;
+	warp?: string;
+	skill?: number;
+	dmflags?: number;
+	frag_limit?: number;
+	time_limit?: number;
+	motd?: string;
+	files?: string[];
+	max_players?: number;
+};
+
+export type CreateGameResponse = {
+	game_id: string;
+};
+
 class DorchMasterHttpError extends Error {
 	readonly status: number;
 	readonly body?: string;
@@ -54,13 +73,16 @@ async function requestJson<T>(
 	fetchFn: typeof fetch,
 	path: string,
 	init?: RequestInit,
-	opts?: { forwardedFor?: string }
+	opts?: { forwardedFor?: string; bearerToken?: string }
 ): Promise<T> {
 	const url = buildUrl(path);
 	const headers = new Headers(init?.headers);
 	if (!headers.has('accept')) headers.set('accept', 'application/json');
 	if (opts?.forwardedFor && !headers.has('x-forwarded-for')) {
 		headers.set('x-forwarded-for', opts.forwardedFor);
+	}
+	if (opts?.bearerToken && !headers.has('authorization')) {
+		headers.set('authorization', `Bearer ${opts.bearerToken}`);
 	}
 	const res = await fetchFn(url, {
 		...init,
@@ -82,8 +104,12 @@ async function requestJson<T>(
 	return (await res.json()) as T;
 }
 
-export function createDorchMasterClient(fetchFn: typeof fetch, opts?: { forwardedFor?: string }) {
+export function createDorchMasterClient(
+	fetchFn: typeof fetch,
+	opts?: { forwardedFor?: string; bearerToken?: string }
+) {
 	const forwardedFor = opts?.forwardedFor;
+	const bearerToken = opts?.bearerToken;
 	return {
 		async listGames(): Promise<ListGamesResponse> {
 			return requestJson<ListGamesResponse>(fetchFn, '/game', undefined, { forwardedFor });
@@ -102,6 +128,20 @@ export function createDorchMasterClient(fetchFn: typeof fetch, opts?: { forwarde
 		},
 		async getHome(): Promise<HomeResponse> {
 			return requestJson<HomeResponse>(fetchFn, '/home', undefined, { forwardedFor });
+		},
+		async createGame(payload: CreateGameRequest): Promise<CreateGameResponse> {
+			return requestJson<CreateGameResponse>(
+				fetchFn,
+				'/game',
+				{
+					method: 'POST',
+					headers: {
+						'content-type': 'application/json'
+					},
+					body: JSON.stringify(payload)
+				},
+				{ forwardedFor, bearerToken }
+			);
 		},
 		DorchMasterHttpError
 	};

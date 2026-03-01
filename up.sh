@@ -35,7 +35,6 @@ do_restart() {
             ;;
         server|proxy)
             restart_server=true
-            kubectl delete pod --context $KUBECONTEXT -n $NAMESPACE test-game
             ;;
         *)
             restart_args+=("$arg")

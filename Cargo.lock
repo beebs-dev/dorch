@@ -1970,6 +1970,7 @@ dependencies = [
  "owo-colors",
  "parse_duration",
  "prometheus",
+ "reqwest",
  "schemars 1.2.0",
  "serde",
  "serde_json",

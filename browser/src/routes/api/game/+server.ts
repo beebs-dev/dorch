@@ -34,6 +34,12 @@ function normalizeCreateGameRequest(input: unknown): CreateGameRequest {
     if (typeof body.private === 'boolean') out.private = body.private;
     if (typeof body.warp === 'string' && body.warp.trim()) out.warp = body.warp.trim();
     if (typeof body.skill === 'number' && Number.isInteger(body.skill)) out.skill = body.skill;
+    if (typeof body.frag_limit === 'number' && Number.isInteger(body.frag_limit) && body.frag_limit >= 0) {
+        out.frag_limit = body.frag_limit;
+    }
+    if (typeof body.time_limit === 'number' && Number.isInteger(body.time_limit) && body.time_limit >= 0) {
+        out.time_limit = body.time_limit;
+    }
     if (typeof body.motd === 'string' && body.motd.trim()) out.motd = body.motd.trim();
     if (Array.isArray(body.files)) {
         const files = body.files

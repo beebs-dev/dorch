@@ -53,6 +53,8 @@ export type GameSummary = {
 		gamemode?: string | null;
 		skill?: number | null;
 		dmflags?: number | null;
+		frag_limit?: number | null;
+		time_limit?: number | null;
 		warp?: string | null;
 		private: boolean;
 	};

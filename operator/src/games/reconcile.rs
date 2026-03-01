@@ -15,6 +15,7 @@ use kube::{
 };
 use kube_leader_election::{LeaseLock, LeaseLockParams};
 use owo_colors::OwoColorize;
+use serde::Deserialize;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -26,6 +27,8 @@ use tokio_util::sync::CancellationToken;
 #[cfg(feature = "metrics")]
 use crate::util::metrics::ControllerMetrics;
 
+const MAX_INACTIVE_MS: i64 = 5 * 60 * 1000;
+
 pub async fn run(
     client: Client,
     proxy_image: String,
@@ -35,6 +38,7 @@ pub async fn run(
     livekit_url: String,
     livekit_secret: String,
     wadinfo_base_url: String,
+    master_base_url: String,
     srs_base_url: Option<String>,
     essential_container_names: HashSet<String>,
     essential_init_container_names: HashSet<String>,
@@ -81,6 +85,7 @@ pub async fn run(
         livekit_url,
         livekit_secret,
         wadinfo_base_url,
+        master_base_url,
         srs_base_url,
         essential_container_names,
         essential_init_container_names,
@@ -184,6 +189,8 @@ struct ContextData {
     livekit_url: String,
     livekit_secret: String,
     wadinfo_base_url: String,
+    master_base_url: String,
+    http_client: reqwest::Client,
     srs_base_url: Option<String>,
     last_action: Mutex<HashMap<(String, String), (GameAction, Instant)>>,
     essential_container_names: HashSet<String>,
@@ -205,6 +212,7 @@ impl ContextData {
         livekit_url: String,
         livekit_secret: String,
         wadinfo_base_url: String,
+        master_base_url: String,
         srs_base_url: Option<String>,
         essential_container_names: HashSet<String>,
         essential_init_container_names: HashSet<String>,
@@ -221,6 +229,8 @@ impl ContextData {
                 livekit_url,
                 livekit_secret,
                 wadinfo_base_url,
+                master_base_url,
+                http_client: reqwest::Client::new(),
                 srs_base_url,
                 last_action: Mutex::new(HashMap::new()),
                 essential_container_names,
@@ -237,6 +247,8 @@ impl ContextData {
                 livekit_secret,
                 downloader_image,
                 wadinfo_base_url,
+                master_base_url,
+                http_client: reqwest::Client::new(),
                 srs_base_url,
                 last_action: Mutex::new(HashMap::new()),
                 essential_container_names,
@@ -257,6 +269,10 @@ enum GameAction {
     },
 
     DeletePod {
+        reason: String,
+    },
+
+    Delete {
         reason: String,
     },
 
@@ -288,6 +304,7 @@ impl GameAction {
         match self {
             GameAction::CreatePod => "CreatePod",
             GameAction::DeletePod { .. } => "DeletePod",
+            GameAction::Delete { .. } => "Delete",
             GameAction::Starting { .. } => "Starting",
             GameAction::Active { .. } => "Active",
             GameAction::NoOp => "NoOp",
@@ -341,6 +358,8 @@ async fn reconcile(instance: Arc<Game>, context: Arc<ContextData>) -> Result<Act
         &name,
         &namespace,
         &instance,
+        &context.master_base_url,
+        &context.http_client,
         &context.essential_container_names,
         &context.essential_init_container_names,
     )
@@ -420,6 +439,10 @@ async fn reconcile(instance: Arc<Game>, context: Arc<ContextData>) -> Result<Act
             actions::delete_pod(client.clone(), &instance, reason).await?;
             Action::requeue(Duration::from_secs(3))
         }
+        GameAction::Delete { reason } => {
+            actions::delete_game(client.clone(), &instance, reason).await?;
+            Action::requeue(Duration::from_secs(3))
+        }
         GameAction::CreatePod => {
             actions::create_pod(
                 client.clone(),
@@ -466,6 +489,8 @@ async fn determine_action(
     _name: &str,
     namespace: &str,
     instance: &Game,
+    master_base_url: &str,
+    http_client: &reqwest::Client,
     essential_container_names: &HashSet<String>,
     essential_init_container_names: &HashSet<String>,
 ) -> Result<GameAction, Error> {
@@ -515,7 +540,7 @@ async fn determine_action(
     match pod_is_ready(&pod) {
         Some(true) => {
             // Keep the Active phase up-to-date
-            determine_status_action(instance)
+            determine_status_action(instance, master_base_url, http_client).await
         }
         Some(false) => {
             // Ready condition exists but is False; include the condition message if present
@@ -778,12 +803,47 @@ async fn get_pod(client: Client, namespace: &str, name: &str) -> Result<Option<P
 
 /// Determines the action given that the only thing left to do
 /// is periodically keeping the Active phase up-to-date.
-fn determine_status_action(instance: &Game) -> Result<GameAction, Error> {
+async fn determine_status_action(
+    instance: &Game,
+    master_base_url: &str,
+    http_client: &reqwest::Client,
+) -> Result<GameAction, Error> {
     let Some(phase) = get_phase(instance) else {
         return Ok(GameAction::Active {
             pod_name: instance.name_any(),
         });
     };
+    let game_id = &instance.spec.game_id;
+    if instance
+        .annotations()
+        .get(annotations::CREATED_BY_USER)
+        .is_some()
+    {
+        // Garbage collect user-created games by probing the master for their recency.
+        // If the master reports the game as inactive, delete it.
+        match fetch_master_last_active_at(http_client, master_base_url, game_id).await {
+            Ok(Some(value)) => {
+                let now_ms = Utc::now().timestamp_millis();
+                let inactive_ms = now_ms.saturating_sub(value);
+                if inactive_ms > MAX_INACTIVE_MS {
+                    return Ok(GameAction::Delete {
+                        reason: format!(
+                            "Game '{}' inactive for {} ms (> {} ms)",
+                            game_id, inactive_ms, MAX_INACTIVE_MS
+                        ),
+                    });
+                }
+            }
+            Ok(None) => {}
+            Err(e) => {
+                eprintln!(
+                    "Failed to probe recency from master for game '{}': {}",
+                    game_id, e
+                );
+                return Ok(GameAction::Requeue(Duration::from_secs(10)));
+            }
+        }
+    }
     let age = get_last_updated(instance).unwrap_or(Duration::from_secs(0));
     if phase != GamePhase::Active || age > PROBE_INTERVAL {
         Ok(GameAction::Active {
@@ -792,6 +852,45 @@ fn determine_status_action(instance: &Game) -> Result<GameAction, Error> {
     } else {
         Ok(GameAction::NoOp)
     }
+}
+
+#[derive(Deserialize)]
+struct MasterRecencyResponse {
+    last_active: i64,
+}
+
+async fn fetch_master_last_active_at(
+    http_client: &reqwest::Client,
+    master_base_url: &str,
+    game_id: &str,
+) -> Result<Option<i64>, String> {
+    let url = format!(
+        "{}/game/{}/recency",
+        master_base_url.trim_end_matches('/'),
+        game_id
+    );
+
+    let response = http_client
+        .get(&url)
+        .timeout(Duration::from_secs(2))
+        .send()
+        .await
+        .map_err(|e| format!("request failed: {}", e))?;
+
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
+
+    if !response.status().is_success() {
+        return Err(format!("unexpected status {}", response.status()));
+    }
+
+    let payload = response
+        .json::<MasterRecencyResponse>()
+        .await
+        .map_err(|e| format!("invalid response payload: {}", e))?;
+
+    Ok(Some(payload.last_active))
 }
 
 /// Returns the phase of the Game.
