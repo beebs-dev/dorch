@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
 	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { showToast } from '$lib/stores/toast';
 	import { login as authLogin } from '$lib/stores/auth';
 
@@ -116,6 +118,11 @@
 	function comingSoon(message: string) {
 		showToast(message);
 	}
+
+	async function navigateToRegister() {
+		close();
+		await goto(resolve('/register'));
+	}
 </script>
 
 {#if open}
@@ -138,8 +145,14 @@
 			<div class="flex items-center justify-between border-b border-zinc-800/80 px-5 py-4">
 				<div>
 					<h2 class="text-base font-semibold tracking-wide text-zinc-100">Sign in</h2>
-					<p class="mt-1 text-xs text-zinc-400">Use your <span style="font-weight: bold; color: #b50d0d;">ɢɪʙ.ɢɢ</span> account to create custom servers for free.</p>
-					<p class="mt-1 text-xs text-zinc-400">NOTE: an account is <span class="font-bold">not</span> required to play. The settings menu (top right corner, gear icon) is always accessible.</p>
+					<p class="mt-1 text-xs text-zinc-400">
+						Use your <span style="font-weight: bold; color: #b50d0d;">ɢɪʙ.ɢɢ</span> account to create
+						custom servers for free.
+					</p>
+					<p class="mt-1 text-xs text-zinc-400">
+						NOTE: an account is <span class="font-bold">not</span> required to play. The settings menu
+						(top right corner, gear icon) is always accessible.
+					</p>
 				</div>
 				<button
 					type="button"
@@ -177,7 +190,7 @@
 				</label>
 
 				<div class="mt-4 flex items-center justify-between gap-4">
-					<label class="cursor-pointer inline-flex items-center gap-2 text-xs text-zinc-300">
+					<label class="inline-flex cursor-pointer items-center gap-2 text-xs text-zinc-300">
 						<input
 							type="checkbox"
 							bind:checked={rememberMe}
@@ -199,7 +212,7 @@
 					type="submit"
 					disabled={submitting}
 					aria-busy={submitting}
-					class="cursor-pointer mt-5 w-full rounded-lg bg-red-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+					class="mt-5 w-full cursor-pointer rounded-lg bg-red-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					{submitting ? 'SIGNING IN…' : 'SIGN IN'}
 				</button>
@@ -208,8 +221,8 @@
 					Don’t have an account?
 					<button
 						type="button"
-						class="cursor-pointer ml-1 rounded font-semibold text-red-300 hover:text-red-200 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
-						onclick={() => comingSoon('Sign up is coming soon.')}
+						class="ml-1 cursor-pointer rounded font-semibold text-red-300 hover:text-red-200 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+						onclick={navigateToRegister}
 					>
 						Sign up
 					</button>
