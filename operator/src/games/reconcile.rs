@@ -819,12 +819,20 @@ async fn determine_status_action(
         .get(annotations::CREATED_BY_USER)
         .is_some()
     {
+        println!(
+            "Probing recency for user-created game '{}' (phase: {})",
+            game_id, phase
+        );
         // Garbage collect user-created games by probing the master for their recency.
         // If the master reports the game as inactive, delete it.
         match fetch_master_last_active_at(http_client, master_base_url, game_id).await {
             Ok(Some(value)) => {
                 let now_ms = Utc::now().timestamp_millis();
                 let inactive_ms = now_ms.saturating_sub(value);
+                println!(
+                    "Game '{}' last active at {} ({} ms ago)",
+                    game_id, value, inactive_ms
+                );
                 if inactive_ms > MAX_INACTIVE_MS {
                     return Ok(GameAction::Delete {
                         reason: format!(
@@ -834,7 +842,26 @@ async fn determine_status_action(
                     });
                 }
             }
-            Ok(None) => {}
+            Ok(None) => {
+                println!(
+                    "No recency information found for user-created game '{}' (phase: {})",
+                    game_id, phase
+                );
+                // Is the resource older than MAX_INACTIVE_MS? If so, delete it; otherwise, requeue and check again later.
+                if get_creation_timestamp(instance)
+                    .map(|t| {
+                        Utc::now().signed_duration_since(t).num_milliseconds() > MAX_INACTIVE_MS
+                    })
+                    .unwrap_or(false)
+                {
+                    return Ok(GameAction::Delete {
+                        reason: format!(
+                            "Game '{}' has no recency info and is older than {} ms; assuming inactive",
+                            game_id, MAX_INACTIVE_MS
+                        ),
+                    });
+                }
+            }
             Err(e) => {
                 eprintln!(
                     "Failed to probe recency from master for game '{}': {}",
@@ -896,6 +923,10 @@ async fn fetch_master_last_active_at(
 /// Returns the phase of the Game.
 pub fn get_phase(instance: &Game) -> Option<GamePhase> {
     instance.status.as_ref().map(|status| status.phase)
+}
+
+pub fn get_creation_timestamp(instance: &Game) -> Option<chrono::DateTime<Utc>> {
+    instance.metadata.creation_timestamp.as_ref().map(|t| t.0)
 }
 
 pub fn get_last_updated(instance: &Game) -> Option<Duration> {

@@ -9,8 +9,7 @@ use k8s_openapi::{
     apimachinery::pkg::api::resource::Quantity,
 };
 use kube::{
-    Api, Client,
-    ResourceExt,
+    Api, Client, ResourceExt,
     api::{ObjectMeta, Resource},
 };
 
@@ -57,9 +56,10 @@ pub async fn delete_pod(client: Client, instance: &Game, reason: String) -> Resu
 
 pub async fn delete_game(client: Client, instance: &Game, reason: String) -> Result<(), Error> {
     let game_name = instance.name_any();
-    let namespace = instance.meta().namespace.as_ref().ok_or_else(|| {
-        Error::UserInput("Expected Game resource to be namespaced".to_owned())
-    })?;
+    let namespace =
+        instance.meta().namespace.as_ref().ok_or_else(|| {
+            Error::UserInput("Expected Game resource to be namespaced".to_owned())
+        })?;
 
     println!(
         "Deleting Game '{}/{}' • reason: {}",
