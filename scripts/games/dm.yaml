@@ -14,7 +14,7 @@ spec:
   skill: 4
   warp: MAP01
   gamemode: Deathmatch
-  dmflags: 4096
+  dmflags: 6144 # 4096 + 2048
   frag_limit: 20
   time_limit: 7
   files:

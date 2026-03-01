@@ -17,6 +17,11 @@
 		avatar_url?: string | null;
 	};
 
+	type MotdMessage = {
+		text: string;
+		link?: string;
+	};
+
 	let { children } = $props();
 
 	let loginOpen = $state(false);
@@ -29,10 +34,9 @@
 		username: null,
 		accessToken: null
 	});
-	const motdMessages = [
-		'27 FEB - ALL SERVICES BACK ONLINE',
-		'100% FREE CLASSIC MULTIPLAYER',
-		'OPEN REGISTRATION COMING SOON'
+	const motdMessages: MotdMessage[] = [
+		{ text: '1 MARCH - REGISTRATION NOW OPEN! GET IT!', link: '/register' },
+		{ text: '100% FREE CLASSIC MULTIPLAYER' }
 	];
 	let motdIndex = $state(0);
 	let motdVisibleText = $state('');
@@ -77,7 +81,7 @@
 	}
 
 	function playCurrentMotd() {
-		playMotdTypewriter(motdMessages[motdIndex]);
+		playMotdTypewriter(motdMessages[motdIndex].text);
 	}
 
 	function startMotdRotation() {
@@ -234,7 +238,16 @@
 						class={`dorch-motd inline-flex max-w-full items-center overflow-hidden text-center text-xs font-[var(--dorch-mono)] tracking-[0.14em] text-ellipsis whitespace-nowrap text-red-200 sm:overflow-visible sm:text-left sm:text-sm sm:whitespace-normal ${motdAnimating ? 'is-typing' : ''}`}
 						aria-live="polite"
 					>
-						{motdVisibleText}
+						{#if motdMessages[motdIndex].link}
+							<a
+								href={motdMessages[motdIndex].link}
+								class="underline decoration-red-300/70 underline-offset-2 hover:text-red-100"
+							>
+								{motdVisibleText}
+							</a>
+						{:else}
+							{motdVisibleText}
+						{/if}
 					</div>
 				</div>
 			{/if}
