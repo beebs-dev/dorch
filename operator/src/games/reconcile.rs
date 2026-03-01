@@ -819,10 +819,6 @@ async fn determine_status_action(
         .get(annotations::CREATED_BY_USER)
         .is_some()
     {
-        println!(
-            "Probing recency for user-created game '{}' (phase: {})",
-            game_id, phase
-        );
         // Garbage collect user-created games by probing the master for their recency.
         // If the master reports the game as inactive, delete it.
         match fetch_master_last_active_at(http_client, master_base_url, game_id).await {
@@ -843,10 +839,6 @@ async fn determine_status_action(
                 }
             }
             Ok(None) => {
-                println!(
-                    "No recency information found for user-created game '{}' (phase: {})",
-                    game_id, phase
-                );
                 // Is the resource older than MAX_INACTIVE_MS? If so, delete it; otherwise, requeue and check again later.
                 if get_creation_timestamp(instance)
                     .map(|t| {

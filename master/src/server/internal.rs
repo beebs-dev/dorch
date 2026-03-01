@@ -360,14 +360,6 @@ pub async fn update_game_info(
             "sv_allowfreelook",
             zandronum.sv_allowfreelook,
         );
-
-        println!(
-            "{}{}{}{:?}",
-            "Updating game info from Zandronum update • game_id=".green(),
-            game_id.green().dimmed(),
-            " • player_count=".green(),
-            player_count_update,
-        );
         if matches!(player_count_update, Some(Settable::Set(player_count)) if player_count > 0) {
             let now_ms = match SystemTime::now().duration_since(UNIX_EPOCH) {
                 Ok(duration) => duration.as_millis() as i64,
