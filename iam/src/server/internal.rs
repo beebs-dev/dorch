@@ -730,11 +730,11 @@ async fn reset_user_password(
 struct CreateUser {
     username: String,
 
-    #[serde(default, rename = "firstName")]
-    first_name: Option<String>,
+    #[serde(rename = "firstName", default)]
+    first_name: String,
 
-    #[serde(default, rename = "lastName")]
-    last_name: Option<String>,
+    #[serde(rename = "lastName", default)]
+    last_name: String,
 
     email: String,
 
@@ -745,6 +745,19 @@ struct CreateUser {
 }
 
 async fn create_user(state: &App, req: RegisterRequest) -> Result<RegisterResponse> {
+    let first_name = req
+        .first_name
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or_default()
+        .to_string();
+    let last_name = req
+        .last_name
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or_default()
+        .to_string();
+
     let client = reqwest::Client::new();
     let token = kc_service_token(
         &client,
@@ -762,8 +775,8 @@ async fn create_user(state: &App, req: RegisterRequest) -> Result<RegisterRespon
         .post(url)
         .json(&CreateUser {
             username: req.username.clone(),
-            first_name: req.first_name,
-            last_name: req.last_name,
+            first_name,
+            last_name,
             email: req.email,
             enabled: true,
             email_verified: true,
