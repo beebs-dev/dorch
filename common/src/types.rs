@@ -7,6 +7,8 @@ pub struct GameInfo {
     pub name: String,
     pub max_players: i32,
     pub player_count: i32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_active_at: Option<i64>,
     pub skill: i32,
     pub current_map: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

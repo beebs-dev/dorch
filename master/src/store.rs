@@ -169,6 +169,7 @@ impl GameInfoStore {
 
         let server_started_at = parse_opt_i64(&hash, "server_started_at")?;
         let map_started_at = parse_opt_i64(&hash, "map_started_at")?;
+        let last_active_at = parse_opt_i64(&hash, "last_active_at")?;
         let max_players: i32 = hash
             .get("max_players")
             .context("Missing 'max_players' in game info hash")?
@@ -224,6 +225,7 @@ impl GameInfoStore {
             name: Default::default(), // filled in by k8s
             max_players,
             player_count,
+            last_active_at,
             skill,
             current_map,
             map_title,

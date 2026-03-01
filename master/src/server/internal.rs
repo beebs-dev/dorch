@@ -27,7 +27,11 @@ use kube::{
     api::{ObjectMeta, Patch, PatchParams},
 };
 use owo_colors::OwoColorize;
-use std::{collections::BTreeMap, net::SocketAddr, time::Instant};
+use std::{
+    collections::BTreeMap,
+    net::SocketAddr,
+    time::{Instant, SystemTime, UNIX_EPOCH},
+};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -176,6 +180,8 @@ pub async fn update_game_info(
     push_bool(&mut set_args, &mut del_args, "private", info.private);
 
     if let Some(zandronum) = info.zandronum {
+        let player_count_update = zandronum.player_count.clone();
+
         push_string(
             &mut set_args,
             &mut del_args,
@@ -347,6 +353,16 @@ pub async fn update_game_info(
             "sv_allowfreelook",
             zandronum.sv_allowfreelook,
         );
+
+        if matches!(player_count_update, Some(Settable::Set(player_count)) if player_count > 0) {
+            let now_ms = match SystemTime::now().duration_since(UNIX_EPOCH) {
+                Ok(duration) => duration.as_millis() as i64,
+                Err(e) => {
+                    return response::error(anyhow!(e).context("System time is before UNIX_EPOCH"));
+                }
+            };
+            set_args.push(("last_active_at", now_ms.to_string()));
+        }
     }
 
     if set_args.is_empty() && del_args.is_empty() {
