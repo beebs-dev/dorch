@@ -11,10 +11,18 @@
 	import { replaceState } from '$app/navigation';
 	import { onMount } from 'svelte';
 
+	const API_BASE_URL = 'https://api.gib.gg';
+
+	type UserProfileAvatarResponse = {
+		avatar_url?: string | null;
+	};
+
 	let { children } = $props();
 
 	let loginOpen = $state(false);
 	let settingsOpen = $state(false);
+	let accountAvatarUrl = $state<string | null>(null);
+	let avatarRequestId = 0;
 	let authState = $state<AuthState>({
 		isAuthenticated: false,
 		userId: null,
@@ -88,6 +96,7 @@
 		// Subscribe to auth state changes
 		const unsubscribeAuth = authSubscribe((state) => {
 			authState = state;
+			void syncAccountAvatar(state);
 		});
 
 		// Sync login modal with URL hash
@@ -159,6 +168,38 @@
 			pathname === '/manage' ||
 			pathname.startsWith('/manage/')
 		);
+	}
+
+	async function syncAccountAvatar(state: AuthState) {
+		const requestId = ++avatarRequestId;
+
+		if (!browser || !state.isAuthenticated || !state.userId || !state.accessToken) {
+			accountAvatarUrl = null;
+			return;
+		}
+
+		try {
+			const res = await fetch(`${API_BASE_URL}/user/profile/${encodeURIComponent(state.userId)}`, {
+				method: 'GET',
+				headers: {
+					accept: 'application/json',
+					authorization: `Bearer ${state.accessToken}`
+				}
+			});
+
+			if (requestId !== avatarRequestId) return;
+			if (!res.ok) {
+				accountAvatarUrl = null;
+				return;
+			}
+
+			const profile = (await res.json()) as UserProfileAvatarResponse;
+			const avatarUrl = typeof profile.avatar_url === 'string' ? profile.avatar_url.trim() : '';
+			accountAvatarUrl = avatarUrl.length > 0 ? avatarUrl : null;
+		} catch {
+			if (requestId !== avatarRequestId) return;
+			accountAvatarUrl = null;
+		}
 	}
 
 	async function signOut() {
@@ -359,11 +400,30 @@
 							class="absolute top-full right-0 z-50 hidden min-w-48 pt-2 group-focus-within:block group-hover:block"
 						>
 							<div class="overflow-hidden rounded-lg bg-zinc-950 ring-1 ring-zinc-800">
-								<div class="border-b border-zinc-800 px-3 py-2 text-xs text-zinc-400">
-									Signed in as
-									<span class="ml-1 font-semibold text-red-300"
-										>{authState.username ?? 'unknown'}</span
+								<div
+									class="flex items-center justify-between gap-3 border-b border-zinc-800 px-3 py-2 text-xs text-zinc-400"
+								>
+									<div class="min-w-0">
+										Signed in as
+										<span class="ml-1 font-semibold text-red-300"
+											>{authState.username ?? 'unknown'}</span
+										>
+									</div>
+									<div
+										class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-900 ring-1 ring-zinc-700"
 									>
+										{#if accountAvatarUrl}
+											<img
+												src={accountAvatarUrl}
+												alt="User avatar"
+												class="h-full w-full object-cover"
+											/>
+										{:else}
+											<span class="text-[10px] font-semibold text-zinc-300"
+												>{(authState.username?.trim()[0] ?? 'U').toUpperCase()}</span
+											>
+										{/if}
+									</div>
 								</div>
 								<a
 									href={resolve('/account')}

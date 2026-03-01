@@ -1,0 +1,18 @@
+---
+apiVersion: dorch.beebs.dev/v1
+kind: Game
+metadata:
+  name: game-ec3c32af-82c6-4289-8c9c-77f2f680417c
+  namespace: dorch
+spec:
+  game_id: ec3c32af-82c6-4289-8c9c-77f2f680417c
+  name: "GOING DOWN??"
+  max_players: 64
+  s3_secret_name: game-spaces-cred
+  iwad: 17bdc0a8-8a81-4b00-90d1-972bf406fa10
+  use_doom1_assets: false
+  skill: 4
+  warp: MAP01
+  files:
+    - 22a0ca23-f044-4319-a7a6-f3b60276d0ce
+    - 6359d258-ca67-4e21-a946-7a74ebf91e49
