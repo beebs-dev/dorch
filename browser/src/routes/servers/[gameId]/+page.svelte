@@ -337,9 +337,17 @@
 
 	onMount(() => {
 		let destroyed = false;
-		const refreshTimer = window.setInterval(() => {
-			void invalidateAll();
-		}, 10_000);
+		let refreshTimer: number | null = null;
+		const scheduleRefresh = () => {
+			if (destroyed) return;
+			const refreshMs = info()?.player_count == null ? 5_000 : 10_000;
+			refreshTimer = window.setTimeout(async () => {
+				if (destroyed) return;
+				await invalidateAll();
+				scheduleRefresh();
+			}, refreshMs);
+		};
+		scheduleRefresh();
 
 		(async () => {
 			if (!videoEl) return;
@@ -356,7 +364,9 @@
 
 		return () => {
 			destroyed = true;
-			window.clearInterval(refreshTimer);
+			if (refreshTimer != null) {
+				window.clearTimeout(refreshTimer);
+			}
 			destroyHls();
 			destroyRtc();
 		};

@@ -488,7 +488,7 @@ fn game_resource(
             private: Some(req.private),
             skill: req.skill,
             warp: req.warp.clone(),
-            max_players: 64,
+            max_players: req.max_players,
             iwad: req.iwad,
             s3_secret_name,
             ..Default::default()
@@ -535,6 +535,9 @@ pub async fn new_game(
     Path(game_id): Path<Uuid>,
     Json(req): Json<NewGameRequest>,
 ) -> impl IntoResponse {
+    if !(2..=64).contains(&req.max_players) {
+        return response::bad_request(anyhow!("max_players must be between 2 and 64"));
+    }
     let api = Api::<Game>::namespaced(state.client.clone(), &state.namespace);
     if let Some(resp) = ensure_capacity(
         &api,

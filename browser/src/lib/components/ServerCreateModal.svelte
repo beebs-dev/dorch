@@ -361,16 +361,18 @@
 					files: pwadIds.length ? pwadIds : undefined,
 					warp: warp.trim(),
 					skill,
+					max_players: maxPlayers,
 					private: false,
 					user_ids: []
 				})
 			});
 
 			if (!res.ok) {
-				let message = 'Failed to create multiplayer server.';
+				let message = `Failed to create multiplayer server (${res.status}).`;
 				try {
-					const body = (await res.json()) as { error?: string; message?: string };
-					if (typeof body?.error === 'string' && body.error.trim()) message = body.error;
+					const body = (await res.json()) as { reason?: string; error?: string; message?: string };
+					if (typeof body?.reason === 'string' && body.reason.trim()) message = body.reason;
+					else if (typeof body?.error === 'string' && body.error.trim()) message = body.error;
 					else if (typeof body?.message === 'string' && body.message.trim()) message = body.message;
 				} catch {
 					// ignore

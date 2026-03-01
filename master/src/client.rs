@@ -3,6 +3,10 @@ use dorch_types::Gamemode;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+fn default_max_players() -> i32 {
+    64
+}
+
 #[derive(Deserialize, Default)]
 pub struct NewGameRequest {
     #[serde(default)]
@@ -31,6 +35,9 @@ pub struct NewGameRequest {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skill: Option<i32>,
+
+    #[serde(default = "default_max_players")]
+    pub max_players: i32,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
