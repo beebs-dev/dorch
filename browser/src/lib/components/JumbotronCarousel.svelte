@@ -52,6 +52,11 @@
 		return ((index % len) + len) % len;
 	}
 
+	function randomIndex(len: number): number {
+		if (len <= 0) return 0;
+		return Math.floor(Math.random() * len);
+	}
+
 	$: activeIndex = wrapIndex(activeIndex, items.length);
 	$: activeItem = items.length ? items[activeIndex] : null;
 	$: activeGameId = activeItem?.game_id ?? null;
@@ -68,8 +73,6 @@
 		const dir = (offset > 0 ? 1 : -1) as -1 | 1;
 		void rotateSteps(dir, Math.min(Math.abs(offset), 6));
 	}
-
-
 
 	function visibleOffsets(n: number): number[] {
 		const clamped = Math.max(0, Math.floor(n));
@@ -563,8 +566,8 @@
 			debugEnabled = false;
 		}
 		if (debugEnabled) dbg('debug enabled');
-		// Start on the first item (if any) and build the initial window.
-		activeIndex = wrapIndex(activeIndex, items.length);
+		// Start on a random item (if any) and build the initial window.
+		activeIndex = randomIndex(items.length);
 		rendered = buildInitialRendered();
 		void activateStream(activeItem);
 	});
@@ -594,7 +597,6 @@
 </script>
 
 <div class="jc-root">
-
 	{#if !items.length}
 		<div class="jc-empty grid place-items-center">
 			<div class="rounded-xl bg-black/40 px-4 py-3 text-sm text-zinc-200 ring-1 ring-white/10">
@@ -633,7 +635,10 @@
 									class="jc-video"
 									bind:this={activeVideoEl}
 									onplaying={() => {
-										dbg('video playing', { gameId: item.game_id, readyState: activeVideoEl?.readyState });
+										dbg('video playing', {
+											gameId: item.game_id,
+											readyState: activeVideoEl?.readyState
+										});
 										if (item.game_id === activeGameId) activeReady = true;
 									}}
 									onerror={() => {
@@ -777,7 +782,7 @@
 		border-radius: 16px;
 		overflow: hidden;
 		background: rgba(0, 0, 0, 0.25);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+		border: 1px solid rgba(255, 255, 255, 0.06);
 		box-shadow:
 			0 25px 70px rgba(0, 0, 0, 0.55),
 			0 0 0 1px rgba(255, 255, 255, 0.08) inset;

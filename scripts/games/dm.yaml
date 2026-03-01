@@ -14,6 +14,7 @@ spec:
   skill: 4
   warp: MAP01
   gamemode: Deathmatch
+  dmflags: 4096
   files:
     - 22a0ca23-f044-4319-a7a6-f3b60276d0ce
-    - 0fb08024-1ece-4352-97dd-432c58bd32d1
+    - 15f96475-3d6c-4bd6-b37d-8d3a69b296ad

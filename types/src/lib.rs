@@ -97,6 +97,9 @@ pub struct GameSpec {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resources: Option<ResourceRequirements>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dmflags: Option<u32>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default, JsonSchema)]

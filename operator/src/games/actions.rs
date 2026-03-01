@@ -148,6 +148,13 @@ fn game_pod(
             ..Default::default()
         });
     }
+    if let Some(dmflags) = instance.spec.dmflags {
+        server_env.push(EnvVar {
+            name: "DMFLAGS".to_string(),
+            value: Some(dmflags.to_string()),
+            ..Default::default()
+        });
+    }
     if !wad_list.is_empty() {
         server_env.push(EnvVar {
             name: "WAD_LIST".to_string(),

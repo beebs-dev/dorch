@@ -29,6 +29,11 @@ spec:
               debug_udp:
                 nullable: true
                 type: boolean
+              dmflags:
+                format: uint32
+                minimum: 0.0
+                nullable: true
+                type: integer
               files:
                 items:
                   type: string

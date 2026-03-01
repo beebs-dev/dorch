@@ -38,15 +38,29 @@
 	let aiEnabled = $state(data.draft?.ai_enabled ?? true);
 	let uploadedFile = $state<{ name: string; size: number; hash: string } | null>(
 		data.draft?.upload_id && data.draft?.file_size && data.draft?.file_sha256
-			? { name: data.draft.filename ?? 'Previously uploaded file', size: data.draft.file_size, hash: data.draft.file_sha256 }
+			? {
+					name: data.draft.filename ?? 'Previously uploaded file',
+					size: data.draft.file_size,
+					hash: data.draft.file_sha256
+				}
 			: null
 	);
 
 	// Track unsaved changes
 	let hasUnsavedChanges = $state(false);
-	let initialState = $state<{ title: string; author: string; description: string; aiEnabled: boolean }>(
+	let initialState = $state<{
+		title: string;
+		author: string;
+		description: string;
+		aiEnabled: boolean;
+	}>(
 		data.draft
-			? { title: data.draft.title ?? '', author: data.draft.author ?? '', description: data.draft.description ?? '', aiEnabled: data.draft.ai_enabled }
+			? {
+					title: data.draft.title ?? '',
+					author: data.draft.author ?? '',
+					description: data.draft.description ?? '',
+					aiEnabled: data.draft.ai_enabled
+				}
 			: { title: '', author: '', description: '', aiEnabled: true }
 	);
 
@@ -54,7 +68,12 @@
 	let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
 	// Snapshot of last saved values (non-reactive to prevent effect loops)
 	let lastSavedState = data.draft
-		? { title: data.draft.title ?? '', author: data.draft.author ?? '', description: data.draft.description ?? '', aiEnabled: data.draft.ai_enabled }
+		? {
+				title: data.draft.title ?? '',
+				author: data.draft.author ?? '',
+				description: data.draft.description ?? '',
+				aiEnabled: data.draft.ai_enabled
+			}
 		: { title: '', author: '', description: '', aiEnabled: true };
 
 	// Flag to prevent concurrent draft creation
@@ -76,31 +95,36 @@
 		const _author = author;
 		const _description = description;
 		const _aiEnabled = aiEnabled;
-		
+
 		// Only proceed if we have saved state to compare against
 		if (!lastSavedState) return;
-		
+
 		// Check if there are actual changes compared to last save
 		const changed =
 			_title !== lastSavedState.title ||
 			_author !== lastSavedState.author ||
 			_description !== lastSavedState.description ||
 			_aiEnabled !== lastSavedState.aiEnabled;
-		
+
 		if (!changed) return;
-		
+
 		// Clear previous timer
 		if (autoSaveTimer) {
 			clearTimeout(autoSaveTimer);
 		}
-		
+
 		// Set new debounced save
 		autoSaveTimer = setTimeout(() => {
 			// Update lastSavedState before saving to prevent re-trigger
-			lastSavedState = { title: _title, author: _author, description: _description, aiEnabled: _aiEnabled };
+			lastSavedState = {
+				title: _title,
+				author: _author,
+				description: _description,
+				aiEnabled: _aiEnabled
+			};
 			saveDraft();
 		}, 300);
-		
+
 		return () => {
 			if (autoSaveTimer) {
 				clearTimeout(autoSaveTimer);
@@ -183,6 +207,8 @@
 
 		// Lazily create a draft on first save
 		if (!(await ensureDraft())) return;
+		const currentDraft = draft;
+		if (!currentDraft) return;
 
 		const token = await getValidAccessToken();
 		if (!token) return;
@@ -197,7 +223,7 @@
 				ai_enabled: aiEnabled
 			};
 
-			const res = await fetch(`${apiBaseUrl}/draft/${draft.draft_id}`, {
+			const res = await fetch(`${apiBaseUrl}/draft/${currentDraft.draft_id}`, {
 				method: 'PUT',
 				headers: {
 					authorization: `Bearer ${token}`,
@@ -240,9 +266,10 @@
 		deleting = true;
 
 		try {
-			const endpoint = draft.status === 'published' && draft.wad_id
-				? `${apiBaseUrl}/wad/${draft.wad_id}`
-				: `${apiBaseUrl}/draft/${draft.draft_id}`;
+			const endpoint =
+				draft.status === 'published' && draft.wad_id
+					? `${apiBaseUrl}/wad/${draft.wad_id}`
+					: `${apiBaseUrl}/draft/${draft.draft_id}`;
 
 			const res = await fetch(endpoint, {
 				method: 'DELETE',
@@ -292,6 +319,8 @@
 	async function uploadFile(file: File) {
 		// Lazily create a draft on first upload
 		if (!(await ensureDraft())) return;
+		const currentDraft = draft;
+		if (!currentDraft) return;
 
 		const token = await getValidAccessToken();
 		if (!token) return;
@@ -371,7 +400,7 @@
 				filename: file.name
 			};
 
-			const updateRes = await fetch(`${apiBaseUrl}/draft/${draft.draft_id}`, {
+			const updateRes = await fetch(`${apiBaseUrl}/draft/${currentDraft.draft_id}`, {
 				method: 'PUT',
 				headers: {
 					authorization: `Bearer ${token}`,
@@ -452,20 +481,22 @@
 		// If SSR returned notAuthenticated, try to refresh the token
 		// (the access token cookie may have expired but refresh token in localStorage is still valid)
 		if (data.notAuthenticated) {
-			getAccessToken().then((token) => {
-				if (token) {
-					// Token refresh succeeded, reload the page data
-					invalidateAll().then(() => {
+			getAccessToken()
+				.then((token) => {
+					if (token) {
+						// Token refresh succeeded, reload the page data
+						invalidateAll().then(() => {
+							authChecking = false;
+							notAuthenticated = false;
+						});
+					} else {
+						// No valid token available
 						authChecking = false;
-						notAuthenticated = false;
-					});
-				} else {
-					// No valid token available
+					}
+				})
+				.catch(() => {
 					authChecking = false;
-				}
-			}).catch(() => {
-				authChecking = false;
-			});
+				});
 		}
 
 		const unsubscribeAuth = authSubscribe((state) => {
@@ -505,13 +536,13 @@
 </svelte:head>
 
 <section class="mx-auto w-full max-w-4xl px-4 py-6">
-	<div class="flex items-center justify-between mb-8">
+	<div class="mb-8 flex items-center justify-between">
 		<h1 class="text-3xl font-semibold tracking-tight">
 			{isPublished ? 'Edit WAD' : 'Upload WAD'}
 		</h1>
 		<a
 			href={resolve('/my-wads')}
-			class="text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+			class="text-sm text-zinc-400 transition-colors hover:text-zinc-200"
 		>
 			← Back to My WADs
 		</a>
@@ -519,24 +550,26 @@
 
 	{#if authChecking}
 		<div class="flex items-center justify-center py-12">
-			<div class="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-red-500"></div>
+			<div
+				class="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-red-500"
+			></div>
 		</div>
 	{:else if notAuthenticated}
 		<div class="rounded-lg bg-zinc-900/50 p-8 text-center">
-			<p class="text-zinc-400 mb-4">Please log in to upload WADs.</p>
+			<p class="mb-4 text-zinc-400">Please log in to upload WADs.</p>
 			<a
 				href="/#login"
-				class="inline-flex items-center gap-2 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors"
+				class="inline-flex items-center gap-2 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600"
 			>
 				Log In
 			</a>
 		</div>
 	{:else if error}
-		<div class="rounded-lg bg-red-900/20 border border-red-900/50 p-6 text-center">
+		<div class="rounded-lg border border-red-900/50 bg-red-900/20 p-6 text-center">
 			<p class="text-red-400">{error}</p>
 			<a
 				href={resolve('/upload')}
-				class="mt-4 inline-block rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 transition-colors"
+				class="mt-4 inline-block rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 transition-colors hover:bg-zinc-700"
 			>
 				Retry
 			</a>
@@ -544,14 +577,24 @@
 	{:else}
 		<div class="space-y-6">
 			<!-- File Upload Section -->
-			<div class="rounded-lg bg-zinc-900/60 ring-1 ring-zinc-800 p-6">
-				<h2 class="text-lg font-semibold mb-4">WAD File</h2>
+			<div class="rounded-lg bg-zinc-900/60 p-6 ring-1 ring-zinc-800">
+				<h2 class="mb-4 text-lg font-semibold">WAD File</h2>
 
 				{#if uploadedFile}
-					<div class="flex items-center justify-between bg-zinc-800/50 rounded-lg p-4">
+					<div class="flex items-center justify-between rounded-lg bg-zinc-800/50 p-4">
 						<div class="flex items-center gap-3">
-							<svg class="h-8 w-8 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+							<svg
+								class="h-8 w-8 text-green-400"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
 							</svg>
 							<div>
 								<p class="font-medium text-zinc-100">{uploadedFile.name}</p>
@@ -559,7 +602,9 @@
 							</div>
 						</div>
 						{#if !isPublished}
-							<label class="cursor-pointer rounded-lg bg-zinc-700 px-3 py-1.5 text-sm font-semibold text-zinc-200 hover:bg-zinc-600 transition-colors">
+							<label
+								class="cursor-pointer rounded-lg bg-zinc-700 px-3 py-1.5 text-sm font-semibold text-zinc-200 transition-colors hover:bg-zinc-600"
+							>
 								Replace
 								<input
 									type="file"
@@ -572,9 +617,14 @@
 						{/if}
 					</div>
 				{:else}
-					<label class="flex flex-col items-center justify-center w-full border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-zinc-500 transition-colors" class:h-40={!uploading} class:py-6={uploading} class:cursor-default={uploading}>
+					<label
+						class="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-700 transition-colors hover:border-zinc-500"
+						class:h-40={!uploading}
+						class:py-6={uploading}
+						class:cursor-default={uploading}
+					>
 						{#if uploading}
-							<div class="w-full px-6 space-y-4">
+							<div class="w-full space-y-4 px-6">
 								<!-- Progress Header -->
 								<div class="flex items-center justify-between">
 									<span class="text-sm font-medium text-zinc-200">Uploading...</span>
@@ -582,7 +632,7 @@
 								</div>
 
 								<!-- Progress Bar -->
-								<div class="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+								<div class="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
 									<div
 										class="h-full bg-gradient-to-r from-red-600 to-red-500 transition-all duration-150 ease-out"
 										style="width: {uploadProgress}%"
@@ -591,29 +641,41 @@
 
 								<!-- Stats Grid -->
 								<div class="grid grid-cols-3 gap-4 text-center">
-									<div class="bg-zinc-800/50 rounded-lg px-3 py-2">
-										<p class="text-xs text-zinc-500 uppercase tracking-wide">Uploaded</p>
+									<div class="rounded-lg bg-zinc-800/50 px-3 py-2">
+										<p class="text-xs tracking-wide text-zinc-500 uppercase">Uploaded</p>
 										<p class="text-sm font-medium text-zinc-200">{humanBytes(uploadedBytes)}</p>
 										<p class="text-xs text-zinc-500">of {humanBytes(totalBytes)}</p>
 									</div>
-									<div class="bg-zinc-800/50 rounded-lg px-3 py-2">
-										<p class="text-xs text-zinc-500 uppercase tracking-wide">Speed</p>
+									<div class="rounded-lg bg-zinc-800/50 px-3 py-2">
+										<p class="text-xs tracking-wide text-zinc-500 uppercase">Speed</p>
 										<p class="text-sm font-medium text-zinc-200">{formatSpeed(uploadSpeed)}</p>
 										<p class="text-xs text-zinc-500">average</p>
 									</div>
-									<div class="bg-zinc-800/50 rounded-lg px-3 py-2">
-										<p class="text-xs text-zinc-500 uppercase tracking-wide">Remaining</p>
-										<p class="text-sm font-medium text-zinc-200">{formatEta(estimatedTimeRemaining())}</p>
+									<div class="rounded-lg bg-zinc-800/50 px-3 py-2">
+										<p class="text-xs tracking-wide text-zinc-500 uppercase">Remaining</p>
+										<p class="text-sm font-medium text-zinc-200">
+											{formatEta(estimatedTimeRemaining())}
+										</p>
 										<p class="text-xs text-zinc-500">estimated</p>
 									</div>
 								</div>
 							</div>
 						{:else}
 							<div class="flex flex-col items-center">
-								<svg class="h-10 w-10 text-zinc-500 mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+								<svg
+									class="mb-2 h-10 w-10 text-zinc-500"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+									/>
 								</svg>
-								<p class="text-sm text-zinc-400 mb-1">Click to upload or drag and drop</p>
+								<p class="mb-1 text-sm text-zinc-400">Click to upload or drag and drop</p>
 								<p class="text-xs text-zinc-500">Supported: {supportedExtensions.join(', ')}</p>
 								<p class="text-xs text-zinc-500">Max size: {humanBytes(maxFileSize)}</p>
 							</div>
@@ -630,12 +692,12 @@
 			</div>
 
 			<!-- Metadata Section -->
-			<div class="rounded-lg bg-zinc-900/60 ring-1 ring-zinc-800 p-6">
-				<h2 class="text-lg font-semibold mb-4">Details</h2>
+			<div class="rounded-lg bg-zinc-900/60 p-6 ring-1 ring-zinc-800">
+				<h2 class="mb-4 text-lg font-semibold">Details</h2>
 
 				<div class="space-y-4">
 					<div>
-						<label for="title" class="block text-sm font-medium text-zinc-300 mb-1">Title</label>
+						<label for="title" class="mb-1 block text-sm font-medium text-zinc-300">Title</label>
 						<input
 							id="title"
 							type="text"
@@ -646,7 +708,11 @@
 					</div>
 
 					<div>
-						<label for="author" class="block text-sm font-medium text-zinc-300 mb-1">Authors <span class="text-xs text-zinc-500 font-normal">(comma-separated list of authors)</span></label>
+						<label for="author" class="mb-1 block text-sm font-medium text-zinc-300"
+							>Authors <span class="text-xs font-normal text-zinc-500"
+								>(comma-separated list of authors)</span
+							></label
+						>
 						<input
 							id="author"
 							type="text"
@@ -657,13 +723,15 @@
 					</div>
 
 					<div>
-						<label for="description" class="block text-sm font-medium text-zinc-300 mb-1">Description</label>
+						<label for="description" class="mb-1 block text-sm font-medium text-zinc-300"
+							>Description</label
+						>
 						<textarea
 							id="description"
 							bind:value={description}
 							rows="4"
 							placeholder="Describe your WAD..."
-							class="w-full rounded-lg bg-zinc-800 px-4 py-2 text-zinc-100 ring-1 ring-zinc-700 placeholder:text-zinc-500 focus:ring-2 focus:ring-red-500 focus:outline-none resize-none"
+							class="w-full resize-none rounded-lg bg-zinc-800 px-4 py-2 text-zinc-100 ring-1 ring-zinc-700 placeholder:text-zinc-500 focus:ring-2 focus:ring-red-500 focus:outline-none"
 						></textarea>
 					</div>
 
@@ -676,7 +744,8 @@
 						/>
 						<label for="ai-enabled" class="text-sm text-zinc-300">
 							Enable AI Analysis
-							<span class="text-zinc-500 ml-1">(generates descriptions and tags automatically)</span>
+							<span class="ml-1 text-zinc-500">(generates descriptions and tags automatically)</span
+							>
 						</label>
 					</div>
 				</div>
@@ -689,10 +758,12 @@
 						type="button"
 						onclick={saveDraft}
 						disabled={!hasUnsavedChanges || saving}
-						class="inline-flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+						class="inline-flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{#if saving}
-							<div class="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-200"></div>
+							<div
+								class="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-200"
+							></div>
 							Saving...
 						{:else}
 							Save
@@ -703,10 +774,12 @@
 						type="button"
 						onclick={deleteDraft}
 						disabled={deleting}
-						class="inline-flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-red-400 hover:bg-zinc-700 hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+						class="inline-flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-red-400 transition-colors hover:bg-zinc-700 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{#if deleting}
-							<div class="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-red-400"></div>
+							<div
+								class="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-red-400"
+							></div>
 							Deleting...
 						{:else}
 							Delete
@@ -723,26 +796,26 @@
 						type="button"
 						onclick={publishDraft}
 						disabled={!canPublish || publishing}
-						class="inline-flex items-center gap-2 rounded-lg bg-red-700 px-6 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+						class="inline-flex items-center gap-2 rounded-lg bg-red-700 px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{#if publishing}
-							<div class="h-4 w-4 animate-spin rounded-full border-2 border-red-300 border-t-white"></div>
+							<div
+								class="h-4 w-4 animate-spin rounded-full border-2 border-red-300 border-t-white"
+							></div>
 							Publishing...
 						{:else}
 							Publish WAD
 						{/if}
 					</button>
 				{:else}
-					<span class="px-3 py-1.5 rounded text-sm font-medium bg-green-900/50 text-green-300">
+					<span class="rounded bg-green-900/50 px-3 py-1.5 text-sm font-medium text-green-300">
 						✓ Published
 					</span>
 				{/if}
 			</div>
 
 			{#if !canPublish && !isPublished}
-				<p class="text-sm text-zinc-500 text-center">
-					Upload a file to enable publishing.
-				</p>
+				<p class="text-center text-sm text-zinc-500">Upload a file to enable publishing.</p>
 			{/if}
 		</div>
 	{/if}
