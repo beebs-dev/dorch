@@ -386,8 +386,8 @@
 			await safePlay(video);
 
 			const ok = await Promise.race([
-				readiness
-				//new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 3500))
+				readiness,
+				new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 3500))
 			]);
 
 			if (!ok) {
