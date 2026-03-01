@@ -30,6 +30,7 @@
 	let skill = $state<number>(3);
 	let singlePlayer = $state(true);
 	let maxPlayers = $state<number>(8);
+	let dmflags = $state('');
 	let pwadKeyCounter = 0;
 	let creatingMultiplayer = $state(false);
 
@@ -78,6 +79,7 @@
 	let pwadSearchTimer = $state<number | null>(null);
 
 	const DEFAULT_IWAD_UUID_FOR_PWAD = '17bdc0a8-8a81-4b00-90d1-972bf406fa10';
+	const SERVER_CREATE_SETTINGS_KEY = 'dorch.server-create.settings.v1';
 
 	let nameError = $state<string | null>(null);
 	let iwadError = $state<string | null>(null);
@@ -85,8 +87,52 @@
 	let warpError = $state<string | null>(null);
 	let skillError = $state<string | null>(null);
 	let maxPlayersError = $state<string | null>(null);
+	let dmflagsError = $state<string | null>(null);
 
 	let didInit = $state(false);
+
+	function clampSkill(value: unknown): number {
+		const n = Number(value);
+		if (!Number.isInteger(n)) return 3;
+		if (n < 1) return 1;
+		if (n > 5) return 5;
+		return n;
+	}
+
+	function clampMaxPlayers(value: unknown): number {
+		const n = Number(value);
+		if (!Number.isInteger(n)) return 8;
+		if (n < 2) return 2;
+		if (n > 64) return 64;
+		return n;
+	}
+
+	function loadPersistedSettings(): {
+		skill?: number;
+		singlePlayer?: boolean;
+		maxPlayers?: number;
+		dmflags?: string;
+	} {
+		if (!browser) return {};
+		try {
+			const raw = window.localStorage.getItem(SERVER_CREATE_SETTINGS_KEY);
+			if (!raw) return {};
+			const parsed = JSON.parse(raw) as {
+				skill?: unknown;
+				singlePlayer?: unknown;
+				maxPlayers?: unknown;
+				dmflags?: unknown;
+			};
+			return {
+				skill: parsed?.skill == null ? undefined : clampSkill(parsed.skill),
+				singlePlayer: typeof parsed?.singlePlayer === 'boolean' ? parsed.singlePlayer : undefined,
+				maxPlayers: parsed?.maxPlayers == null ? undefined : clampMaxPlayers(parsed.maxPlayers),
+				dmflags: typeof parsed?.dmflags === 'string' ? parsed.dmflags.trim() : undefined
+			};
+		} catch {
+			return {};
+		}
+	}
 
 	function close() {
 		onClose();
@@ -303,6 +349,7 @@
 		warpError = null;
 		skillError = null;
 		maxPlayersError = null;
+		dmflagsError = null;
 
 		if (!serverName.trim()) nameError = 'Server name is required.';
 		if (!iwadUuid.trim()) iwadError = 'IWAD UUID is required.';
@@ -314,9 +361,27 @@
 			if (!Number.isInteger(maxPlayers) || maxPlayers < 2 || maxPlayers > 64) {
 				maxPlayersError = 'Max players must be 2..64.';
 			}
+			if (dmflags.trim()) {
+				if (!/^\d+$/.test(dmflags.trim())) {
+					dmflagsError = 'DMFLAGS must be a non-negative integer.';
+				} else {
+					const parsed = Number(dmflags.trim());
+					if (!Number.isInteger(parsed) || parsed < 0 || parsed > 4294967295) {
+						dmflagsError = 'DMFLAGS must be between 0 and 4294967295.';
+					}
+				}
+			}
 		}
 
-		return !(nameError || iwadError || pwadError || warpError || skillError || maxPlayersError);
+		return !(
+			nameError ||
+			iwadError ||
+			pwadError ||
+			warpError ||
+			skillError ||
+			maxPlayersError ||
+			dmflagsError
+		);
 	}
 
 	async function focusFirst() {
@@ -329,6 +394,7 @@
 		if (!validate()) return;
 
 		const pwadIds = normalizeUuidList(pwads.map((p) => p.id));
+		const dmflagsValue = dmflags.trim() ? Number(dmflags.trim()) : null;
 
 		if (singlePlayer) {
 			const u = new URL('https://gib.gg/play/');
@@ -361,6 +427,7 @@
 					files: pwadIds.length ? pwadIds : undefined,
 					warp: warp.trim(),
 					skill,
+					dmflags: dmflagsValue == null ? undefined : dmflagsValue,
 					max_players: maxPlayers,
 					private: false,
 					user_ids: []
@@ -475,9 +542,11 @@
 			iwadSearch = '';
 			pwadSearch = '';
 			warp = maps?.[0]?.map ?? '';
-			skill = 3;
-			singlePlayer = true;
-			maxPlayers = 8;
+			const persisted = loadPersistedSettings();
+			skill = persisted.skill ?? 3;
+			singlePlayer = persisted.singlePlayer ?? true;
+			maxPlayers = persisted.maxPlayers ?? 8;
+			dmflags = persisted.dmflags ?? '';
 		}
 
 		if (!browser) return;
@@ -498,6 +567,24 @@
 		if (!isAuthenticated) {
 			singlePlayer = true;
 			maxPlayersError = null;
+		}
+	});
+
+	$effect(() => {
+		if (!browser) return;
+		if (!open || !didInit) return;
+		try {
+			window.localStorage.setItem(
+				SERVER_CREATE_SETTINGS_KEY,
+				JSON.stringify({
+					skill: clampSkill(skill),
+					singlePlayer: Boolean(singlePlayer),
+					maxPlayers: clampMaxPlayers(maxPlayers),
+					dmflags: dmflags.trim()
+				})
+			);
+		} catch {
+			// ignore storage failures
 		}
 	});
 
@@ -955,6 +1042,29 @@
 						/>
 						{#if maxPlayersError}
 							<p class="mt-2 text-xs text-red-300">{maxPlayersError}</p>
+						{/if}
+					</section>
+
+					<section>
+						<h3 class="text-xs font-semibold tracking-wide text-zinc-300">DMFLAGS</h3>
+						<p class="mt-0.5 text-xs text-zinc-500">
+							Optional. Non-negative integer bitmask (0..4294967295).
+						</p>
+						<input
+							type="text"
+							inputmode="numeric"
+							value={dmflags}
+							oninput={(e) => {
+								dmflags = (e.currentTarget as HTMLInputElement).value;
+								dmflagsError = null;
+							}}
+							disabled={singlePlayer}
+							class="mt-1.5 w-full rounded-lg bg-zinc-950 px-3 py-1.5 font-mono text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none disabled:opacity-50"
+							placeholder="4096"
+							autocomplete="off"
+						/>
+						{#if dmflagsError}
+							<p class="mt-2 text-xs text-red-300">{dmflagsError}</p>
 						{/if}
 					</section>
 

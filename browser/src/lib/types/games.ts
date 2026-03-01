@@ -52,6 +52,7 @@ export type GameSummary = {
 		max_players: number;
 		gamemode?: string | null;
 		skill?: number | null;
+		dmflags?: number | null;
 		warp?: string | null;
 		private: boolean;
 	};

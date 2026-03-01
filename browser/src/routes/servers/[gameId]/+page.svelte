@@ -858,6 +858,11 @@
 							aria-label="Loading fast monsters"
 						></span>
 					{/if}
+
+					<span class="text-zinc-400">DMFLAGS</span>
+					<span class="col-span-2 leading-none font-[var(--dorch-mono)] tracking-wide text-zinc-200"
+						>{spec().dmflags != null ? String(spec().dmflags) : '—'}</span
+					>
 				</div>
 			</div>
 		</div>
