@@ -45,6 +45,7 @@ export type GameSummary = {
 	game_id: Uuid;
 	status: string;
 	iwad: Uuid;
+	creator_id?: Uuid | null;
 	files?: Uuid[] | null;
 	spec: {
 		name: string;

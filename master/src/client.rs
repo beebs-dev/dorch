@@ -81,8 +81,8 @@ pub struct GameSummary {
 
     pub iwad: Uuid,
 
-    #[serde(default, skip_serializing_if = "Uuid::is_nil")]
-    pub creator_id: Uuid,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub creator_id: Option<Uuid>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub files: Option<Vec<Uuid>>,

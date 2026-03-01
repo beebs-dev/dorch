@@ -765,8 +765,7 @@ fn game_to_summary(g: dorch_types::Game, info: Option<GameInfo>) -> Result<GameS
             .and_then(|anns| anns.get(annotations::CREATED_BY_USER))
             .map(|s| s.parse::<Uuid>())
             .transpose()
-            .context("Invalid creator user ID")?
-            .unwrap_or_else(Uuid::nil),
+            .context("Invalid creator user ID")?,
         spec: crate::client::GameSpecSummary {
             name: g.spec.name.clone(),
             max_players: g.spec.max_players,
@@ -780,8 +779,9 @@ fn game_to_summary(g: dorch_types::Game, info: Option<GameInfo>) -> Result<GameS
 }
 
 pub async fn delete_game(State(state): State<App>, Path(game_id): Path<Uuid>) -> impl IntoResponse {
+    let resource_name = game_resource_name(game_id);
     if let Err(e) = Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
-        .delete(game_id.to_string().as_str(), &Default::default())
+        .delete(&resource_name, &Default::default())
         .await
     {
         return match e {

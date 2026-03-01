@@ -4,19 +4,38 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import DorchPlayButton from '$lib/components/DorchPlayButton.svelte';
+	import { getAccessToken, getAuthState, subscribe as authSubscribe } from '$lib/stores/auth';
 	import { wadLabel } from '$lib/utils/format';
 	import { showToast } from '$lib/stores/toast';
 
 	let { data }: { data: PageData } = $props();
 
 	const game = $derived(() => data.game);
+	const creator = $derived(
+		() =>
+			(
+				data as PageData & {
+					creator?: { id: string; username: string; avatarUrl: string | null } | null;
+				}
+			).creator ?? null
+	);
 	const spec = $derived(() => data.game.spec);
 	const status = $derived(() => data.game.status);
 	const info = $derived(() => data.game.info);
 	const currentMap = $derived(() => data.currentMap);
 	const currentMapWadId = $derived(() => data.currentMapWadId);
+	const isOwner = $derived(() => {
+		const creatorId = creator()?.id?.trim().toLowerCase();
+		const userId = currentUserId?.trim().toLowerCase();
+		if (!creatorId || !userId) return false;
+		if (creatorId === '00000000-0000-0000-0000-000000000000') return false;
+		return creatorId === userId;
+	});
 	const currentMapTitle = $derived(() => info()?.map_title?.trim() || null);
 	const currentMapLabel = $derived(() => currentMapTitle() ?? currentMap());
+	const creatorProfileHref = $derived(() =>
+		creator() ? resolve(`/profile/${encodeURIComponent(creator()!.id)}`) : null
+	);
 
 	const pageTitle = $derived(() => `${info()?.name ?? spec().name ?? data.gameId} - ɢɪʙ.ɢɢ`);
 	const videoSrcHLS = $derived(
@@ -29,6 +48,58 @@
 
 	let identity = $state(randomIdent());
 	let showGameId = $state(false);
+	let deletingServer = $state(false);
+	let confirmingDeleteServer = $state(false);
+	let currentUserId = $state<string | null>(getAuthState().userId);
+
+	async function onDeleteServer() {
+		if (deletingServer) return;
+		deletingServer = true;
+		try {
+			const token = await getAccessToken();
+			if (!token) {
+				showToast('Session expired. Please log in again.');
+				deletingServer = false;
+				return;
+			}
+
+			const res = await fetch(`https://api.gib.gg/game/${encodeURIComponent(data.gameId)}`, {
+				method: 'DELETE',
+				headers: {
+					accept: 'application/json',
+					authorization: `Bearer ${token}`
+				}
+			});
+
+			if (!res.ok) {
+				let message = `Failed to delete server (${res.status}).`;
+				try {
+					const body = (await res.json()) as { reason?: string };
+					if (typeof body?.reason === 'string' && body.reason.trim()) message = body.reason;
+				} catch {
+					// ignore
+				}
+				showToast(message);
+				deletingServer = false;
+				return;
+			}
+
+			window.location.assign(resolve('/'));
+		} catch {
+			showToast('Failed to delete server.');
+			deletingServer = false;
+		}
+	}
+
+	function onRequestDeleteServer() {
+		if (deletingServer) return;
+		confirmingDeleteServer = true;
+	}
+
+	function onCancelDeleteServer() {
+		if (deletingServer) return;
+		confirmingDeleteServer = false;
+	}
 
 	async function copyToClipboard(text: string) {
 		try {
@@ -336,6 +407,9 @@
 	}
 
 	onMount(() => {
+		const unsubscribeAuth = authSubscribe((state) => {
+			currentUserId = state.userId;
+		});
 		let destroyed = false;
 		let refreshTimer: number | null = null;
 		const scheduleRefresh = () => {
@@ -363,6 +437,7 @@
 		})();
 
 		return () => {
+			unsubscribeAuth();
 			destroyed = true;
 			if (refreshTimer != null) {
 				window.clearTimeout(refreshTimer);
@@ -405,6 +480,10 @@
 		if (b === null) return 'bg-zinc-500';
 		return b ? 'bg-emerald-400' : 'bg-red-400';
 	}
+
+	function creatorInitial(name: string): string {
+		return (name.trim()[0] ?? '?').toUpperCase();
+	}
 </script>
 
 <svelte:head>
@@ -434,6 +513,16 @@
 			</nav>
 		</div>
 		<div class="flex items-center gap-2">
+			{#if isOwner()}
+				<button
+					type="button"
+					onclick={onRequestDeleteServer}
+					disabled={deletingServer}
+					class="rounded-md bg-red-900/70 px-3 py-2 text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+				>
+					DELETE SERVER
+				</button>
+			{/if}
 			<a
 				href={resolve('/')}
 				class="rounded-md bg-zinc-900 px-3 py-2 text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
@@ -500,42 +589,57 @@
 						></span>
 						<span class="font-[var(--dorch-mono)] text-zinc-200">{statusText(status())}</span>
 					</div>
-					<div class="flex items-center gap-2">
-						<span>GAME ID:</span>
-						{#if showGameId}
-							<button
-								type="button"
-								class="cursor-pointer font-[var(--dorch-mono)] text-zinc-200"
-								onclick={() => copyToClipboard(data.gameId)}
+					{#if creator()}
+						<div class="flex items-center gap-2">
+							<span>CREATED BY:</span>
+							<a
+								href={creatorProfileHref() ?? '#'}
+								class="inline-flex items-center gap-2 text-zinc-200 hover:text-zinc-100"
 							>
-								{data.gameId}
-							</button>
-						{:else}
-							<button
-								type="button"
-								class="text-zinc-400 underline hover:text-zinc-200"
-								onclick={() => (showGameId = true)}
-							>
-								Show
-							</button>
-						{/if}
-					</div>
+								<span
+									class="inline-flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-zinc-800 ring-1 ring-zinc-700"
+								>
+									{#if creator()!.avatarUrl}
+										<img
+											src={creator()!.avatarUrl!}
+											alt={`${creator()!.username} avatar`}
+											class="h-full w-full object-cover"
+										/>
+									{:else}
+										<span class="text-[10px] font-semibold text-zinc-300"
+											>{creatorInitial(creator()!.username)}</span
+										>
+									{/if}
+								</span>
+								<span class="font-[var(--dorch-mono)]">{creator()!.username}</span>
+							</a>
+						</div>
+					{/if}
+				</div>
+				<div
+					class="mt-2 flex w-full items-center gap-2 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400"
+				>
+					<span>GAME ID:</span>
+					{#if showGameId}
+						<button
+							type="button"
+							class="cursor-pointer font-[var(--dorch-mono)] text-zinc-200"
+							onclick={() => copyToClipboard(data.gameId)}
+						>
+							{data.gameId}
+						</button>
+					{:else}
+						<button
+							type="button"
+							class="text-zinc-400 underline hover:text-zinc-200"
+							onclick={() => (showGameId = true)}
+						>
+							Show
+						</button>
+					{/if}
 				</div>
 
 				<div class="mt-4 grid grid-cols-2 gap-3">
-					<div class="rounded-lg bg-zinc-900/40 p-3 ring-1 ring-red-950/40 ring-inset">
-						<div class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">PLAYERS</div>
-						<div class="mt-1 text-lg font-[var(--dorch-mono)] tracking-wide text-zinc-100">
-							{#if status() == 'Active' && info()?.player_count != null && info()?.max_players != null}
-								{info()!.player_count} / {info()!.max_players}
-							{:else}
-								<span
-									class="skeleton inline-block h-5 w-24 rounded-md align-middle"
-									aria-label="Loading player counts"
-								></span>
-							{/if}
-						</div>
-					</div>
 					<div class="rounded-lg bg-zinc-900/40 p-3 ring-1 ring-red-950/40 ring-inset">
 						<div class="text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400">KILLS</div>
 						<div class="mt-1 text-lg font-[var(--dorch-mono)] tracking-wide text-zinc-100">
@@ -758,6 +862,42 @@
 			</div>
 		</div>
 	</div>
+
+	{#if confirmingDeleteServer}
+		<div
+			class="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/70 px-4"
+			role="dialog"
+			aria-modal="true"
+			aria-label="Delete server confirmation"
+		>
+			<div
+				class="w-full max-w-sm rounded-lg border border-red-900/60 bg-zinc-950/95 px-4 py-4 text-xs text-zinc-200 ring-1 ring-red-950/60 ring-inset"
+			>
+				<div class="text-center font-[var(--dorch-mono)] tracking-wide text-red-200">
+					ARE YOU SURE?
+				</div>
+				<div class="mt-2 text-zinc-400">This action cannot undone.</div>
+				<div class="mt-4 flex items-center justify-end gap-2">
+					<button
+						type="button"
+						onclick={onDeleteServer}
+						disabled={deletingServer}
+						class="rounded-md bg-red-900/70 px-3 py-1.5 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{deletingServer ? 'DELETING…' : 'DELETE'}
+					</button>
+					<button
+						type="button"
+						onclick={onCancelDeleteServer}
+						disabled={deletingServer}
+						class="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						CANCEL
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
 </section>
 
 <style>

@@ -12,6 +12,12 @@ type WadWithMaps = {
 	maps: Array<{ map: string; title?: string | null }>;
 };
 
+type CreatorView = {
+	id: string;
+	username: string;
+	avatarUrl: string | null;
+};
+
 function stripWadSuffix(title: string): string {
 	return title.trim().replace(/\.wad$/i, '').trim();
 }
@@ -96,9 +102,29 @@ export const load: PageServerLoad = async ({ fetch, params, setHeaders, request 
 	// Very short TTL; game state changes constantly.
 	setHeaders({ 'cache-control': 'private, max-age=0, s-maxage=5' });
 
+	let creator: CreatorView | null = null;
+	const creatorId = typeof game.creator_id === 'string' ? game.creator_id.trim() : '';
+	if (creatorId) {
+		let username = creatorId;
+		let avatarUrl: string | null = null;
+		try {
+			const profile = await wadinfo.getUserProfile(creatorId);
+			if (typeof profile?.username === 'string' && profile.username.trim()) {
+				username = profile.username.trim();
+			}
+			if (typeof profile?.avatar_url === 'string' && profile.avatar_url.trim()) {
+				avatarUrl = profile.avatar_url.trim();
+			}
+		} catch {
+			// fallback to creator ID
+		}
+		creator = { id: creatorId, username, avatarUrl };
+	}
+
 	return {
 		gameId,
 		game,
+		creator,
 		wads,
 		currentMap,
 		currentMapWadId,

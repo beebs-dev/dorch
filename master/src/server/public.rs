@@ -109,37 +109,27 @@ pub async fn create_game(
 }
 
 pub async fn get_game(State(state): State<App>, Path(game_id): Path<Uuid>) -> impl IntoResponse {
-    let mut summary = match internal::get_game_internal(state, game_id).await {
+    let summary = match internal::get_game_internal(state, game_id).await {
         Ok(Some(summary)) => summary,
         Ok(None) => return response::not_found(anyhow!("Game {} not found", game_id)),
         Err(e) => return response::error(e),
     };
-    // Remove creator ID from public response
-    summary.creator_id = Uuid::nil();
     (StatusCode::OK, Json(summary)).into_response()
 }
 
 pub async fn list_games(State(state): State<App>) -> impl IntoResponse {
-    let mut resp = match internal::list_games_inner(state).await {
+    let resp = match internal::list_games_inner(state).await {
         Ok(resp) => resp,
         Err(e) => return response::error(e.context("Failed to list games")),
     };
-    for game in &mut resp.games {
-        // Remove creator ID from public response
-        game.creator_id = Uuid::nil();
-    }
     (StatusCode::OK, Json(resp)).into_response()
 }
 
 pub async fn home(State(state): State<App>) -> impl IntoResponse {
-    let mut resp = match internal::home_inner(state).await {
+    let resp = match internal::home_inner(state).await {
         Ok(resp) => resp,
         Err(e) => return response::error(e.context("Failed to build home model")),
     };
-    for game in &mut resp.games.games {
-        // Remove creator ID from public response
-        game.creator_id = Uuid::nil();
-    }
     (StatusCode::OK, Json(resp)).into_response()
 }
 
@@ -203,8 +193,9 @@ pub async fn delete_game(
     UserId(user_id): UserId,
     Path(game_id): Path<Uuid>,
 ) -> impl IntoResponse {
+    let resource_name = format!("game-{}", game_id);
     let game = match Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
-        .get(&game_id.to_string())
+        .get(&resource_name)
         .await
     {
         Ok(game) => game,
