@@ -50,4 +50,7 @@ pub struct ServerArgs {
 
     #[arg(long, env = "MAX_SERVERS_PER_USER")]
     pub max_servers_per_user: Option<usize>,
+
+    #[arg(long, env = "S3_SECRET_NAME", default_value = "game-spaces-cred")]
+    pub s3_secret_name: String,
 }

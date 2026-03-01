@@ -435,33 +435,19 @@ async fn count_games(api: &Api<Game>, creator_id: Uuid) -> Result<(usize, usize)
         .list(&Default::default())
         .await
         .context("Failed to list games for counting")?;
-    let count = list
-        .items
-        .iter()
-        .filter(|game| {
-            game.status
-                .as_ref()
-                .map(|p| p.phase == GamePhase::Active)
-                .unwrap_or(false)
-        })
-        .count();
+    let count = list.items.iter().count();
     let user_count = list
         .items
         .iter()
         .filter(|game| {
-            game.status
+            game.metadata
+                .annotations
                 .as_ref()
-                .map(|p| p.phase == GamePhase::Active)
-                .unwrap_or(false)
-                && game
-                    .metadata
-                    .annotations
-                    .as_ref()
-                    .and_then(|anns| anns.get(annotations::CREATED_BY_USER))
-                    .map(|s| s.parse::<Uuid>().ok())
-                    .flatten()
-                    .unwrap_or_else(Uuid::nil)
-                    == creator_id
+                .and_then(|anns| anns.get(annotations::CREATED_BY_USER))
+                .map(|s| s.parse::<Uuid>().ok())
+                .flatten()
+                .unwrap_or_else(Uuid::nil)
+                == creator_id
         })
         .count();
     Ok((count, user_count))
@@ -471,7 +457,12 @@ fn game_resource_name(game_id: Uuid) -> String {
     format!("game-{}", game_id)
 }
 
-fn game_resource(game_id: Uuid, req: NewGameRequest, namespace: String) -> Game {
+fn game_resource(
+    game_id: Uuid,
+    req: NewGameRequest,
+    namespace: String,
+    s3_secret_name: String,
+) -> Game {
     let game_id_str = game_id.to_string();
     let game = Game {
         metadata: ObjectMeta {
@@ -499,6 +490,7 @@ fn game_resource(game_id: Uuid, req: NewGameRequest, namespace: String) -> Game 
             warp: req.warp.clone(),
             max_players: 64,
             iwad: req.iwad,
+            s3_secret_name,
             ..Default::default()
         },
         ..Default::default()
@@ -567,7 +559,12 @@ pub async fn new_game(
                     game_id
                 ));
             }
-            let desired = game_resource(game_id, req, state.namespace.clone());
+            let desired = game_resource(
+                game_id,
+                req,
+                state.namespace.clone(),
+                state.s3_secret_name.clone(),
+            );
             if let Err(e) = api
                 .patch(
                     &resource_name,
@@ -591,7 +588,12 @@ pub async fn new_game(
             );
         }
         Err(kube::Error::Api(ae)) if ae.code == 404 => {
-            let desired = game_resource(game_id, req, state.namespace.clone());
+            let desired = game_resource(
+                game_id,
+                req,
+                state.namespace.clone(),
+                state.s3_secret_name.clone(),
+            );
             if let Err(e) = api.create(&Default::default(), &desired).await {
                 return response::error(anyhow!("Failed to create new game {}: {:?}", game_id, e));
             }

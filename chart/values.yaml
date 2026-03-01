@@ -215,6 +215,7 @@ master:
       memory: "64Mi"
   maxServers: 5
   maxServersPerUser: 1
+  s3SecretName: "game-spaces-cred"
 
 auth:
   image: thavlik/dorch-auth:latest

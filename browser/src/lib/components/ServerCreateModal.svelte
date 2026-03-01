@@ -2,7 +2,7 @@
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import { showToast } from '$lib/stores/toast';
-	import { getAuthState, subscribe as authSubscribe } from '$lib/stores/auth';
+	import { getAccessToken, getAuthState, subscribe as authSubscribe } from '$lib/stores/auth';
 	import { humanBytes, wadLabel } from '$lib/utils/format';
 	import type { WadMeta } from '$lib/types/wadinfo';
 
@@ -31,6 +31,7 @@
 	let singlePlayer = $state(true);
 	let maxPlayers = $state<number>(8);
 	let pwadKeyCounter = 0;
+	let creatingMultiplayer = $state(false);
 
 	let isAuthenticated = $state(getAuthState().isAuthenticated);
 
@@ -324,10 +325,12 @@
 	}
 
 	async function onCreate() {
+		if (creatingMultiplayer) return;
 		if (!validate()) return;
 
+		const pwadIds = normalizeUuidList(pwads.map((p) => p.id));
+
 		if (singlePlayer) {
-			const pwadIds = normalizeUuidList(pwads.map((p) => p.id));
 			const u = new URL('https://gib.gg/play/');
 			u.searchParams.set('iwad', iwadUuid.trim());
 			if (pwadIds.length) u.searchParams.set('pwad', pwadIds.join(','));
@@ -337,7 +340,59 @@
 			return;
 		}
 
-		showToast('Multiplayer server creation is not wired yet.');
+		try {
+			creatingMultiplayer = true;
+			const token = await getAccessToken();
+			if (!token) {
+				showToast('Session expired. Please log in again.');
+				creatingMultiplayer = false;
+				return;
+			}
+
+			const res = await fetch('https://api.gib.gg/game', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json',
+					authorization: `Bearer ${token}`
+				},
+				body: JSON.stringify({
+					name: serverName.trim(),
+					iwad: iwadUuid.trim(),
+					files: pwadIds.length ? pwadIds : undefined,
+					warp: warp.trim(),
+					skill,
+					private: false,
+					user_ids: []
+				})
+			});
+
+			if (!res.ok) {
+				let message = 'Failed to create multiplayer server.';
+				try {
+					const body = (await res.json()) as { error?: string; message?: string };
+					if (typeof body?.error === 'string' && body.error.trim()) message = body.error;
+					else if (typeof body?.message === 'string' && body.message.trim()) message = body.message;
+				} catch {
+					// ignore
+				}
+				showToast(message);
+				creatingMultiplayer = false;
+				return;
+			}
+
+			const payload = (await res.json()) as { game_id?: string };
+			const gameId = typeof payload?.game_id === 'string' ? payload.game_id.trim() : '';
+			if (!gameId) {
+				showToast('Server created but response did not include a game ID.');
+				creatingMultiplayer = false;
+				return;
+			}
+
+			if (browser) window.location.assign(`/servers/${encodeURIComponent(gameId)}`);
+		} catch {
+			showToast('Failed to create multiplayer server.');
+			creatingMultiplayer = false;
+		}
 	}
 
 	function getFocusable(container: HTMLElement): HTMLElement[] {
@@ -911,10 +966,11 @@
 						</button>
 						<button
 							type="button"
-							class="cursor-pointer rounded-md bg-red-900/70 px-4 py-2 text-sm font-semibold text-zinc-100 ring-1 ring-red-950/60 hover:bg-red-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+							class="cursor-pointer rounded-md bg-red-900/70 px-4 py-2 text-sm font-semibold text-zinc-100 ring-1 ring-red-950/60 hover:bg-red-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+							disabled={creatingMultiplayer}
 							onclick={onCreate}
 						>
-							Create
+							{creatingMultiplayer ? 'Creating…' : 'Create'}
 						</button>
 					</section>
 				</div>

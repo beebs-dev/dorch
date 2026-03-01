@@ -14,6 +14,7 @@ pub struct AppInner {
     pub game_resource_prefix: String,
     pub max_servers: Option<usize>,
     pub max_servers_per_user: Option<usize>,
+    pub s3_secret_name: String,
 }
 
 #[derive(Clone)]
@@ -40,6 +41,7 @@ impl App {
         game_resource_prefix: String,
         max_servers: Option<usize>,
         max_servers_per_user: Option<usize>,
+        s3_secret_name: String,
     ) -> Self {
         Self {
             inner: Arc::new(AppInner {
@@ -52,6 +54,7 @@ impl App {
                 game_resource_prefix,
                 max_servers,
                 max_servers_per_user,
+                s3_secret_name,
             }),
         }
     }

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import DorchPlayButton from '$lib/components/DorchPlayButton.svelte';
@@ -336,6 +337,9 @@
 
 	onMount(() => {
 		let destroyed = false;
+		const refreshTimer = window.setInterval(() => {
+			void invalidateAll();
+		}, 10_000);
 
 		(async () => {
 			if (!videoEl) return;
@@ -352,6 +356,7 @@
 
 		return () => {
 			destroyed = true;
+			window.clearInterval(refreshTimer);
 			destroyHls();
 			destroyRtc();
 		};
