@@ -384,7 +384,7 @@
 
 			const ok = await Promise.race([
 				readiness
-				//new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 3500))
+				new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 3500))
 			]);
 
 			if (!ok) {
