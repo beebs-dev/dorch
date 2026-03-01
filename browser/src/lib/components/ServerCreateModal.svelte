@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { onDestroy, tick } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import { showToast } from '$lib/stores/toast';
+	import { getAuthState, subscribe as authSubscribe } from '$lib/stores/auth';
 	import { humanBytes, wadLabel } from '$lib/utils/format';
 	import type { WadMeta } from '$lib/types/wadinfo';
 
@@ -30,6 +31,15 @@
 	let singlePlayer = $state(true);
 	let maxPlayers = $state<number>(8);
 	let pwadKeyCounter = 0;
+
+	let isAuthenticated = $state(getAuthState().isAuthenticated);
+
+	onMount(() => {
+		const unsubscribeAuth = authSubscribe((state) => {
+			isAuthenticated = state.isAuthenticated;
+		});
+		return () => unsubscribeAuth();
+	});
 
 	type WadMetaLookupItem =
 		| { id: string; ok: true; meta: WadMeta }
@@ -425,6 +435,13 @@
 			document.removeEventListener('keydown', onKeydown);
 			document.documentElement.style.overflow = prevOverflow;
 		};
+	});
+
+	$effect(() => {
+		if (!isAuthenticated) {
+			singlePlayer = true;
+			maxPlayersError = null;
+		}
 	});
 
 	$effect(() => {
@@ -840,7 +857,11 @@
 							<div>
 								<h3 class="text-xs font-semibold tracking-wide text-zinc-300">Single player</h3>
 								<p class="mt-0.5 text-xs text-zinc-500">
-									If enabled, your game will only run in your browser — no server will be created.
+									{#if !isAuthenticated}
+										You can only launch new server in single player when not logged in.
+									{:else}
+										If enabled, your game will only run in your browser — no server will be created.
+									{/if}
 								</p>
 							</div>
 							<label class="inline-flex items-center gap-2 text-sm text-zinc-200">
@@ -851,7 +872,8 @@
 										singlePlayer = (e.currentTarget as HTMLInputElement).checked;
 										maxPlayersError = null;
 									}}
-									class="h-4 w-4 rounded border-zinc-700 bg-zinc-950 text-red-600 focus:ring-2 focus:ring-red-700"
+									disabled={!isAuthenticated}
+									class="h-4 w-4 rounded border-zinc-700 bg-zinc-950 text-red-600 focus:ring-2 focus:ring-red-700 disabled:opacity-50"
 								/>
 								<span>Enabled</span>
 							</label>
