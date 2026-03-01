@@ -6,7 +6,7 @@
 	import type { WadMeta } from '$lib/types/wadinfo';
 
 	type MapOption = { map: string; title?: string | null };
-		type Props = {
+	type Props = {
 		open: boolean;
 		onClose: () => void;
 		wadId: string;
@@ -267,7 +267,7 @@
 
 			const iKey = iwadId.trim().toLowerCase();
 			resolvedIwad = iKey
-				? byId.get(iKey) ?? { id: iwadId.trim(), ok: false, error: 'Not found' }
+				? (byId.get(iKey) ?? { id: iwadId.trim(), ok: false, error: 'Not found' })
 				: null;
 			resolvedPwads = pwadIds.map((id) => {
 				const trimmed = id.trim();
@@ -530,7 +530,9 @@
 						<h3 class="text-xs font-semibold tracking-wide text-zinc-300">IWAD</h3>
 						<p class="mt-0.5 text-xs text-zinc-500">Enter the IWAD UUID (base game).</p>
 						{#if iwadUuid.trim()}
-							<div class="mt-2 flex items-start justify-between gap-2 rounded-lg bg-zinc-900/35 px-3 py-2 ring-1 ring-zinc-800 ring-inset">
+							<div
+								class="mt-2 flex items-start justify-between gap-2 rounded-lg bg-zinc-900/35 px-3 py-2 ring-1 ring-zinc-800 ring-inset"
+							>
 								<div class="min-w-0">
 									<div class="min-w-0 truncate text-xs text-zinc-200">
 										{#if wadMetaLoading}
@@ -569,14 +571,16 @@
 											iwadSearchOpen = true;
 											iwadError = null;
 											scheduleSearch('iwad');
-									}}
+										}}
 										onfocus={() => (iwadSearchOpen = true)}
 										class="w-full rounded-lg bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none"
 										placeholder="Search IWADs…"
 										autocomplete="off"
 									/>
 									{#if iwadSearchOpen && iwadSearch.trim()}
-										<div class="absolute z-50 mt-1 w-full overflow-hidden rounded-lg bg-zinc-950 ring-1 ring-zinc-800">
+										<div
+											class="absolute z-50 mt-1 w-full overflow-hidden rounded-lg bg-zinc-950 ring-1 ring-zinc-800"
+										>
 											<div class="max-h-64 overflow-auto">
 												{#if iwadSearchLoading}
 													<div class="px-3 py-2 text-xs text-zinc-400">Searching…</div>
@@ -595,12 +599,16 @@
 																wadMetaError = null;
 																iwadSearchOpen = false;
 																iwadSearch = '';
-														}}
+															}}
 														>
 															<div class="truncate text-xs text-zinc-100">{wadLabel(it.meta)}</div>
 															<div class="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-zinc-500">
 																<span class="font-mono text-zinc-400">{shortId(it.id)}</span>
-																<span>{it.meta.file?.type ?? '—'} • {humanBytes(it.meta.file?.size ?? null)}</span>
+																<span
+																	>{it.meta.file?.type ?? '—'} • {humanBytes(
+																		it.meta.file?.size ?? null
+																	)}</span
+																>
 															</div>
 														</button>
 													{/each}
@@ -624,7 +632,9 @@
 						</div>
 
 						{#if pwads.length === 0}
-							<div class="mt-2 rounded-lg bg-zinc-900/35 px-3 py-2 text-xs text-zinc-500 ring-1 ring-zinc-800 ring-inset">
+							<div
+								class="mt-2 rounded-lg bg-zinc-900/35 px-3 py-2 text-xs text-zinc-500 ring-1 ring-zinc-800 ring-inset"
+							>
 								No PWADs selected.
 							</div>
 						{:else}
@@ -641,7 +651,7 @@
 											} catch {
 												// ignore
 											}
-									}}
+										}}
 										ondragover={(e) => {
 											e.preventDefault();
 											try {
@@ -649,56 +659,64 @@
 											} catch {
 												// ignore
 											}
-									}}
+										}}
 										ondrop={(e) => {
 											e.preventDefault();
 											const from = dragKey ?? e.dataTransfer?.getData('text/plain') ?? '';
 											dragKey = null;
 											if (from) reorderPwads(from, p.key);
-									}}
-									class="rounded-lg bg-zinc-900/35 p-1.5 ring-1 ring-zinc-800 ring-inset"
-								>
-									<div class="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_auto] sm:items-center">
-										<div class="flex items-center gap-2">
-											<div
-												class="select-none rounded-md bg-zinc-950 px-2 py-1 text-xs text-zinc-500 ring-1 ring-zinc-800"
-												aria-label="Drag to reorder"
-												title="Drag to reorder"
-											>
-												≡
-											</div>
-											<div class="text-xs text-zinc-500">#{idx + 1}</div>
-										</div>
-
-										<div class="rounded-lg bg-zinc-950/40 px-3 py-1.5 ring-1 ring-zinc-800 ring-inset">
-											<div class="min-w-0 truncate text-xs text-zinc-200">
-												{#if wadMetaLoading}
-													<span class="text-zinc-400">Loading…</span>
-												{:else}
-													{metaLabel(resolvedPwads[idx] ?? null)}
-												{/if}
-											</div>
-											<div class="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-zinc-500">
-												<span class="font-mono text-zinc-400">{shortId(p.id || (resolvedPwads[idx]?.id ?? ''))}</span>
-												{#if !wadMetaLoading}
-													<span>{metaSubLabel(resolvedPwads[idx] ?? null)}</span>
-												{/if}
-											</div>
-										</div>
-
-										<button
-											type="button"
-											class="cursor-pointer rounded-md bg-transparent px-2.5 py-1 text-xs font-semibold text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
-											onclick={() => removePwad(p.key)}
-											aria-label="Remove PWAD"
+										}}
+										class="rounded-lg bg-zinc-900/35 p-1.5 ring-1 ring-zinc-800 ring-inset"
+									>
+										<div
+											class="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_auto] sm:items-center"
 										>
-											✕
-										</button>
+											<div class="flex items-center gap-2">
+												<div
+													class="rounded-md bg-zinc-950 px-2 py-1 text-xs text-zinc-500 ring-1 ring-zinc-800 select-none"
+													aria-label="Drag to reorder"
+													title="Drag to reorder"
+												>
+													≡
+												</div>
+												<div class="text-xs text-zinc-500">#{idx + 1}</div>
+											</div>
+
+											<div
+												class="rounded-lg bg-zinc-950/40 px-3 py-1.5 ring-1 ring-zinc-800 ring-inset"
+											>
+												<div class="min-w-0 truncate text-xs text-zinc-200">
+													{#if wadMetaLoading}
+														<span class="text-zinc-400">Loading…</span>
+													{:else}
+														{metaLabel(resolvedPwads[idx] ?? null)}
+													{/if}
+												</div>
+												<div
+													class="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-zinc-500"
+												>
+													<span class="font-mono text-zinc-400"
+														>{shortId(p.id || (resolvedPwads[idx]?.id ?? ''))}</span
+													>
+													{#if !wadMetaLoading}
+														<span>{metaSubLabel(resolvedPwads[idx] ?? null)}</span>
+													{/if}
+												</div>
+											</div>
+
+											<button
+												type="button"
+												class="cursor-pointer rounded-md bg-transparent px-2.5 py-1 text-xs font-semibold text-zinc-200 ring-1 ring-zinc-800 hover:bg-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+												onclick={() => removePwad(p.key)}
+												aria-label="Remove PWAD"
+											>
+												✕
+											</button>
+										</div>
 									</div>
-								</div>
-							{/each}
-						</div>
-					{/if}
+								{/each}
+							</div>
+						{/if}
 						{#if pwadError}
 							<p class="mt-2 text-xs text-red-300">{pwadError}</p>
 						{/if}
@@ -723,7 +741,9 @@
 								/>
 
 								{#if pwadSearchOpen && pwadSearch.trim()}
-									<div class="absolute z-50 mt-1 w-full overflow-hidden rounded-lg bg-zinc-950 ring-1 ring-zinc-800">
+									<div
+										class="absolute z-50 mt-1 w-full overflow-hidden rounded-lg bg-zinc-950 ring-1 ring-zinc-800"
+									>
 										<div class="max-h-64 overflow-auto">
 											{#if pwadSearchLoading}
 												<div class="px-3 py-2 text-xs text-zinc-400">Searching…</div>
@@ -745,7 +765,11 @@
 														<div class="truncate text-xs text-zinc-100">{wadLabel(it.meta)}</div>
 														<div class="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-zinc-500">
 															<span class="font-mono text-zinc-400">{shortId(it.id)}</span>
-															<span>{it.meta.file?.type ?? '—'} • {humanBytes(it.meta.file?.size ?? null)}</span>
+															<span
+																>{it.meta.file?.type ?? '—'} • {humanBytes(
+																	it.meta.file?.size ?? null
+																)}</span
+															>
 														</div>
 													</button>
 												{/each}
@@ -769,7 +793,9 @@
 								class="w-full rounded-lg bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset focus:ring-2 focus:ring-red-700 focus:outline-none"
 							>
 								{#each maps as m (m.map)}
-									<option value={m.map}>{m.title && m.title !== m.map ? `${m.map} — ${m.title}` : m.map}</option>
+									<option value={m.map}
+										>{m.title && m.title !== m.map ? `${m.map} — ${m.title}` : m.map}</option
+									>
 								{/each}
 							</select>
 							<input
@@ -798,11 +824,11 @@
 							}}
 							class="mt-1.5 w-full rounded-lg bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset focus:ring-2 focus:ring-red-700 focus:outline-none"
 						>
-							<option value="1">1 — I'm Too Young to Die</option>
-							<option value="2">2 — Hey, Not Too Rough</option>
-							<option value="3">3 — Hurt Me Plenty</option>
-							<option value="4">4 — Ultra-Violence</option>
-							<option value="5">5 — Nightmare!</option>
+							<option value={1}>1 — I'm Too Young to Die</option>
+							<option value={2}>2 — Hey, Not Too Rough</option>
+							<option value={3}>3 — Hurt Me Plenty</option>
+							<option value={4}>4 — Ultra-Violence</option>
+							<option value={5}>5 — Nightmare!</option>
 						</select>
 						{#if skillError}
 							<p class="mt-2 text-xs text-red-300">{skillError}</p>
@@ -813,7 +839,9 @@
 						<div class="flex items-center justify-between gap-4">
 							<div>
 								<h3 class="text-xs font-semibold tracking-wide text-zinc-300">Single player</h3>
-								<p class="mt-0.5 text-xs text-zinc-500">If enabled, Create launches gib.gg/play directly.</p>
+								<p class="mt-0.5 text-xs text-zinc-500">
+									If enabled, your game will only run in your browser — no server will be created.
+								</p>
 							</div>
 							<label class="inline-flex items-center gap-2 text-sm text-zinc-200">
 								<input
@@ -844,7 +872,7 @@
 								maxPlayersError = null;
 							}}
 							disabled={singlePlayer}
-							class="mt-1.5 w-full rounded-lg bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 disabled:opacity-50 focus:ring-2 focus:ring-red-700 focus:outline-none"
+							class="mt-1.5 w-full rounded-lg bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none disabled:opacity-50"
 						/>
 						{#if maxPlayersError}
 							<p class="mt-2 text-xs text-red-300">{maxPlayersError}</p>

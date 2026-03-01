@@ -69,8 +69,6 @@
 		void rotateSteps(dir, Math.min(Math.abs(offset), 6));
 	}
 
-
-
 	function visibleOffsets(n: number): number[] {
 		const clamped = Math.max(0, Math.floor(n));
 		const out: number[] = [];
@@ -383,7 +381,7 @@
 			await safePlay(video);
 
 			const ok = await Promise.race([
-				readiness
+				readiness,
 				new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 3500))
 			]);
 
@@ -594,7 +592,6 @@
 </script>
 
 <div class="jc-root">
-
 	{#if !items.length}
 		<div class="jc-empty grid place-items-center">
 			<div class="rounded-xl bg-black/40 px-4 py-3 text-sm text-zinc-200 ring-1 ring-white/10">
@@ -633,7 +630,10 @@
 									class="jc-video"
 									bind:this={activeVideoEl}
 									onplaying={() => {
-										dbg('video playing', { gameId: item.game_id, readyState: activeVideoEl?.readyState });
+										dbg('video playing', {
+											gameId: item.game_id,
+											readyState: activeVideoEl?.readyState
+										});
 										if (item.game_id === activeGameId) activeReady = true;
 									}}
 									onerror={() => {
@@ -777,7 +777,7 @@
 		border-radius: 16px;
 		overflow: hidden;
 		background: rgba(0, 0, 0, 0.25);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+		border: 1px solid rgba(255, 255, 255, 0.06);
 		box-shadow:
 			0 25px 70px rgba(0, 0, 0, 0.55),
 			0 0 0 1px rgba(255, 255, 255, 0.08) inset;
