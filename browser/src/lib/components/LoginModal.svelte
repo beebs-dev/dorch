@@ -212,7 +212,7 @@
 					type="submit"
 					disabled={submitting}
 					aria-busy={submitting}
-					class="mt-5 w-full cursor-pointer rounded-lg bg-red-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+					class="mt-5 w-full cursor-pointer rounded-lg bg-red-900/70 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					{submitting ? 'SIGNING IN…' : 'SIGN IN'}
 				</button>

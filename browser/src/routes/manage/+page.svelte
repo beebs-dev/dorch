@@ -7,9 +7,9 @@
 
 	let { data }: { data: PageData } = $props();
 
-	let notAuthenticated = $state<boolean>(data.notAuthenticated);
-	let authChecking = $state<boolean>(data.notAuthenticated);
-	let errorMessage = $state<string | null>(data.errorMessage ?? null);
+	let notAuthenticated = $state<boolean>(false);
+	let authChecking = $state<boolean>(false);
+	let errorMessage = $state<string | null>(null);
 	let refreshing = $state(false);
 
 	const rows = $derived(() => data.rows ?? []);
@@ -17,6 +17,7 @@
 	$effect(() => {
 		notAuthenticated = data.notAuthenticated;
 		errorMessage = data.errorMessage ?? null;
+		authChecking = data.notAuthenticated;
 		if (!data.notAuthenticated) {
 			authChecking = false;
 		}
@@ -116,7 +117,7 @@
 			<p class="mb-4 text-zinc-400">Please log in to manage your servers.</p>
 			<a
 				href="/#login"
-				class="inline-flex items-center gap-2 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600"
+				class="inline-flex items-center gap-2 rounded-lg bg-red-900/70 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-800/70"
 			>
 				Log In
 			</a>

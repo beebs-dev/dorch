@@ -1,12 +1,13 @@
-<svelte:head>
-	<title>ACCOUNT - ɢɪʙ.ɢɢ</title>
-</svelte:head>
-
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { showToast } from '$lib/stores/toast';
-	import { getAccessToken, getAuthState, subscribe as authSubscribe, logout } from '$lib/stores/auth';
+	import {
+		getAccessToken,
+		getAuthState,
+		subscribe as authSubscribe,
+		logout
+	} from '$lib/stores/auth';
 	import type { UserProfileFull, UserProfileView } from '$lib/types/wadinfo';
 
 	let { data: initialData } = $props();
@@ -151,7 +152,8 @@
 	const hasChanges = $derived.by(() => {
 		if (!profile) return false;
 		const sameDisplayName = displayName.trim() === (profile.display_name ?? '');
-		const samePrivacy = !isFullProfile(profile) || privacyHideActivity === !!profile.privacy_hide_activity;
+		const samePrivacy =
+			!isFullProfile(profile) || privacyHideActivity === !!profile.privacy_hide_activity;
 		return !sameDisplayName || !samePrivacy;
 	});
 
@@ -278,22 +280,24 @@
 		// If SSR returned notAuthenticated, try to refresh the token
 		// (the access token cookie may have expired but refresh token in localStorage is still valid)
 		if (untrack(() => initialData.notAuthenticated)) {
-			getAccessToken().then((token) => {
-				if (token) {
-					// Token refresh succeeded, reload the page data
-					invalidateAll().then(() => {
+			getAccessToken()
+				.then((token) => {
+					if (token) {
+						// Token refresh succeeded, reload the page data
+						invalidateAll().then(() => {
+							authChecking = false;
+							notAuthenticated = false;
+							// Also load the profile since invalidateAll won't automatically update our state
+							loadProfile();
+						});
+					} else {
+						// No valid token available
 						authChecking = false;
-						notAuthenticated = false;
-						// Also load the profile since invalidateAll won't automatically update our state
-						loadProfile();
-					});
-				} else {
-					// No valid token available
+					}
+				})
+				.catch(() => {
 					authChecking = false;
-				}
-			}).catch(() => {
-				authChecking = false;
-			});
+				});
 		}
 		// Only load client-side if SSR didn't provide the profile
 		else if (untrack(() => !initialData.profile && !initialData.notAuthenticated)) {
@@ -301,6 +305,10 @@
 		}
 	});
 </script>
+
+<svelte:head>
+	<title>ACCOUNT - ɢɪʙ.ɢɢ</title>
+</svelte:head>
 
 <section class="mx-auto w-full max-w-5xl px-4 py-8">
 	<div class="mb-6">
@@ -313,7 +321,9 @@
 	{#if loading || authChecking}
 		<div class="rounded-xl border border-zinc-800 bg-zinc-950/80 p-6">
 			<div class="flex items-center gap-3">
-				<div class="h-5 w-5 animate-spin rounded-full border-2 border-zinc-700 border-t-red-500"></div>
+				<div
+					class="h-5 w-5 animate-spin rounded-full border-2 border-zinc-700 border-t-red-500"
+				></div>
 				<p class="text-sm text-zinc-300">Loading profile…</p>
 			</div>
 		</div>
@@ -325,7 +335,7 @@
 			</p>
 			<a
 				href="#login"
-				class="mt-4 inline-flex rounded-lg bg-red-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+				class="mt-4 inline-flex rounded-lg bg-red-900/70 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800/70"
 			>
 				Open login
 			</a>
@@ -345,22 +355,22 @@
 	{:else}
 		<div class="grid gap-6 lg:grid-cols-[1fr_2fr]">
 			<aside class="rounded-xl border border-zinc-800 bg-zinc-950/80 p-6">
-				<div class="mx-auto flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-zinc-900 ring-1 ring-zinc-700">
+				<div
+					class="mx-auto flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-zinc-900 ring-1 ring-zinc-700"
+				>
 					{#if profile.avatar_url}
-						<img
-							src={profile.avatar_url}
-							alt="Profile avatar"
-							class="h-full w-full object-cover"
-						/>
+						<img src={profile.avatar_url} alt="Profile avatar" class="h-full w-full object-cover" />
 					{:else}
-						<span class="text-3xl font-semibold text-zinc-300">{(displayName.trim()[0] ?? username.trim()[0] ?? 'U').toUpperCase()}</span>
+						<span class="text-3xl font-semibold text-zinc-300"
+							>{(displayName.trim()[0] ?? username.trim()[0] ?? 'U').toUpperCase()}</span
+						>
 					{/if}
 				</div>
 				<div class="mt-4 text-center">
 					<p class="text-base font-semibold text-zinc-100">{profile.display_name}</p>
 					<p class="mt-1 text-xs text-zinc-500">@{profile.username}</p>
 					<p class="mt-2 text-xs text-zinc-500">User ID</p>
-					<p class="mt-1 break-all text-xs text-zinc-400">{profile.id}</p>
+					<p class="mt-1 text-xs break-all text-zinc-400">{profile.id}</p>
 				</div>
 
 				<div class="mt-6 space-y-4 border-t border-zinc-800 pt-5 text-sm">
@@ -380,7 +390,9 @@
 			<form class="rounded-xl border border-zinc-800 bg-zinc-950/80 p-6" onsubmit={onSave}>
 				<div class="mb-5">
 					<h2 class="text-xl font-semibold text-zinc-100">Profile Settings</h2>
-					<p class="mt-1 text-sm text-zinc-400">Choose what others can see and update your identity details.</p>
+					<p class="mt-1 text-sm text-zinc-400">
+						Choose what others can see and update your identity details.
+					</p>
 				</div>
 
 				<div class="space-y-5">
@@ -417,7 +429,7 @@
 							value={username}
 							readonly
 							autocomplete="username"
-							class="mt-2 w-full rounded-lg bg-zinc-950 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none cursor-not-allowed opacity-70"
+							class="mt-2 w-full cursor-not-allowed rounded-lg bg-zinc-950 px-3 py-2 text-sm text-zinc-100 opacity-70 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none"
 						/>
 						<p class="mt-1 text-xs text-zinc-500">Username cannot be changed.</p>
 					</label>
@@ -432,7 +444,9 @@
 							maxlength="50"
 							class="mt-2 w-full rounded-lg bg-zinc-950 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none"
 						/>
-						<p class="mt-1 text-xs text-zinc-500">The name shown to other users and what is used in-game. Can be changed anytime.</p>
+						<p class="mt-1 text-xs text-zinc-500">
+							The name shown to other users and what is used in-game. Can be changed anytime.
+						</p>
 					</label>
 
 					{#if isFullProfile(profile)}
@@ -444,7 +458,9 @@
 									class="mt-0.5 h-4 w-4 rounded border-zinc-700 bg-zinc-950 text-red-600 focus:ring-red-700"
 								/>
 								<span>
-									<span class="text-sm font-semibold text-zinc-200">Hide my activity from other users</span>
+									<span class="text-sm font-semibold text-zinc-200"
+										>Hide my activity from other users</span
+									>
 									<span class="mt-1 block text-xs text-zinc-500">
 										When enabled, others won’t see your last active time in your public profile.
 									</span>
@@ -458,7 +474,7 @@
 					<button
 						type="submit"
 						disabled={!canSave}
-						class="cursor-pointer rounded-lg bg-red-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+						class="cursor-pointer rounded-lg bg-red-900/70 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800/70 disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{saving ? 'Saving…' : 'Save changes'}
 					</button>
