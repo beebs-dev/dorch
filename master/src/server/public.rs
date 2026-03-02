@@ -55,6 +55,7 @@ pub async fn run_server(
         .build();
     let protected_router = Router::new()
         .route("/game", post(create_game))
+        .route("/my/games", get(list_my_games))
         .route("/game/{game_id}", delete(delete_game).post(new_game))
         .route("/game/{game_id}/join", post(join_game))
         .with_state(app_state.clone())
@@ -121,6 +122,14 @@ pub async fn list_games(State(state): State<App>) -> impl IntoResponse {
     let resp = match internal::list_games_inner(state).await {
         Ok(resp) => resp,
         Err(e) => return response::error(e.context("Failed to list games")),
+    };
+    (StatusCode::OK, Json(resp)).into_response()
+}
+
+pub async fn list_my_games(State(state): State<App>, UserId(user_id): UserId) -> impl IntoResponse {
+    let resp = match internal::list_games_for_creator_inner(state, user_id).await {
+        Ok(resp) => resp,
+        Err(e) => return response::error(e.context("Failed to list creator games")),
     };
     (StatusCode::OK, Json(resp)).into_response()
 }

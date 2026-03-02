@@ -56,26 +56,39 @@ class DorchMasterHttpError extends Error {
 	}
 }
 
-function getBaseUrl(): string {
-	const base = env.MASTER_BASE_URL;
-	if (!base) {
-		throw new Error('Missing required private env var MASTER_BASE_URL');
-	}
+function normalizeBaseUrl(base: string): string {
 	return base.endsWith('/') ? base : `${base}/`;
 }
 
-function buildUrl(path: string): URL {
-	const base = getBaseUrl();
-	return new URL(path.replace(/^\//, ''), base);
+function getInternalBaseUrl(): string {
+	const base = env.MASTER_BASE_URL;
+	if (!base) throw new Error('Missing required private env var MASTER_BASE_URL');
+	return normalizeBaseUrl(base);
+}
+
+function getPublicBaseUrl(): string {
+	// In-cluster this may differ (public port/proxy). For local dev we allow falling back.
+	const base = env.MASTER_PUBLIC_BASE_URL ?? env.MASTER_BASE_URL;
+	if (!base) {
+		throw new Error(
+			'Missing required private env var MASTER_PUBLIC_BASE_URL (or fallback MASTER_BASE_URL)'
+		);
+	}
+	return normalizeBaseUrl(base);
+}
+
+function buildUrl(baseUrl: string, path: string): URL {
+	return new URL(path.replace(/^\//, ''), baseUrl);
 }
 
 async function requestJson<T>(
 	fetchFn: typeof fetch,
+	baseUrl: string,
 	path: string,
 	init?: RequestInit,
 	opts?: { forwardedFor?: string; bearerToken?: string }
 ): Promise<T> {
-	const url = buildUrl(path);
+	const url = buildUrl(baseUrl, path);
 	const headers = new Headers(init?.headers);
 	if (!headers.has('accept')) headers.set('accept', 'application/json');
 	if (opts?.forwardedFor && !headers.has('x-forwarded-for')) {
@@ -106,17 +119,19 @@ async function requestJson<T>(
 
 export function createDorchMasterClient(
 	fetchFn: typeof fetch,
-	opts?: { forwardedFor?: string; bearerToken?: string }
+	opts?: { forwardedFor?: string; bearerToken?: string; baseUrl?: string }
 ) {
 	const forwardedFor = opts?.forwardedFor;
 	const bearerToken = opts?.bearerToken;
+	const baseUrl = opts?.baseUrl ?? getInternalBaseUrl();
 	return {
 		async listGames(): Promise<ListGamesResponse> {
-			return requestJson<ListGamesResponse>(fetchFn, '/game', undefined, { forwardedFor });
+			return requestJson<ListGamesResponse>(fetchFn, baseUrl, '/game', undefined, { forwardedFor });
 		},
 		async getGame(gameId: string): Promise<GameSummary> {
 			return requestJson<GameSummary>(
 				fetchFn,
+				baseUrl,
 				`/game/${encodeURIComponent(gameId)}`,
 				undefined,
 				{ forwardedFor }
@@ -124,14 +139,21 @@ export function createDorchMasterClient(
 		},
 		async getJumbotron(): Promise<JumbotronResponse> {
 			// dorch-master returns: { items: [{ game_id, url }, ...] }
-			return requestJson<JumbotronResponse>(fetchFn, '/jumbotron', undefined, { forwardedFor });
+			return requestJson<JumbotronResponse>(fetchFn, baseUrl, '/jumbotron', undefined, { forwardedFor });
 		},
 		async getHome(): Promise<HomeResponse> {
-			return requestJson<HomeResponse>(fetchFn, '/home', undefined, { forwardedFor });
+			return requestJson<HomeResponse>(fetchFn, baseUrl, '/home', undefined, { forwardedFor });
+		},
+		async listMyGames(): Promise<ListGamesResponse> {
+			return requestJson<ListGamesResponse>(fetchFn, baseUrl, '/my/games', undefined, {
+				forwardedFor,
+				bearerToken
+			});
 		},
 		async createGame(payload: CreateGameRequest): Promise<CreateGameResponse> {
 			return requestJson<CreateGameResponse>(
 				fetchFn,
+				baseUrl,
 				'/game',
 				{
 					method: 'POST',
@@ -145,4 +167,14 @@ export function createDorchMasterClient(
 		},
 		DorchMasterHttpError
 	};
+}
+
+export function createDorchMasterPublicClient(
+	fetchFn: typeof fetch,
+	opts?: { forwardedFor?: string; bearerToken?: string }
+) {
+	return createDorchMasterClient(fetchFn, {
+		...opts,
+		baseUrl: getPublicBaseUrl()
+	});
 }

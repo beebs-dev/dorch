@@ -72,19 +72,32 @@ download_all() {
             dst="$wad_id"
         fi
 
-        if [[ "$url" == *.gz ]]; then
-            echo "Downloading and extracting $url -> $dst"
-            aws s3 cp "$url" - \
-                --endpoint-url "$S3_ENDPOINT" \
-                --region "$S3_REGION" \
-                --no-progress \
-                | gzip -dc > "$dst"
+        # Choose backend based on scheme
+        if [[ "$url" == s3://* ]]; then
+            # S3/Spaces URI -> use aws s3 cp
+            if [[ "$url" == *.gz ]]; then
+                echo "Downloading and extracting $url -> $dst (via aws s3 cp)"
+                aws s3 cp "$url" - \
+                    --endpoint-url "$S3_ENDPOINT" \
+                    --region "$S3_REGION" \
+                    --no-progress \
+                    | gzip -dc > "$dst"
+            else
+                echo "Downloading $url -> $dst (via aws s3 cp)"
+                aws s3 cp "$url" "$dst" \
+                    --endpoint-url "$S3_ENDPOINT" \
+                    --region "$S3_REGION" \
+                    --no-progress
+            fi
         else
-            echo "Downloading $url -> $dst"
-            aws s3 cp "$url" "$dst" \
-                --endpoint-url "$S3_ENDPOINT" \
-                --region "$S3_REGION" \
-                --no-progress
+            # HTTP(S) URL -> use curl
+            if [[ "$url" == *.gz ]]; then
+                echo "Downloading and extracting $url -> $dst (via curl)"
+                curl -sfSL "$url" | gzip -dc > "$dst"
+            else
+                echo "Downloading $url -> $dst (via curl)"
+                curl -sfSL "$url" -o "$dst"
+            fi
         fi
     done
 }

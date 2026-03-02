@@ -769,6 +769,63 @@ pub async fn list_games_inner(state: App) -> Result<ListGamesResponse> {
     Ok(ListGamesResponse { games })
 }
 
+pub async fn list_games_for_creator_inner(
+    state: App,
+    creator_id: Uuid,
+) -> Result<ListGamesResponse> {
+    let start = std::time::Instant::now();
+    let list = Api::<dorch_types::Game>::namespaced(state.client.clone(), &state.namespace)
+        .list(&Default::default())
+        .await
+        .context("Failed to list games")?;
+
+    let mut games = Vec::new();
+    for game in list.items {
+        let created_by = game
+            .metadata
+            .annotations
+            .as_ref()
+            .and_then(|m| m.get(annotations::CREATED_BY_USER))
+            .and_then(|s| s.parse::<Uuid>().ok());
+        if created_by != Some(creator_id) {
+            continue;
+        }
+
+        // Best-effort: info is present mostly for active games.
+        let info = try_get_info(&state, &game).await;
+        let summary = match game_to_summary(game, info) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!(
+                    "{}{}{}{}",
+                    "⚠️  Skipping game with invalid summary • creator_id=".yellow(),
+                    creator_id.yellow().dimmed(),
+                    " • err=".yellow(),
+                    format!("{:?}", e).yellow().dimmed()
+                );
+                continue;
+            }
+        };
+        games.push(summary);
+    }
+
+    eprintln!(
+        "{}{}{}{}{}",
+        "✅  Listed creator games • count=".green(),
+        games.len().green().dimmed(),
+        " • elapsed=".green(),
+        Instant::now()
+            .duration_since(start)
+            .as_millis()
+            .to_string()
+            .green()
+            .dimmed(),
+        " ms".green(),
+    );
+
+    Ok(ListGamesResponse { games })
+}
+
 pub async fn list_games(State(state): State<App>) -> impl IntoResponse {
     match list_games_inner(state).await {
         Ok(resp) => (StatusCode::OK, Json(resp)).into_response(),

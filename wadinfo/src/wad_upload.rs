@@ -45,7 +45,13 @@ impl WadUploadStore {
         draft_key_prefix: String,
         permanent_key_prefix: String,
     ) -> Result<Self> {
-        let creds = Credentials::new(access_key_id, secret_access_key, None, None, "wad_upload_s3");
+        let creds = Credentials::new(
+            access_key_id,
+            secret_access_key,
+            None,
+            None,
+            "wad_upload_s3",
+        );
         let shared_config = aws_config::defaults(BehaviorVersion::latest())
             .region(Region::new(region))
             .credentials_provider(SharedCredentialsProvider::new(creds))
@@ -68,7 +74,11 @@ impl WadUploadStore {
 
     /// Upload a WAD file to draft storage.
     /// Returns (sha256_hash, sha1_hash, upload_id, file_size_bytes).
-    pub async fn upload_draft(&self, filename: &str, data: &[u8]) -> Result<(String, String, Uuid, i64)> {
+    pub async fn upload_draft(
+        &self,
+        filename: &str,
+        data: &[u8],
+    ) -> Result<(String, String, Uuid, i64)> {
         if data.len() > MAX_WAD_UPLOAD_BYTES {
             bail!(
                 "File exceeds max upload size of {} bytes",
@@ -186,9 +196,14 @@ impl WadUploadStore {
                 Ok(Some(chunk)) => {
                     chunk_count += 1;
                     if chunk_count <= 3 || chunk_count % 100 == 0 {
-                        eprintln!("📦 chunk #{}: {} bytes, total_size={}", chunk_count, chunk.len(), total_size + chunk.len());
+                        eprintln!(
+                            "📦 chunk #{}: {} bytes, total_size={}",
+                            chunk_count,
+                            chunk.len(),
+                            total_size + chunk.len()
+                        );
                     }
-                    
+
                     // Check size limit
                     if total_size + chunk.len() > MAX_WAD_UPLOAD_BYTES {
                         size_exceeded = true;
@@ -213,11 +228,17 @@ impl WadUploadStore {
                     }
                 }
                 Ok(None) => {
-                    eprintln!("📦 stream complete: {} chunks, {} bytes total", chunk_count, total_size);
+                    eprintln!(
+                        "📦 stream complete: {} chunks, {} bytes total",
+                        chunk_count, total_size
+                    );
                     break;
                 }
                 Err(e) => {
-                    eprintln!("📦 chunk error after {} chunks, {} bytes: {:?}", chunk_count, total_size, e);
+                    eprintln!(
+                        "📦 chunk error after {} chunks, {} bytes: {:?}",
+                        chunk_count, total_size, e
+                    );
                     read_error = Some(format!("{:?}", e));
                     break;
                 }
@@ -233,9 +254,7 @@ impl WadUploadStore {
         drop(part_tx);
 
         // Wait for uploader task to complete
-        let upload_result = uploader_handle
-            .await
-            .context("Uploader task panicked")?;
+        let upload_result = uploader_handle.await.context("Uploader task panicked")?;
 
         // Get S3 upload ID for potential abort
         let (s3_upload_id, completed_parts) = match upload_result {
@@ -307,8 +326,11 @@ impl WadUploadStore {
         original_filename: &str,
     ) -> Result<String> {
         let draft_key = format!("{}{}", self.draft_key_prefix, upload_id);
-        
-        let permanent_key = format!("{}{}/{}", self.permanent_key_prefix, upload_id, original_filename);
+
+        let permanent_key = format!(
+            "{}{}/{}",
+            self.permanent_key_prefix, upload_id, original_filename
+        );
 
         // Copy from draft to permanent location
         let copy_source = format!("{}/{}", self.bucket, draft_key);
@@ -350,7 +372,10 @@ impl WadUploadStore {
 
     /// Delete a WAD file from permanent storage by sha256 and original filename.
     pub async fn delete_permanent(&self, wad_id: Uuid, original_filename: &str) -> Result<()> {
-        let key = format!("{}{}/{}", self.permanent_key_prefix, wad_id, original_filename);
+        let key = format!(
+            "{}{}/{}",
+            self.permanent_key_prefix, wad_id, original_filename
+        );
         self.client
             .delete_object()
             .bucket(&self.bucket)
@@ -369,7 +394,11 @@ impl WadUploadStore {
         let scheme = endpoint.scheme();
         Ok(format!(
             "{}://{}.{}{}{}",
-            scheme, self.bucket, host, "/", key
+            scheme,
+            self.bucket,
+            host,
+            "/",
+            urlencoding::encode(key)
         ))
     }
 }
@@ -384,7 +413,7 @@ fn normalize_key_prefix(key_prefix: &str) -> String {
 
 /// Long-lived task that initializes S3 multipart upload and uploads parts
 /// as they arrive via the channel. Returns (s3_upload_id, completed_parts).
-/// 
+///
 /// This task waits for S3 multipart init to complete before receiving parts,
 /// ensuring backpressure from the channel limits memory usage.
 async fn upload_parts_task(
