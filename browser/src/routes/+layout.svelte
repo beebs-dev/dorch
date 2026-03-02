@@ -297,12 +297,6 @@
 								>
 									MY SERVERS
 								</a>
-								<a
-									href={resolve('/manage/create')}
-									class="block px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
-								>
-									CREATE SERVER
-								</a>
 							</div>
 						</div>
 					</div>
