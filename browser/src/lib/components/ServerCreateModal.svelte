@@ -1046,7 +1046,7 @@
 								<h3 class="text-xs font-semibold tracking-wide text-zinc-300">Single player</h3>
 								<p class="mt-0.5 text-xs text-zinc-500">
 									{#if !isAuthenticated}
-										You can only launch new server in single player when not logged in.
+										You can only launch a custom game in single player when not logged in.
 									{:else}
 										If enabled, your game will only run in your browser — no server will be created.
 									{/if}
