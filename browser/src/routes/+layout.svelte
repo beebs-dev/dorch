@@ -286,12 +286,6 @@
 						>
 							<div class="overflow-hidden rounded-lg bg-zinc-950 ring-1 ring-zinc-800">
 								<a
-									href={resolve('/servers')}
-									class="block px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
-								>
-									SERVER LIST
-								</a>
-								<a
 									href={resolve('/manage')}
 									class="block px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
 								>
