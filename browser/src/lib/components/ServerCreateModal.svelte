@@ -82,6 +82,24 @@
 
 	const DEFAULT_IWAD_UUID_FOR_PWAD = '17bdc0a8-8a81-4b00-90d1-972bf406fa10';
 	const SERVER_CREATE_SETTINGS_KEY = 'dorch.server-create.settings.v1';
+	const SERVER_CREATE_AUTH_RESUME_KEY = 'dorch.server-create.auth-resume.v1';
+	const SERVER_CREATE_AUTH_RESUME_MAX_AGE_MS = 30 * 60 * 1000;
+
+	type ServerCreateAuthResume = {
+		version: 1;
+		createdAt: number;
+		wadId: string;
+		serverName: string;
+		iwadUuid: string;
+		pwads: string[];
+		warp: string;
+		skill: number;
+		singlePlayer: boolean;
+		maxPlayers: number;
+		dmflags: string;
+		fragLimit: string;
+		timeLimit: string;
+	};
 
 	let nameError = $state<string | null>(null);
 	let iwadError = $state<string | null>(null);
@@ -141,6 +159,80 @@
 			};
 		} catch {
 			return {};
+		}
+	}
+
+	function readAuthResumeRaw(): ServerCreateAuthResume | null {
+		if (!browser) return null;
+		try {
+			const raw = window.localStorage.getItem(SERVER_CREATE_AUTH_RESUME_KEY);
+			if (!raw) return null;
+			const parsed = JSON.parse(raw) as Partial<ServerCreateAuthResume>;
+			if (parsed?.version !== 1) return null;
+			if (typeof parsed.createdAt !== 'number') return null;
+			if (Date.now() - parsed.createdAt > SERVER_CREATE_AUTH_RESUME_MAX_AGE_MS) return null;
+			if (typeof parsed.wadId !== 'string' || !parsed.wadId.trim()) return null;
+			return {
+				version: 1,
+				createdAt: parsed.createdAt,
+				wadId: parsed.wadId,
+				serverName: typeof parsed.serverName === 'string' ? parsed.serverName : '',
+				iwadUuid: typeof parsed.iwadUuid === 'string' ? parsed.iwadUuid : '',
+				pwads: Array.isArray(parsed.pwads)
+					? parsed.pwads.filter((p): p is string => typeof p === 'string')
+					: [],
+				warp: typeof parsed.warp === 'string' ? parsed.warp : '',
+				skill: clampSkill(parsed.skill),
+				singlePlayer: Boolean(parsed.singlePlayer),
+				maxPlayers: clampMaxPlayers(parsed.maxPlayers),
+				dmflags: typeof parsed.dmflags === 'string' ? parsed.dmflags : '',
+				fragLimit: typeof parsed.fragLimit === 'string' ? parsed.fragLimit : '',
+				timeLimit: typeof parsed.timeLimit === 'string' ? parsed.timeLimit : ''
+			};
+		} catch {
+			return null;
+		}
+	}
+
+	function consumeAuthResumeForCurrentWad(): ServerCreateAuthResume | null {
+		if (!browser) return null;
+		const resume = readAuthResumeRaw();
+		if (!resume) return null;
+		if (resume.wadId.trim().toLowerCase() !== wadId.trim().toLowerCase()) return null;
+		window.localStorage.removeItem(SERVER_CREATE_AUTH_RESUME_KEY);
+		return resume;
+	}
+
+	function persistAuthResume() {
+		if (!browser) return;
+		try {
+			const payload: ServerCreateAuthResume = {
+				version: 1,
+				createdAt: Date.now(),
+				wadId: wadId.trim(),
+				serverName: serverName.trim(),
+				iwadUuid: iwadUuid.trim(),
+				pwads: pwads.map((p) => p.id.trim()).filter((id) => id.length > 0),
+				warp: warp.trim(),
+				skill: clampSkill(skill),
+				singlePlayer: Boolean(singlePlayer),
+				maxPlayers: clampMaxPlayers(maxPlayers),
+				dmflags: dmflags.trim(),
+				fragLimit: fragLimit.trim(),
+				timeLimit: timeLimit.trim()
+			};
+			window.localStorage.setItem(SERVER_CREATE_AUTH_RESUME_KEY, JSON.stringify(payload));
+		} catch {
+			// ignore storage failures
+		}
+	}
+
+	function openSignInAndResume() {
+		if (!browser) return;
+		persistAuthResume();
+		close();
+		if (window.location.hash !== '#login') {
+			window.location.hash = 'login';
 		}
 	}
 
@@ -571,24 +663,40 @@
 
 		if (!didInit) {
 			didInit = true;
-			serverName = wadTitle?.trim() ? `${wadTitle.trim()} Server` : 'New Server';
-			if (wadIsIwad) {
-				iwadUuid = wadId;
-				pwads = [];
-			} else {
-				iwadUuid = DEFAULT_IWAD_UUID_FOR_PWAD;
-				pwads = [{ key: makePwadKey(), id: wadId }];
-			}
+			const resume = consumeAuthResumeForCurrentWad();
 			iwadSearch = '';
 			pwadSearch = '';
-			warp = maps?.[0]?.map ?? '';
-			const persisted = loadPersistedSettings();
-			skill = persisted.skill ?? 3;
-			singlePlayer = persisted.singlePlayer ?? true;
-			maxPlayers = persisted.maxPlayers ?? 8;
-			dmflags = persisted.dmflags ?? '';
-			fragLimit = persisted.fragLimit ?? '';
-			timeLimit = persisted.timeLimit ?? '';
+
+			if (resume) {
+				serverName =
+					resume.serverName || (wadTitle?.trim() ? `${wadTitle.trim()} Server` : 'New Server');
+				iwadUuid = resume.iwadUuid || (wadIsIwad ? wadId : DEFAULT_IWAD_UUID_FOR_PWAD);
+				pwads = resume.pwads.map((id) => ({ key: makePwadKey(), id }));
+				warp = resume.warp || maps?.[0]?.map || '';
+				skill = clampSkill(resume.skill);
+				singlePlayer = Boolean(resume.singlePlayer);
+				maxPlayers = clampMaxPlayers(resume.maxPlayers);
+				dmflags = resume.dmflags;
+				fragLimit = resume.fragLimit;
+				timeLimit = resume.timeLimit;
+			} else {
+				serverName = wadTitle?.trim() ? `${wadTitle.trim()} Server` : 'New Server';
+				if (wadIsIwad) {
+					iwadUuid = wadId;
+					pwads = [];
+				} else {
+					iwadUuid = DEFAULT_IWAD_UUID_FOR_PWAD;
+					pwads = [{ key: makePwadKey(), id: wadId }];
+				}
+				warp = maps?.[0]?.map ?? '';
+				const persisted = loadPersistedSettings();
+				skill = persisted.skill ?? 3;
+				singlePlayer = persisted.singlePlayer ?? true;
+				maxPlayers = persisted.maxPlayers ?? 8;
+				dmflags = persisted.dmflags ?? '';
+				fragLimit = persisted.fragLimit ?? '';
+				timeLimit = persisted.timeLimit ?? '';
+			}
 		}
 
 		if (!browser) return;
@@ -1046,7 +1154,17 @@
 								<h3 class="text-xs font-semibold tracking-wide text-zinc-300">Single player</h3>
 								<p class="mt-0.5 text-xs text-zinc-500">
 									{#if !isAuthenticated}
-										You can only launch a custom game in single player when not logged in.
+										<a
+											href="#login"
+											onclick={(e) => {
+												e.preventDefault();
+												openSignInAndResume();
+											}}
+											class="font-semibold text-red-300 underline decoration-red-300/70 underline-offset-2 hover:text-red-200"
+										>
+											Sign in
+										</a>
+										to create multiplayer servers.
 									{:else}
 										If enabled, your game will only run in your browser — no server will be created.
 									{/if}

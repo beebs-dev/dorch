@@ -10,17 +10,42 @@
 	import { ellipsize, humanBytes, wadLabel, withParams } from '$lib/utils/format';
 	import { showToast } from '$lib/stores/toast';
 	import { subscribe as authSubscribe } from '$lib/stores/auth';
+	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 
 	let { data }: { data: PageData } = $props();
 
+	const SERVER_CREATE_AUTH_RESUME_KEY = 'dorch.server-create.auth-resume.v1';
+	const SERVER_CREATE_AUTH_RESUME_MAX_AGE_MS = 30 * 60 * 1000;
+
+	function hasPendingServerCreateAuthResume(wadId: string): boolean {
+		if (!browser) return false;
+		try {
+			const raw = window.localStorage.getItem(SERVER_CREATE_AUTH_RESUME_KEY);
+			if (!raw) return false;
+			const parsed = JSON.parse(raw) as { version?: unknown; createdAt?: unknown; wadId?: unknown };
+			if (parsed?.version !== 1) return false;
+			if (typeof parsed.createdAt !== 'number') return false;
+			if (Date.now() - parsed.createdAt > SERVER_CREATE_AUTH_RESUME_MAX_AGE_MS) return false;
+			if (typeof parsed.wadId !== 'string') return false;
+			return parsed.wadId.trim().toLowerCase() === wadId.trim().toLowerCase();
+		} catch {
+			return false;
+		}
+	}
+
 	// Auth state for showing Edit button
 	let currentUserId = $state<string | null>(null);
-	
+
 	onMount(() => {
 		const unsubscribeAuth = authSubscribe((state) => {
 			currentUserId = state.userId;
 		});
+
+		if (hasPendingServerCreateAuthResume(data.wad.meta.id)) {
+			showServerCreateModal = true;
+		}
+
 		return () => unsubscribeAuth();
 	});
 
@@ -42,9 +67,7 @@
 
 	const wadAuthors = $derived(() => {
 		const normalize = (arr: Array<string | null | undefined> | null | undefined) =>
-			(arr ?? [])
-				.map((a) => (typeof a === 'string' ? a.trim() : ''))
-				.filter((a) => a.length > 0);
+			(arr ?? []).map((a) => (typeof a === 'string' ? a.trim() : '')).filter((a) => a.length > 0);
 
 		const fromMeta = normalize(data.wad.meta.authors);
 		if (fromMeta.length) return fromMeta;
@@ -435,11 +458,15 @@
 				{#if data.wad.description}
 					<div class="shrink-0 rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
 						<h2 class="text-sm font-semibold text-zinc-200">Description</h2>
-						<p class="mt-3 text-sm leading-relaxed text-zinc-300 whitespace-pre-wrap">{data.wad.description}</p>
+						<p class="mt-3 text-sm leading-relaxed whitespace-pre-wrap text-zinc-300">
+							{data.wad.description}
+						</p>
 					</div>
 				{/if}
 
-				<div class="flex min-h-0 flex-1 flex-col rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset">
+				<div
+					class="flex min-h-0 flex-1 flex-col rounded-xl bg-zinc-950/40 p-4 ring-1 ring-zinc-800 ring-inset"
+				>
 					<h2 class="text-sm font-semibold text-zinc-200">Guesses</h2>
 					<div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<div>
@@ -502,7 +529,9 @@
 								<div class="w-full bg-zinc-950/70 px-3 py-2 text-sm font-medium text-zinc-100">
 									{#if randomScreenshot.mapTitle}
 										{randomScreenshot.mapName}
-										<span class="ml-2 text-xs font-normal text-zinc-300">({randomScreenshot.mapTitle})</span>
+										<span class="ml-2 text-xs font-normal text-zinc-300"
+											>({randomScreenshot.mapTitle})</span
+										>
 									{:else}
 										{randomScreenshot.mapName}
 									{/if}
@@ -704,7 +733,9 @@
 										<div class="truncate text-sm font-semibold text-zinc-100">
 											{m.map}
 											{#if mapDisplayTitle(m) !== m.map}
-												<span class="ml-2 text-xs font-normal text-zinc-500">({mapDisplayTitle(m)})</span>
+												<span class="ml-2 text-xs font-normal text-zinc-500"
+													>({mapDisplayTitle(m)})</span
+												>
 											{/if}
 										</div>
 									</div>
@@ -745,7 +776,9 @@
 									>
 										{m.map}
 										{#if mapDisplayTitle(m) !== m.map}
-											<span class="ml-2 text-xs font-normal text-zinc-500">({mapDisplayTitle(m)})</span>
+											<span class="ml-2 text-xs font-normal text-zinc-500"
+												>({mapDisplayTitle(m)})</span
+											>
 										{/if}
 									</a>
 								</h2>
