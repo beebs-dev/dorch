@@ -192,6 +192,15 @@
 		return remainingBytes / uploadSpeed;
 	});
 
+	function inferTitleFromFilename(filename: string): string {
+		const base = filename.split(/[/\\]/).pop() ?? filename;
+		const lower = base.toLowerCase();
+		if (lower.endsWith('.wad') || lower.endsWith('.pk3')) {
+			return base.slice(0, -4);
+		}
+		return base;
+	}
+
 	async function getValidAccessToken(): Promise<string | null> {
 		const token = await getAccessToken();
 		if (!token) {
@@ -345,11 +354,20 @@
 			return;
 		}
 
-		await uploadFile(file);
+		let autofilledTitle: string | null = null;
+		if (title.trim().length === 0) {
+			const inferredTitle = inferTitleFromFilename(file.name).trim();
+			if (inferredTitle.length > 0) {
+				title = inferredTitle;
+				autofilledTitle = inferredTitle;
+			}
+		}
+
+		await uploadFile(file, autofilledTitle);
 		input.value = '';
 	}
 
-	async function uploadFile(file: File) {
+	async function uploadFile(file: File, autofilledTitle: string | null = null) {
 		// Lazily create a draft on first upload
 		if (!(await ensureDraft())) return;
 
@@ -424,6 +442,7 @@
 
 			// Update draft with upload info
 			const updateReq: UpdateDraftRequest = {
+				...(autofilledTitle ? { title: autofilledTitle } : {}),
 				upload_id: uploadData.id,
 				file_sha256: uploadData.hash,
 				file_sha1: uploadData.sha1,
