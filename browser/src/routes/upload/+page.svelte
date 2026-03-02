@@ -771,7 +771,7 @@
 							id="author"
 							type="text"
 							bind:value={author}
-							placeholder="Your name or handle"
+							placeholder="Give credit where it's due!"
 							class="w-full rounded-lg bg-zinc-800 px-4 py-2 text-zinc-100 ring-1 ring-zinc-700 placeholder:text-zinc-500 focus:ring-2 focus:ring-red-500 focus:outline-none"
 						/>
 					</div>
@@ -784,7 +784,7 @@
 							id="description"
 							bind:value={description}
 							rows="4"
-							placeholder="Describe your WAD..."
+							placeholder="This is displayed separately from the README(s)."
 							class="w-full resize-none rounded-lg bg-zinc-800 px-4 py-2 text-zinc-100 ring-1 ring-zinc-700 placeholder:text-zinc-500 focus:ring-2 focus:ring-red-500 focus:outline-none"
 						></textarea>
 					</div>
