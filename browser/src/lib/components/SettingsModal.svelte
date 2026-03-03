@@ -4,6 +4,13 @@
 	import { showToast } from '$lib/stores/toast';
 	import { subscribe as authSubscribe, getAccessToken, type AuthState } from '$lib/stores/auth';
 	import type { UserProfileFull } from '$lib/types/wadinfo';
+	import {
+		LS_PLAYER_COLOR_KEY,
+		NAMED_PLAYER_COLORS,
+		NAMED_PLAYER_COLOR_INDEX_SET,
+		parsePlayerColorIndex,
+		toPlayerColorHex
+	} from '$lib/utils/playerColor';
 
 	let { open, onClose }: { open: boolean; onClose: () => void } = $props();
 
@@ -12,6 +19,7 @@
 
 	const NAME_MAX_LEN = 20;
 	const LS_NAME_KEY = 'dorch.settings.name';
+	const LS_PLAYER_COLOR_KEY_FALLBACK = LS_PLAYER_COLOR_KEY;
 	const LS_CONFIG_KEY = 'dorch.settings.config';
 	const LS_DOOM2_META_KEY = 'dorch.settings.doom2_override';
 	const IDB_DB_NAME = 'dorch.settings';
@@ -22,19 +30,29 @@
 		| { present: false }
 		| { present: true; name: string; size: number; type: string; lastModified: number };
 
-	let name = $state('');	// persisted
+	let name = $state(''); // persisted
+	let playerColor = $state(0); // persisted palette index 0..255
+	let playerColorInput = $state('0');
 	let config = $state(''); // persisted
 	let doom2Meta: Doom2OverrideMeta = $state({ present: false }); // persisted (metadata only)
 
 	let nameError = $state<string | null>(null);
+	let playerColorError = $state<string | null>(null);
 	let configError = $state<string | null>(null);
 	let doom2Error = $state<string | null>(null);
 
 	// Auth state for syncing display name
-	let authState = $state<AuthState>({ isAuthenticated: false, userId: null, username: null, accessToken: null });
+	let authState = $state<AuthState>({
+		isAuthenticated: false,
+		userId: null,
+		username: null,
+		accessToken: null
+	});
 	let userProfile = $state<UserProfileFull | null>(null);
 	let nameDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	let colorDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let updatingName = $state(false);
+	let updatingColor = $state(false);
 
 	let modalEl: HTMLDivElement | null = $state(null);
 	let nameEl: HTMLInputElement | null = $state(null);
@@ -58,7 +76,7 @@
 		onClose();
 	}
 
-    function randomIdent(): string {
+	function randomIdent(): string {
 		const adjectives = [
 			'quick',
 			'bright',
@@ -132,11 +150,74 @@
 
 	function loadFromLocalStorage() {
 		if (!browser) return;
-		name = window.localStorage.getItem(LS_NAME_KEY) ?? randomIdent();
+		const storedName = window.localStorage.getItem(LS_NAME_KEY);
+		if (storedName && storedName.trim().length > 0) {
+			name = storedName;
+		} else {
+			name = randomIdent();
+			window.localStorage.setItem(LS_NAME_KEY, name);
+		}
+		const localPlayerColor = parsePlayerColorIndex(
+			window.localStorage.getItem(LS_PLAYER_COLOR_KEY_FALLBACK)
+		);
+		playerColor = localPlayerColor ?? 0;
+		playerColorInput = String(playerColor);
 		config = window.localStorage.getItem(LS_CONFIG_KEY) ?? '';
-		doom2Meta = safeJsonParse<Doom2OverrideMeta>(window.localStorage.getItem(LS_DOOM2_META_KEY)) ?? {
+		doom2Meta = safeJsonParse<Doom2OverrideMeta>(
+			window.localStorage.getItem(LS_DOOM2_META_KEY)
+		) ?? {
 			present: false
 		};
+	}
+
+	function persistPlayerColor(next: number) {
+		playerColorError = null;
+		const parsed = parsePlayerColorIndex(next);
+		if (parsed === null) {
+			playerColorError = 'Player color must be a number between 0 and 255.';
+			return;
+		}
+
+		playerColor = parsed;
+		playerColorInput = String(parsed);
+
+		if (!browser) return;
+		window.localStorage.setItem(LS_PLAYER_COLOR_KEY_FALLBACK, String(parsed));
+
+		if (authState.isAuthenticated && userProfile) {
+			if (colorDebounceTimer) {
+				clearTimeout(colorDebounceTimer);
+			}
+			colorDebounceTimer = setTimeout(() => {
+				updatePlayerColor(parsed);
+			}, DEBOUNCE_MS);
+		}
+	}
+
+	function onPlayerColorInput(nextRaw: string) {
+		playerColorInput = nextRaw;
+		const parsed = parsePlayerColorIndex(nextRaw);
+		if (parsed === null) {
+			playerColorError = 'Player color must be a number between 0 and 255.';
+			return;
+		}
+		persistPlayerColor(parsed);
+	}
+
+	function selectedPlayerColorOptionValue(): string {
+		if (NAMED_PLAYER_COLOR_INDEX_SET.has(playerColor)) {
+			return String(playerColor);
+		}
+		return '__custom__';
+	}
+
+	function onPlayerColorSelect(nextRaw: string) {
+		if (nextRaw === '__custom__') {
+			return;
+		}
+		const parsed = parsePlayerColorIndex(nextRaw);
+		if (parsed === null) return;
+		persistPlayerColor(parsed);
 	}
 
 	function persistName(next: string) {
@@ -171,15 +252,18 @@
 				return;
 			}
 
-			const res = await fetch(`${API_BASE_URL}/user/profile/${encodeURIComponent(userProfile.id)}`, {
-				method: 'PUT',
-				headers: {
-					'content-type': 'application/json',
-					accept: 'application/json',
-					authorization: `Bearer ${token}`
-				},
-				body: JSON.stringify({ display_name: displayName.trim() })
-			});
+			const res = await fetch(
+				`${API_BASE_URL}/user/profile/${encodeURIComponent(userProfile.id)}`,
+				{
+					method: 'PUT',
+					headers: {
+						'content-type': 'application/json',
+						accept: 'application/json',
+						authorization: `Bearer ${token}`
+					},
+					body: JSON.stringify({ display_name: displayName.trim() })
+				}
+			);
 
 			if (!res.ok) {
 				let msg = 'Failed to update display name.';
@@ -202,6 +286,51 @@
 		}
 	}
 
+	async function updatePlayerColor(nextColor: number) {
+		if (!authState.isAuthenticated || !userProfile) return;
+		if ((userProfile.player_color ?? null) === nextColor) return;
+
+		updatingColor = true;
+		try {
+			const token = await getAccessToken();
+			if (!token) {
+				return;
+			}
+
+			const res = await fetch(
+				`${API_BASE_URL}/user/profile/${encodeURIComponent(userProfile.id)}`,
+				{
+					method: 'PUT',
+					headers: {
+						'content-type': 'application/json',
+						accept: 'application/json',
+						authorization: `Bearer ${token}`
+					},
+					body: JSON.stringify({ player_color: nextColor })
+				}
+			);
+
+			if (!res.ok) {
+				let msg = 'Failed to update player color.';
+				try {
+					const body = await res.json();
+					if (typeof body?.error === 'string') msg = body.error;
+				} catch {
+					// ignore
+				}
+				showToast(msg);
+				return;
+			}
+
+			const updated = (await res.json()) as UserProfileFull;
+			userProfile = updated;
+		} catch (err: any) {
+			showToast(err?.message ?? 'Failed to update player color.');
+		} finally {
+			updatingColor = false;
+		}
+	}
+
 	async function loadUserProfile() {
 		if (!authState.isAuthenticated || !authState.userId) return;
 
@@ -209,13 +338,16 @@
 			const token = await getAccessToken();
 			if (!token) return;
 
-			const res = await fetch(`${API_BASE_URL}/user/profile/${encodeURIComponent(authState.userId)}`, {
-				method: 'GET',
-				headers: {
-					accept: 'application/json',
-					authorization: `Bearer ${token}`
+			const res = await fetch(
+				`${API_BASE_URL}/user/profile/${encodeURIComponent(authState.userId)}`,
+				{
+					method: 'GET',
+					headers: {
+						accept: 'application/json',
+						authorization: `Bearer ${token}`
+					}
 				}
-			});
+			);
 
 			if (!res.ok) return;
 
@@ -226,6 +358,12 @@
 			if (profile.display_name) {
 				name = profile.display_name;
 				window.localStorage.setItem(LS_NAME_KEY, name);
+			}
+			const profilePlayerColor = parsePlayerColorIndex(profile.player_color);
+			if (profilePlayerColor !== null) {
+				playerColor = profilePlayerColor;
+				playerColorInput = String(profilePlayerColor);
+				window.localStorage.setItem(LS_PLAYER_COLOR_KEY_FALLBACK, String(profilePlayerColor));
 			}
 		} catch {
 			// Ignore - user can still use local name
@@ -260,7 +398,9 @@
 		return control / Math.max(1, bytes.length) < 0.05;
 	}
 
-	async function readTextFileOrError(file: File): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+	async function readTextFileOrError(
+		file: File
+	): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
 		try {
 			// Fast check: if browser tells us it's text/* we accept.
 			if (file.type && file.type.startsWith('text/')) {
@@ -393,32 +533,36 @@
 		if (!browser) return;
 		if (!open) return;
 
-		loadFromLocalStorage();
+		return untrack(() => {
+			loadFromLocalStorage();
 
-		lastActiveEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-		focusFirst();
+			lastActiveEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+			focusFirst();
 
-		const onDocKeydown = (e: KeyboardEvent) => onKeydown(e);
-		document.addEventListener('keydown', onDocKeydown);
+			const onDocKeydown = (e: KeyboardEvent) => onKeydown(e);
+			document.addEventListener('keydown', onDocKeydown);
 
-		const prevOverflow = document.documentElement.style.overflow;
-		document.documentElement.style.overflow = 'hidden';
+			const prevOverflow = document.documentElement.style.overflow;
+			document.documentElement.style.overflow = 'hidden';
 
-		// Load user profile if authenticated (use untrack to avoid reactive dependency on authState)
-		if (untrack(() => authState.isAuthenticated)) {
-			loadUserProfile();
-		}
+			if (authState.isAuthenticated) {
+				void loadUserProfile();
+			}
 
-		return () => {
-			document.removeEventListener('keydown', onDocKeydown);
-			document.documentElement.style.overflow = prevOverflow;
-		};
+			return () => {
+				document.removeEventListener('keydown', onDocKeydown);
+				document.documentElement.style.overflow = prevOverflow;
+			};
+		});
 	});
 
 	onDestroy(() => {
 		if (!browser) return;
 		if (nameDebounceTimer) {
 			clearTimeout(nameDebounceTimer);
+		}
+		if (colorDebounceTimer) {
+			clearTimeout(colorDebounceTimer);
 		}
 		queueMicrotask(() => lastActiveEl?.focus());
 	});
@@ -459,7 +603,9 @@
 				<div class="grid gap-6">
 					<section>
 						<h3 class="text-xs font-semibold tracking-wide text-zinc-300">Display Name</h3>
-						<p class="mt-1 text-xs text-zinc-500">Your in-game display name. Max {NAME_MAX_LEN} characters.</p>
+						<p class="mt-1 text-xs text-zinc-500">
+							Your in-game display name. Max {NAME_MAX_LEN} characters.
+						</p>
 						<input
 							bind:this={nameEl}
 							value={name}
@@ -474,12 +620,63 @@
 					</section>
 
 					<section>
+						<h3 class="text-xs font-semibold tracking-wide text-zinc-300">Player Color</h3>
+						<p class="mt-1 text-xs text-zinc-500">
+							Doom palette index (0-255) used for your player color.
+						</p>
+						<div class="mt-2 flex items-stretch gap-2">
+							<select
+								value={selectedPlayerColorOptionValue()}
+								onchange={(e) => onPlayerColorSelect((e.currentTarget as HTMLSelectElement).value)}
+								class="min-w-0 flex-1 rounded-lg bg-zinc-950 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset focus:ring-2 focus:ring-red-700 focus:outline-none"
+							>
+								{#if !NAMED_PLAYER_COLOR_INDEX_SET.has(playerColor)}
+									<option value="__custom__">Custom Color</option>
+								{/if}
+								{#each NAMED_PLAYER_COLORS as item}
+									<option value={String(item.paletteIndex)}
+										>{item.label} (#{item.paletteIndex})</option
+									>
+								{/each}
+							</select>
+							<input
+								type="number"
+								min="0"
+								max="255"
+								step="1"
+								inputmode="numeric"
+								value={playerColorInput}
+								oninput={(e) => onPlayerColorInput((e.currentTarget as HTMLInputElement).value)}
+								class="w-28 rounded-lg bg-zinc-950 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset focus:ring-2 focus:ring-red-700 focus:outline-none"
+								aria-label="Player color index"
+							/>
+						</div>
+						<div class="mt-2 flex items-center gap-2 text-xs text-zinc-500">
+							<span
+								class="inline-block h-3 w-3 rounded-sm ring-1 ring-zinc-700"
+								style={`background-color: ${toPlayerColorHex(playerColor)}`}
+							></span>
+							<span>Index {playerColor} ({toPlayerColorHex(playerColor)})</span>
+							{#if updatingColor}
+								<span class="text-zinc-400">Saving…</span>
+							{/if}
+						</div>
+						{#if playerColorError}
+							<p class="mt-2 text-xs text-red-300">{playerColorError}</p>
+						{/if}
+					</section>
+
+					<section>
 						<div class="flex items-baseline justify-between gap-4">
 							<div>
-								<h3 class="text-xs font-semibold tracking-wide text-zinc-300">Config (autoexec.cfg)</h3>
+								<h3 class="text-xs font-semibold tracking-wide text-zinc-300">
+									Config (autoexec.cfg)
+								</h3>
 								<p class="mt-1 text-xs text-zinc-500">Paste text or upload a text file.</p>
 							</div>
-							<label class="cursor-pointer inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-xs font-semibold text-zinc-100 ring-1 ring-zinc-800 hover:bg-zinc-800 focus-within:ring-2 focus-within:ring-zinc-500">
+							<label
+								class="inline-flex cursor-pointer items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-xs font-semibold text-zinc-100 ring-1 ring-zinc-800 focus-within:ring-2 focus-within:ring-zinc-500 hover:bg-zinc-800"
+							>
 								<input type="file" class="hidden" oninput={onUploadConfig} />
 								Upload
 							</label>
@@ -489,7 +686,7 @@
 							rows={8}
 							bind:value={config}
 							oninput={(e) => persistConfig((e.currentTarget as HTMLTextAreaElement).value)}
-							class="mt-2 w-full resize-y rounded-lg bg-zinc-950 px-3 py-2 font-[var(--dorch-mono)] text-xs text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none"
+							class="mt-2 w-full resize-y rounded-lg bg-zinc-950 px-3 py-2 text-xs font-[var(--dorch-mono)] text-zinc-100 ring-1 ring-zinc-800 ring-inset placeholder:text-zinc-600 focus:ring-2 focus:ring-red-700 focus:outline-none"
 							placeholder="# config goes here"
 						></textarea>
 						{#if configError}
@@ -499,9 +696,16 @@
 
 					<section>
 						<h3 class="text-xs font-semibold tracking-wide text-zinc-300">doom2.wad Override</h3>
-						<p class="mt-1 text-xs text-zinc-500">Select a local file to replace freedoom2.wad. If you don't choose one, the default freedoom2.wad will be used. Your selected file stays in your browser and is never uploaded. Use this option if you want to play using assets from the original retail game.</p>
+						<p class="mt-1 text-xs text-zinc-500">
+							Select a local file to replace freedoom2.wad. If you don't choose one, the default
+							freedoom2.wad will be used. Your selected file stays in your browser and is never
+							uploaded. Use this option if you want to play using assets from the original retail
+							game.
+						</p>
 						<div class="mt-2 flex flex-wrap items-center gap-3">
-							<div class="inline-flex items-center gap-2 rounded-md bg-zinc-950 px-3 py-2 ring-1 ring-zinc-800">
+							<div
+								class="inline-flex items-center gap-2 rounded-md bg-zinc-950 px-3 py-2 ring-1 ring-zinc-800"
+							>
 								<span
 									class={`h-2.5 w-2.5 rounded-full ${doom2Meta.present ? 'bg-emerald-500' : 'bg-red-500'}`}
 									aria-hidden="true"
@@ -511,7 +715,9 @@
 								</span>
 							</div>
 
-							<label class="cursor-pointer inline-flex items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-xs font-semibold text-zinc-100 ring-1 ring-zinc-800 hover:bg-zinc-800 focus-within:ring-2 focus-within:ring-zinc-500">
+							<label
+								class="inline-flex cursor-pointer items-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-xs font-semibold text-zinc-100 ring-1 ring-zinc-800 focus-within:ring-2 focus-within:ring-zinc-500 hover:bg-zinc-800"
+							>
 								<input type="file" class="hidden" accept=".wad" oninput={onUploadDoom2} />
 								Select file
 							</label>
@@ -529,7 +735,9 @@
 						{#if doom2Meta.present}
 							<p class="mt-2 text-xs text-zinc-400">
 								Selected: <span class="font-semibold text-zinc-200">{doom2Meta.name}</span>
-								<span class="ml-2 text-zinc-500">({Math.round(doom2Meta.size / 1024 / 1024)} MB)</span>
+								<span class="ml-2 text-zinc-500"
+									>({Math.round(doom2Meta.size / 1024 / 1024)} MB)</span
+								>
 							</p>
 						{/if}
 						{#if doom2Error}

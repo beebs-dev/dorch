@@ -194,6 +194,7 @@ export interface UserProfileFull {
 	username: string;
 	display_name: string;
 	avatar_url?: string | null;
+	player_color?: number | null;
 	registered_at: number;
 	last_active_at?: number | null;
 	privacy_hide_activity: boolean;
@@ -204,6 +205,7 @@ export interface UserProfilePublic {
 	username: string;
 	display_name: string;
 	avatar_url?: string | null;
+	player_color?: number | null;
 	registered_at: number;
 	last_active_at?: number | null;
 }
@@ -213,6 +215,7 @@ export type UserProfileView = UserProfileFull | UserProfilePublic;
 export interface PutUserProfileRequest {
 	avatar_url?: string | null;
 	display_name?: string;
+	player_color?: number | null;
 	privacy_hide_activity?: boolean;
 }
 

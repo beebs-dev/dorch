@@ -3,16 +3,15 @@ use crate::{
     avatar::MAX_AVATAR_UPLOAD_BYTES,
     client::{
         GetWadMetasRequest, GetWadMetasResponse, ListWadsRequest, MapAnalysis,
-        PutUserProfileRequest,
-        ResolveMapThumbnailsRequest, ResolveMapThumbnailsResponse, ResolveWadURLsRequest,
-        ResolveWadURLsResponse, UserProfileView, WadAnalysis, WadImage,
+        PutUserProfileRequest, ResolveMapThumbnailsRequest, ResolveMapThumbnailsResponse,
+        ResolveWadURLsRequest, ResolveWadURLsResponse, UserProfileView, WadAnalysis, WadImage,
         WadSearchRequest,
     },
 };
 use anyhow::{Context, Result, anyhow, bail};
 use axum::{
-    body::Bytes,
     Json, Router,
+    body::Bytes,
     extract::{DefaultBodyLimit, Path, Query, State},
     http::{HeaderMap, StatusCode},
     middleware,
@@ -60,7 +59,10 @@ pub async fn run_server(
         .layer(middleware::from_fn(access_log::internal));
     let router = Router::new()
         .route("/thumbnails", post(resolve_map_thumbnails))
-        .route("/user/profile/{user_id}", get(get_user_profile_internal).put(put_user_profile_internal))
+        .route(
+            "/user/profile/{user_id}",
+            get(get_user_profile_internal).put(put_user_profile_internal),
+        )
         .route(
             "/user/profile/{user_id}/avatar",
             post(put_user_profile_avatar)
@@ -145,6 +147,7 @@ pub async fn delete_user_profile_avatar_common(
             user_id,
             &PutUserProfileRequest {
                 avatar_url: Some(None),
+                player_color: None,
                 username: None,
                 display_name: None,
                 privacy_hide_activity: None,
@@ -391,8 +394,6 @@ pub async fn get_user_profile_internal(
     }
 }
 
-
-
 pub async fn put_user_profile_internal(
     State(state): State<App>,
     Path(user_id): Path<Uuid>,
@@ -418,7 +419,6 @@ pub async fn post_user_activity(
         Err(e) => response::error(e.context("Failed to update user activity")),
     }
 }
-
 
 pub async fn put_user_profile_avatar_common(
     state: App,
@@ -453,6 +453,7 @@ pub async fn put_user_profile_avatar_common(
             user_id,
             &PutUserProfileRequest {
                 avatar_url: Some(Some(avatar_url)),
+                player_color: None,
                 username: None,
                 display_name: None,
                 privacy_hide_activity: None,

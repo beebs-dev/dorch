@@ -11,6 +11,7 @@ const STORAGE_KEY_REFRESH_TOKEN_EXP = 'dorch_refresh_token_exp';
 const STORAGE_KEY_USER_ID = 'dorch_user_id';
 const STORAGE_KEY_USERNAME = 'dorch_username';
 const STORAGE_KEY_SETTINGS_NAME = 'dorch.settings.name';
+const STORAGE_KEY_SETTINGS_PLAYER_COLOR = 'dorch.settings.player_color';
 
 const COOKIE_ACCESS_TOKEN = 'dorch_access_token';
 const COOKIE_USER_ID = 'dorch_user_id';
@@ -129,6 +130,7 @@ function saveToStorage(creds: UserCredentials, persist: boolean): void {
 
 type UserProfileDisplayNameResponse = {
 	display_name?: string | null;
+	player_color?: number | null;
 };
 
 async function syncSettingsDisplayNameFromProfile(userId: string, accessToken: string): Promise<void> {
@@ -148,9 +150,13 @@ async function syncSettingsDisplayNameFromProfile(userId: string, accessToken: s
 
 		const profile = (await res.json()) as UserProfileDisplayNameResponse;
 		const displayName = typeof profile.display_name === 'string' ? profile.display_name.trim() : '';
-		if (!displayName) return;
-
-		storage.setItem(STORAGE_KEY_SETTINGS_NAME, displayName);
+		const playerColor = typeof profile.player_color === 'number' ? Math.max(0, Math.min(255, Math.trunc(profile.player_color))) : null;
+		if (displayName) {
+			storage.setItem(STORAGE_KEY_SETTINGS_NAME, displayName);
+		}
+		if (playerColor !== null) {
+			storage.setItem(STORAGE_KEY_SETTINGS_PLAYER_COLOR, String(playerColor));
+		}
 	} catch {
 		// Fail open: auth login should still succeed if profile sync fails.
 	}

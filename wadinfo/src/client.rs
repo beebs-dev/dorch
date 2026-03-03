@@ -15,6 +15,8 @@ pub struct UserProfileFull {
     pub display_name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub player_color: Option<i32>,
     pub registered_at: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_active_at: Option<i64>,
@@ -28,6 +30,8 @@ pub struct UserProfilePublic {
     pub display_name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub player_color: Option<i32>,
     pub registered_at: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_active_at: Option<i64>,
@@ -44,6 +48,8 @@ pub enum UserProfileView {
 pub struct PutUserProfileRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<Option<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub player_color: Option<Option<i32>>,
     /// Only used during profile creation. Ignored on updates (username is immutable).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub username: Option<String>,
@@ -564,11 +570,16 @@ impl Client {
             .context("Failed to parse put_user_profile response")
     }
 
-    pub async fn create_user_profile(&self, user_id: Uuid, username: &str) -> Result<UserProfileFull> {
+    pub async fn create_user_profile(
+        &self,
+        user_id: Uuid,
+        username: &str,
+    ) -> Result<UserProfileFull> {
         self.put_user_profile(
             user_id,
             &PutUserProfileRequest {
                 avatar_url: None,
+                player_color: None,
                 username: Some(username.to_string()),
                 display_name: Some(username.to_string()),
                 privacy_hide_activity: Some(false),

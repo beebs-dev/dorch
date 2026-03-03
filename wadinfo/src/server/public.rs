@@ -2,8 +2,9 @@ use crate::{
     app::App,
     avatar::MAX_AVATAR_UPLOAD_BYTES,
     client::{
-        ListDraftsResponse, ListUserWadsResponse, PutUserProfileRequest, ResolveWadURLsRequest, ResolveWadURLsResponse,
-        UpdateDraftRequest, UpdateWadRequest, UploadResponse, UserProfilePublic, UserProfileView,
+        ListDraftsResponse, ListUserWadsResponse, PutUserProfileRequest, ResolveWadURLsRequest,
+        ResolveWadURLsResponse, UpdateDraftRequest, UpdateWadRequest, UploadResponse,
+        UserProfilePublic, UserProfileView,
     },
     server::internal,
     wad_upload::MAX_WAD_UPLOAD_BYTES,
@@ -81,7 +82,10 @@ pub async fn run_server(
                 .put(put_user_profile_avatar)
                 .layer(DefaultBodyLimit::max(MAX_AVATAR_UPLOAD_BYTES)),
         )
-        .route("/wad/{id}", get(internal::get_wad).put(update_wad).delete(delete_wad))
+        .route(
+            "/wad/{id}",
+            get(internal::get_wad).put(update_wad).delete(delete_wad),
+        )
         .route("/wad/{id}/map/{map}", get(internal::get_wad_map))
         .route("/search", get(internal::search))
         // Draft management endpoints
@@ -121,12 +125,15 @@ pub async fn run_server(
         port.green().dimmed()
     );
     let start = std::time::Instant::now();
-    axum::serve(listener, upload_router.merge(protected_router).merge(router))
-        .with_graceful_shutdown(async move {
-            cancel.cancelled().await;
-        })
-        .await
-        .context("Failed to serve public router")?;
+    axum::serve(
+        listener,
+        upload_router.merge(protected_router).merge(router),
+    )
+    .with_graceful_shutdown(async move {
+        cancel.cancelled().await;
+    })
+    .await
+    .context("Failed to serve public router")?;
     println!(
         "{}{}{}{}",
         "🛑 Public server on port ".red(),
@@ -220,6 +227,7 @@ pub async fn get_user_profile(
                 username: profile.username,
                 display_name: profile.display_name,
                 avatar_url: profile.avatar_url,
+                player_color: profile.player_color,
                 registered_at: profile.registered_at,
                 last_active_at: if profile.privacy_hide_activity {
                     None
@@ -244,20 +252,23 @@ pub async fn upload_wad(
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     eprintln!("📥 upload_wad: starting to process multipart");
-    
+
     // Find the file field
     loop {
         match multipart.next_field().await {
             Ok(Some(field)) => {
                 let name = field.name().unwrap_or("").to_string();
                 eprintln!("📥 upload_wad: got field name={:?}", name);
-                
+
                 if name == "file" {
                     let filename = match field.file_name().map(|s| s.to_string()) {
                         Some(f) => f,
                         None => return response::error(anyhow!("No filename provided")),
                     };
-                    eprintln!("📥 upload_wad: filename={:?}, starting stream upload", filename);
+                    eprintln!(
+                        "📥 upload_wad: filename={:?}, starting stream upload",
+                        filename
+                    );
 
                     // Stream the upload directly to S3
                     match state
@@ -266,7 +277,10 @@ pub async fn upload_wad(
                         .await
                     {
                         Ok((hash, sha1, upload_id, size)) => {
-                            eprintln!("📥 upload_wad: SUCCESS hash={} sha1={} size={}", hash, sha1, size);
+                            eprintln!(
+                                "📥 upload_wad: SUCCESS hash={} sha1={} size={}",
+                                hash, sha1, size
+                            );
                             return (
                                 StatusCode::OK,
                                 Json(UploadResponse {
@@ -303,10 +317,7 @@ pub async fn upload_wad(
 // Draft Management Endpoints
 // ----------------------------
 
-pub async fn list_drafts(
-    State(state): State<App>,
-    UserId(user_id): UserId,
-) -> impl IntoResponse {
+pub async fn list_drafts(State(state): State<App>, UserId(user_id): UserId) -> impl IntoResponse {
     match state.db.list_drafts(user_id).await {
         Ok(items) => (StatusCode::OK, Json(ListDraftsResponse { items })).into_response(),
         Err(e) => response::error(e.context("Failed to list drafts")),
@@ -323,10 +334,7 @@ pub async fn list_user_wads(
     }
 }
 
-pub async fn create_draft(
-    State(state): State<App>,
-    UserId(user_id): UserId,
-) -> impl IntoResponse {
+pub async fn create_draft(State(state): State<App>, UserId(user_id): UserId) -> impl IntoResponse {
     match state.db.create_draft(user_id).await {
         Ok(draft) => (StatusCode::CREATED, Json(draft)).into_response(),
         Err(e) => response::error(e.context("Failed to create draft")),
@@ -430,7 +438,17 @@ pub async fn update_wad(
     Path(wad_id): Path<Uuid>,
     Json(request): Json<UpdateWadRequest>,
 ) -> impl IntoResponse {
-    match state.db.update_wad(wad_id, user_id, request.title.as_deref(), request.description.as_deref(), request.authors.as_deref()).await {
+    match state
+        .db
+        .update_wad(
+            wad_id,
+            user_id,
+            request.title.as_deref(),
+            request.description.as_deref(),
+            request.authors.as_deref(),
+        )
+        .await
+    {
         Ok(true) => StatusCode::NO_CONTENT.into_response(),
         Ok(false) => response::not_found(anyhow!("WAD not found or not authorized")),
         Err(e) => response::error(e.context("Failed to update WAD")),
@@ -501,9 +519,11 @@ pub async fn publish_draft(
         )
         .await
     {
-        Ok(wad_id) => {
-            (StatusCode::OK, Json(serde_json::json!({ "wad_id": wad_id }))).into_response()
-        }
+        Ok(wad_id) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "wad_id": wad_id })),
+        )
+            .into_response(),
         Err(e) => response::error(e.context("Failed to publish WAD from draft")),
     }
 }

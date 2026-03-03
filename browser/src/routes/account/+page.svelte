@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
+	import { browser } from '$app/environment';
 	import { invalidateAll } from '$app/navigation';
 	import { showToast } from '$lib/stores/toast';
 	import {
@@ -9,6 +10,13 @@
 		logout
 	} from '$lib/stores/auth';
 	import type { UserProfileFull, UserProfileView } from '$lib/types/wadinfo';
+	import {
+		LS_PLAYER_COLOR_KEY,
+		NAMED_PLAYER_COLORS,
+		NAMED_PLAYER_COLOR_INDEX_SET,
+		parsePlayerColorIndex,
+		toPlayerColorHex
+	} from '$lib/utils/playerColor';
 
 	let { data: initialData } = $props();
 
@@ -22,6 +30,13 @@
 	let profile = $state<UserProfileView | null>(untrack(() => initialData.profile ?? null));
 	let username = $state(untrack(() => initialData.profile?.username ?? ''));
 	let displayName = $state(untrack(() => initialData.profile?.display_name ?? ''));
+	let playerColor = $state(
+		untrack(() => parsePlayerColorIndex(initialData.profile?.player_color) ?? 0)
+	);
+	let playerColorInput = $state(
+		untrack(() => String(parsePlayerColorIndex(initialData.profile?.player_color) ?? 0))
+	);
+	let playerColorError = $state<string | null>(null);
 	let privacyHideActivity = $state(
 		untrack(() =>
 			initialData.profile && 'privacy_hide_activity' in initialData.profile
@@ -102,8 +117,46 @@
 	function syncFormFromProfile(next: UserProfileView) {
 		username = next.username ?? '';
 		displayName = next.display_name ?? '';
+		const nextColor = parsePlayerColorIndex(next.player_color) ?? 0;
+		playerColor = nextColor;
+		playerColorInput = String(nextColor);
+		playerColorError = null;
 		privacyHideActivity = isFullProfile(next) ? !!next.privacy_hide_activity : false;
 		avatarFile = null;
+		if (browser) {
+			window.localStorage.setItem('dorch.settings.name', displayName.trim());
+			window.localStorage.setItem(LS_PLAYER_COLOR_KEY, String(nextColor));
+		}
+	}
+
+	function selectedPlayerColorOptionValue(): string {
+		if (NAMED_PLAYER_COLOR_INDEX_SET.has(playerColor)) {
+			return String(playerColor);
+		}
+		return '__custom__';
+	}
+
+	function onPlayerColorInput(nextRaw: string) {
+		playerColorInput = nextRaw;
+		const parsed = parsePlayerColorIndex(nextRaw);
+		if (parsed === null) {
+			playerColorError = 'Player color must be a number between 0 and 255.';
+			return;
+		}
+		playerColorError = null;
+		playerColor = parsed;
+		playerColorInput = String(parsed);
+	}
+
+	function onPlayerColorSelect(nextRaw: string) {
+		if (nextRaw === '__custom__') {
+			return;
+		}
+		const parsed = parsePlayerColorIndex(nextRaw);
+		if (parsed === null) return;
+		playerColorError = null;
+		playerColor = parsed;
+		playerColorInput = String(parsed);
 	}
 
 	async function loadProfile() {
@@ -152,14 +205,16 @@
 	const hasChanges = $derived.by(() => {
 		if (!profile) return false;
 		const sameDisplayName = displayName.trim() === (profile.display_name ?? '');
+		const samePlayerColor = playerColor === (parsePlayerColorIndex(profile.player_color) ?? 0);
 		const samePrivacy =
 			!isFullProfile(profile) || privacyHideActivity === !!profile.privacy_hide_activity;
-		return !sameDisplayName || !samePrivacy;
+		return !sameDisplayName || !samePlayerColor || !samePrivacy;
 	});
 
 	const canSave = $derived.by(() => {
 		if (!profile || saving || uploadingAvatar) return false;
 		if (!displayName.trim()) return false;
+		if (playerColorError) return false;
 		return hasChanges;
 	});
 
@@ -185,6 +240,7 @@
 				},
 				body: JSON.stringify({
 					display_name: displayName.trim(),
+					player_color: playerColor,
 					privacy_hide_activity: privacyHideActivity
 				})
 			});
@@ -208,6 +264,10 @@
 			const updated = (await res.json()) as UserProfileFull;
 			profile = updated;
 			syncFormFromProfile(updated);
+			if (browser) {
+				window.localStorage.setItem('dorch.settings.name', displayName.trim());
+				window.localStorage.setItem(LS_PLAYER_COLOR_KEY, String(playerColor));
+			}
 			showToast('Account updated.');
 		} catch (err: any) {
 			showToast(err?.message ?? 'Failed to save account settings.');
@@ -447,6 +507,47 @@
 						<p class="mt-1 text-xs text-zinc-500">
 							The name shown to other users and what is used in-game. Can be changed anytime.
 						</p>
+					</label>
+
+					<label class="block">
+						<span class="text-xs font-semibold tracking-wide text-zinc-300">PLAYER COLOR</span>
+						<div class="mt-2 flex items-stretch gap-2">
+							<select
+								value={selectedPlayerColorOptionValue()}
+								onchange={(e) => onPlayerColorSelect((e.currentTarget as HTMLSelectElement).value)}
+								class="min-w-0 flex-1 rounded-lg bg-zinc-950 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset focus:ring-2 focus:ring-red-700 focus:outline-none"
+							>
+								{#if !NAMED_PLAYER_COLOR_INDEX_SET.has(playerColor)}
+									<option value="__custom__">Custom Color</option>
+								{/if}
+								{#each NAMED_PLAYER_COLORS as item}
+									<option value={String(item.paletteIndex)}
+										>{item.label} (#{item.paletteIndex})</option
+									>
+								{/each}
+							</select>
+							<input
+								type="number"
+								min="0"
+								max="255"
+								step="1"
+								inputmode="numeric"
+								value={playerColorInput}
+								oninput={(e) => onPlayerColorInput((e.currentTarget as HTMLInputElement).value)}
+								class="w-28 rounded-lg bg-zinc-950 px-3 py-2 text-sm text-zinc-100 ring-1 ring-zinc-800 ring-inset focus:ring-2 focus:ring-red-700 focus:outline-none"
+								aria-label="Player color index"
+							/>
+						</div>
+						<div class="mt-1 flex items-center gap-2 text-xs text-zinc-500">
+							<span
+								class="inline-block h-3 w-3 rounded-sm ring-1 ring-zinc-700"
+								style={`background-color: ${toPlayerColorHex(playerColor)}`}
+							></span>
+							<span>Index {playerColor} ({toPlayerColorHex(playerColor)})</span>
+						</div>
+						{#if playerColorError}
+							<p class="mt-1 text-xs text-red-300">{playerColorError}</p>
+						{/if}
 					</label>
 
 					{#if isFullProfile(profile)}

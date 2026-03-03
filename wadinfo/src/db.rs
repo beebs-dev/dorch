@@ -1,8 +1,9 @@
 use crate::client::{
     AbridgedMapAnalysis, AbridgedWadAnalysis, FeaturedViewResponse, FeaturedWadViewItem,
-    GetWadMapResponse, ListWadsResponse, MapAnalysis, MapReference, MapThumbnail, ReadMapStat,
-    PutUserProfileRequest, ReadWad, ReadWadMetaWithTextFiles, ResolvedWadURL, UpdateDraftRequest,
-    UserProfileFull, UserWad, WadAnalysis, WadDraft, WadImage, WadSearchResults,
+    GetWadMapResponse, ListWadsResponse, MapAnalysis, MapReference, MapThumbnail,
+    PutUserProfileRequest, ReadMapStat, ReadWad, ReadWadMetaWithTextFiles, ResolvedWadURL,
+    UpdateDraftRequest, UserProfileFull, UserWad, WadAnalysis, WadDraft, WadImage,
+    WadSearchResults,
 };
 use anyhow::{Context, Result, anyhow};
 use dorch_common::{
@@ -386,6 +387,11 @@ impl Database {
             .as_ref()
             .cloned()
             .unwrap_or(current.avatar_url.clone());
+        let player_color = req
+            .player_color
+            .as_ref()
+            .cloned()
+            .unwrap_or(current.player_color);
         let privacy_hide_activity = req
             .privacy_hide_activity
             .unwrap_or(current.privacy_hide_activity);
@@ -402,6 +408,7 @@ impl Database {
                     &user_id,
                     &display_name,
                     &avatar_url,
+                    &player_color,
                     &last_active_at,
                     &privacy_hide_activity,
                 ],
@@ -422,6 +429,7 @@ impl Database {
             .ok_or_else(|| anyhow!("username is required when creating profile"))?;
         let display_name = req.display_name.as_deref().unwrap_or(username);
         let avatar_url = req.avatar_url.as_ref().cloned().unwrap_or(None);
+        let player_color = req.player_color.as_ref().cloned().unwrap_or(None);
         let privacy_hide_activity = req.privacy_hide_activity.unwrap_or(false);
         let registered_at = unix_epoch_ms().context("failed to get current epoch milliseconds")?;
 
@@ -438,6 +446,7 @@ impl Database {
                     &username,
                     &display_name,
                     &avatar_url,
+                    &player_color,
                     &registered_at,
                     &privacy_hide_activity,
                 ],
@@ -779,7 +788,12 @@ impl Database {
             }
             maps
         };
-        Ok(Some(ReadWad { meta, maps, uploader_id, description }))
+        Ok(Some(ReadWad {
+            meta,
+            maps,
+            uploader_id,
+            description,
+        }))
     }
 
     pub async fn get_wad_metas(&self, wad_ids: &[Uuid]) -> Result<Vec<ReadWadMeta>> {
@@ -1989,7 +2003,10 @@ impl Database {
             .await
             .context("failed to prepare UPDATE_WAD")?;
         let row = conn
-            .query_opt(&stmt, &[&wad_id, &uploader_id, &title, &description, &authors_json])
+            .query_opt(
+                &stmt,
+                &[&wad_id, &uploader_id, &title, &description, &authors_json],
+            )
             .await
             .context("failed to execute UPDATE_WAD")?;
         Ok(row.is_some())
@@ -2136,7 +2153,10 @@ impl Database {
             .await
             .context("failed to prepare INSERT_WAD_FROM_DRAFT")?;
         let row = conn
-            .query_one(&stmt, &[&sha1, &sha256, &title, &filename, &file_size, &file_url])
+            .query_one(
+                &stmt,
+                &[&sha1, &sha256, &title, &filename, &file_size, &file_url],
+            )
             .await
             .context("failed to execute INSERT_WAD_FROM_DRAFT")?;
         Ok(row.try_get("wad_id")?)
@@ -2186,7 +2206,20 @@ impl Database {
             .await
             .context("failed to prepare INSERT_WAD_FROM_DRAFT")?;
         let row = tx
-            .query_one(&insert_wad_stmt, &[&sha1, &sha256, &title, &filename, &file_size, &file_url, &uploader_id, &description, &author])
+            .query_one(
+                &insert_wad_stmt,
+                &[
+                    &sha1,
+                    &sha256,
+                    &title,
+                    &filename,
+                    &file_size,
+                    &file_url,
+                    &uploader_id,
+                    &description,
+                    &author,
+                ],
+            )
             .await
             .context("failed to execute INSERT_WAD_FROM_DRAFT")?;
         let wad_id: Uuid = row.try_get("wad_id")?;
@@ -2197,7 +2230,12 @@ impl Database {
                 .prepare_cached(sql::INSERT_WAD_AUTHOR)
                 .await
                 .context("failed to prepare INSERT_WAD_AUTHOR")?;
-            for (ord, author_name) in author_str.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).enumerate() {
+            for (ord, author_name) in author_str
+                .split(',')
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .enumerate()
+            {
                 tx.execute(&insert_author_stmt, &[&wad_id, &author_name, &(ord as i32)])
                     .await
                     .context("failed to insert author")?;
@@ -2222,7 +2260,9 @@ impl Database {
             .await
             .context("failed to execute DELETE_DRAFT")?;
 
-        tx.commit().await.context("failed to commit publish_wad_from_draft transaction")?;
+        tx.commit()
+            .await
+            .context("failed to commit publish_wad_from_draft transaction")?;
         Ok(wad_id)
     }
 }
@@ -2233,6 +2273,7 @@ fn row_to_user_profile(row: tokio_postgres::Row) -> Result<UserProfileFull> {
         username: row.try_get("username")?,
         display_name: row.try_get("display_name")?,
         avatar_url: row.try_get("avatar_url")?,
+        player_color: row.try_get("player_color")?,
         registered_at: row.try_get("registered_at")?,
         last_active_at: row.try_get("last_active_at")?,
         privacy_hide_activity: row.try_get("privacy_hide_activity")?,
