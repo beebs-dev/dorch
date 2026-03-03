@@ -624,7 +624,11 @@
 						<p class="mt-1 text-xs text-zinc-500">
 							Doom palette index (0-255) used for your player color.
 						</p>
-						<div class="mt-2 flex items-stretch gap-2">
+						<div class="mt-2 flex items-center gap-2">
+							<span
+								class="inline-block h-3 w-3 rounded-sm ring-1 ring-zinc-700"
+								style={`background-color: ${toPlayerColorHex(playerColor)}`}
+							></span>
 							<select
 								value={selectedPlayerColorOptionValue()}
 								onchange={(e) => onPlayerColorSelect((e.currentTarget as HTMLSelectElement).value)}
@@ -652,10 +656,6 @@
 							/>
 						</div>
 						<div class="mt-2 flex items-center gap-2 text-xs text-zinc-500">
-							<span
-								class="inline-block h-3 w-3 rounded-sm ring-1 ring-zinc-700"
-								style={`background-color: ${toPlayerColorHex(playerColor)}`}
-							></span>
 							{#if updatingColor}
 								<span class="text-zinc-400">Saving…</span>
 							{/if}

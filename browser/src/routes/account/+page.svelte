@@ -511,7 +511,11 @@
 
 					<label class="block">
 						<span class="text-xs font-semibold tracking-wide text-zinc-300">PLAYER COLOR</span>
-						<div class="mt-2 flex items-stretch gap-2">
+						<div class="mt-2 flex items-center gap-2">
+							<span
+								class="inline-block h-3 w-3 rounded-sm ring-1 ring-zinc-700"
+								style={`background-color: ${toPlayerColorHex(playerColor)}`}
+							></span>
 							<select
 								value={selectedPlayerColorOptionValue()}
 								onchange={(e) => onPlayerColorSelect((e.currentTarget as HTMLSelectElement).value)}
@@ -538,12 +542,7 @@
 								aria-label="Player color index"
 							/>
 						</div>
-						<div class="mt-1 flex items-center gap-2 text-xs text-zinc-500">
-							<span
-								class="inline-block h-3 w-3 rounded-sm ring-1 ring-zinc-700"
-								style={`background-color: ${toPlayerColorHex(playerColor)}`}
-							></span>
-						</div>
+						<div class="mt-1 flex items-center gap-2 text-xs text-zinc-500"></div>
 						{#if playerColorError}
 							<p class="mt-1 text-xs text-red-300">{playerColorError}</p>
 						{/if}
