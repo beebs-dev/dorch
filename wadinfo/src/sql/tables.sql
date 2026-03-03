@@ -435,6 +435,7 @@ create table if not exists user_profile (
   id uuid primary key,
   username text not null unique,
   avatar_url text,
+  player_color int,
   registered_at bigint not null,
   last_active_at bigint,
   privacy_hide_activity bool not null default false
