@@ -542,7 +542,6 @@
 								aria-label="Player color index"
 							/>
 						</div>
-						<div class="mt-1 flex items-center gap-2 text-xs text-zinc-500"></div>
 						{#if playerColorError}
 							<p class="mt-1 text-xs text-red-300">{playerColorError}</p>
 						{/if}
