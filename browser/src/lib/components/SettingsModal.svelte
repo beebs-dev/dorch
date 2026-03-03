@@ -656,7 +656,6 @@
 								class="inline-block h-3 w-3 rounded-sm ring-1 ring-zinc-700"
 								style={`background-color: ${toPlayerColorHex(playerColor)}`}
 							></span>
-							<span>Index {playerColor} ({toPlayerColorHex(playerColor)})</span>
 							{#if updatingColor}
 								<span class="text-zinc-400">Saving…</span>
 							{/if}

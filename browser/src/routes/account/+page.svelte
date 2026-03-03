@@ -543,7 +543,6 @@
 								class="inline-block h-3 w-3 rounded-sm ring-1 ring-zinc-700"
 								style={`background-color: ${toPlayerColorHex(playerColor)}`}
 							></span>
-							<span>Index {playerColor} ({toPlayerColorHex(playerColor)})</span>
 						</div>
 						{#if playerColorError}
 							<p class="mt-1 text-xs text-red-300">{playerColorError}</p>
