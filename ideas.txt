@@ -1,7 +1,5 @@
 - a controller that chooses random featured maps to play
     - define criteria for recycling a server
-- server creation & management
 - persistence for game & server history
-- account creation & management
 - "maximum servers" setting for master
 - 

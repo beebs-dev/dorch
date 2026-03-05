@@ -13,6 +13,7 @@
 	let confirmPassword = $state('');
 	let showPasswords = $state(false);
 	let submitting = $state(false);
+	let agreedToTerms = $state(false);
 	let authState = $state<AuthState>({
 		isAuthenticated: false,
 		userId: null,
@@ -29,6 +30,7 @@
 	const canSubmit = $derived.by(() => {
 		if (submitting) return false;
 		if (!username.trim() || !email.trim() || !password || !confirmPassword) return false;
+		if (!agreedToTerms) return false;
 		return true;
 	});
 
@@ -92,7 +94,7 @@
 	<title>REGISTER - ɢɪʙ.ɢɢ</title>
 </svelte:head>
 
-<section class="mx-auto w-full max-w-3xl px-4 py-8">
+<section class="mx-auto w-full max-w-xl px-4 py-8">
 	<div class="mb-6">
 		<h1 class="text-3xl font-semibold tracking-tight text-zinc-100">Create your account</h1>
 		<p class="mt-2 text-sm text-zinc-400">
@@ -188,6 +190,17 @@
 					</div>
 				</label>
 			</div>
+
+			<label class="mt-4 flex cursor-pointer items-start gap-3">
+				<input
+					type="checkbox"
+					bind:checked={agreedToTerms}
+					class="mt-0.5 h-4 w-4 shrink-0 cursor-pointer appearance-none rounded border-0 bg-zinc-950 ring-1 ring-zinc-800 ring-inset checked:bg-red-700 checked:ring-red-700 checked:bg-[url('data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22white%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M12.207%204.793a1%201%200%20010%201.414l-5%205a1%201%200%2001-1.414%200l-2-2a1%201%200%20011.414-1.414L6.5%209.086l4.293-4.293a1%201%200%20011.414%200z%22%2F%3E%3C%2Fsvg%3E')] focus:ring-2 focus:ring-red-700 focus:outline-none"
+				/>
+				<span class="text-sm text-zinc-400">
+					I agree to the <a href="/legal/terms-of-use" target="_blank" rel="noopener noreferrer" class="text-zinc-200 underline hover:text-white">Terms of Use</a> and <a href="/legal/privacy-policy" target="_blank" rel="noopener noreferrer" class="text-zinc-200 underline hover:text-white">Privacy Policy</a>
+				</span>
+			</label>
 
 			<div class="mt-6 flex flex-wrap items-center gap-3 border-t border-zinc-800 pt-5">
 				<button
