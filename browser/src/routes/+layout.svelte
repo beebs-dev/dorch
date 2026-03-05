@@ -37,7 +37,7 @@
 	const motdMessages: MotdMessage[] = [
 		{ text: '1 MARCH - REGISTRATION NOW OPEN! GET IT!', link: '/register' },
 		{ text: '100% FREE CLASSIC MULTIPLAYER' },
-		{ text: 'FREE CUSTOM SERVERS, PLAY WITH FRIENDS' }
+		{ text: 'CREATE CUSTOM SERVERS, PLAY WITH FRIENDS' }
 	];
 	let motdIndex = $state(0);
 	let motdVisibleText = $state('');
