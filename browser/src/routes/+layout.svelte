@@ -36,7 +36,8 @@
 	});
 	const motdMessages: MotdMessage[] = [
 		{ text: '1 MARCH - REGISTRATION NOW OPEN! GET IT!', link: '/register' },
-		{ text: '100% FREE CLASSIC MULTIPLAYER' }
+		{ text: '100% FREE CLASSIC MULTIPLAYER' },
+		{ text: 'FREE CUSTOM SERVERS, PLAY WITH FRIENDS' }
 	];
 	let motdIndex = $state(0);
 	let motdVisibleText = $state('');
@@ -514,6 +515,15 @@
 				class="text-sm text-zinc-300 underline underline-offset-4 opacity-50 transition-colors hover:text-zinc-100 hover:opacity-100"
 			>
 				DOOMWORLD POST
+			</a>
+			<span class="text-zinc-300">•</span>
+			<a
+				href="https://github.com/beebs-dev/dorch"
+				target="_blank"
+				rel="noopener noreferrer"
+				class="text-sm text-zinc-300 underline underline-offset-4 opacity-50 transition-colors hover:text-zinc-100 hover:opacity-100"
+			>
+				SOURCE CODE
 			</a>
 		</div>
 	</footer>
