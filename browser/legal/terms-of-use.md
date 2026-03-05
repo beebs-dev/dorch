@@ -10,6 +10,8 @@ gib.gg is an independent platform for hosting, indexing, and playing community-c
 
 gib.gg is not affiliated with, endorsed by, or sponsored by Bethesda Softworks, id Software, or ZeniMax Media. All trademarks and game titles referenced on the site remain the property of their respective owners and are used solely for descriptive purposes.
 
+These Terms are governed by the laws of the United States and applicable federal law.
+
 ## 2. User Content
 
 Users may upload or contribute files, metadata, comments, or other content (“User Content”).
