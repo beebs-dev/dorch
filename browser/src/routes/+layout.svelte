@@ -1,11 +1,20 @@
 <script lang="ts">
 	import './layout.css';
+	import { marked } from 'marked';
+	import footerSource from '../../legal/footer.md?raw';
 	import DorchLogo from '$lib/components/DorchLogo.svelte';
 	import LoginModal from '$lib/components/LoginModal.svelte';
 	import SettingsModal from '$lib/components/SettingsModal.svelte';
 	import { toastMessage } from '$lib/stores/toast';
 	import { subscribe as authSubscribe, logout, type AuthState } from '$lib/stores/auth';
 	import { base, resolve } from '$app/paths';
+
+	marked.setOptions({
+		gfm: true,
+		breaks: false
+	});
+
+	const footerHtml = marked.parse(footerSource) as string;
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
 	import { replaceState } from '$app/navigation';
@@ -502,10 +511,24 @@
 			</a>
 			<span class="text-zinc-300">•</span>
 			<a
-				href="/privacy-policy"
+				href="/legal/privacy-policy"
 				class="text-sm text-zinc-300 underline underline-offset-4 opacity-50 transition-colors hover:text-zinc-100 hover:opacity-100"
 			>
 				PRIVACY POLICY
+			</a>
+			<span class="text-zinc-300">•</span>
+			<a
+				href="/legal/dmca"
+				class="text-sm text-zinc-300 underline underline-offset-4 opacity-50 transition-colors hover:text-zinc-100 hover:opacity-100"
+			>
+				DMCA
+			</a>
+			<span class="text-zinc-300">•</span>
+			<a
+				href="/legal/terms-of-use"
+				class="text-sm text-zinc-300 underline underline-offset-4 opacity-50 transition-colors hover:text-zinc-100 hover:opacity-100"
+			>
+				TERMS OF USE
 			</a>
 			<span class="text-zinc-300">•</span>
 			<a
@@ -525,6 +548,9 @@
 			>
 				SOURCE CODE
 			</a>
+		</div>
+		<div class="mx-auto mt-4 max-w-4xl text-center text-xs text-zinc-500 [&_a]:text-zinc-400 [&_a]:underline hover:[&_a]:text-zinc-300">
+			{@html footerHtml}
 		</div>
 	</footer>
 	<LoginModal open={loginOpen} onClose={closeLogin} />
