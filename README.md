@@ -1,5 +1,7 @@
 # dorch
 
+- [DOOMWORLD post](https://www.doomworld.com/forum/topic/156982-the-best-doom-experience-in-a-browser-gibgg/)
+
 This repository contains the codebase behind **https://gib.gg** — a free platform for hosting and playing custom Doom WADs in your browser.
 
 At a high level, dorch is a Kubernetes-based "Doom orchestrator":
