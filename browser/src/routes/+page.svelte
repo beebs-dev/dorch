@@ -33,39 +33,6 @@
 		return () => clearInterval(timer);
 	});
 
-	function randomIdent(): string {
-		const adjectives = [
-			'quick',
-			'bright',
-			'silent',
-			'fierce',
-			'brave',
-			'clever',
-			'lucky',
-			'wild',
-			'calm',
-			'proud'
-		];
-		const nouns = [
-			'tiger',
-			'eagle',
-			'lion',
-			'wolf',
-			'panther',
-			'hawk',
-			'fox',
-			'bear',
-			'dragon',
-			'falcon'
-		];
-
-		const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-		const noun = nouns[Math.floor(Math.random() * nouns.length)];
-		const number = Math.floor(Math.random() * 1000);
-
-		return `${adj}-${noun}-${number}`;
-	}
-
 	function difficultyColor(skill: number | undefined): string {
 		switch (skill) {
 			case 1:
@@ -267,7 +234,7 @@
 											class="rounded-md bg-red-900/70 px-3 py-2 text-sm font-[var(--dorch-mono)] tracking-wide text-zinc-100 ring-1 ring-red-950/60 ring-inset hover:bg-red-800/70 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 											onclick={(e) => {
 												e.stopPropagation();
-												window.location.href = `/play/?g=${encodeURIComponent(row.game.game_id)}&identity=${randomIdent()}`;
+												window.location.href = `/play/?g=${encodeURIComponent(row.game.game_id)}`;
 											}}
 											onkeydown={(e) => e.stopPropagation()}
 										>

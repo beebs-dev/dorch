@@ -46,7 +46,7 @@
 	);
 	const videoSrcRTCApi = $derived(() => `https://cdn.gib.gg/rtc/v1/play/`);
 
-	let identity = $state(randomIdent());
+
 	let showGameId = $state(false);
 	let deletingServer = $state(false);
 	let confirmingDeleteServer = $state(false);
@@ -118,40 +118,8 @@
 		showToast('Copied to clipboard');
 	}
 
-	function randomIdent(): string {
-		const adjectives = [
-			'quick',
-			'bright',
-			'silent',
-			'fierce',
-			'brave',
-			'clever',
-			'lucky',
-			'wild',
-			'calm',
-			'proud'
-		];
-		const nouns = [
-			'tiger',
-			'eagle',
-			'lion',
-			'wolf',
-			'panther',
-			'hawk',
-			'fox',
-			'bear',
-			'dragon',
-			'falcon'
-		];
-
-		const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-		const noun = nouns[Math.floor(Math.random() * nouns.length)];
-		const number = Math.floor(Math.random() * 1000);
-		return `${adj}-${noun}-${number}`;
-	}
-
 	function joinUrl(): string {
-		return `/play/?g=${encodeURIComponent(data.gameId)}&identity=${encodeURIComponent(identity)}`;
+		return `/play/?g=${encodeURIComponent(data.gameId)}`;
 	}
 
 	function difficultyLabel(skill: number | undefined): string {
