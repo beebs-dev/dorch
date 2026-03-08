@@ -498,7 +498,7 @@ fn default_resources() -> Option<ResourceRequirements> {
         limits: Some({
             let mut m = std::collections::BTreeMap::new();
             //m.insert("cpu".to_string(), Quantity("2000m".to_string()));
-            m.insert("memory".to_string(), Quantity("512Mi".to_string()));
+            m.insert("memory".to_string(), Quantity("640Mi".to_string()));
             m
         }),
         ..Default::default()
