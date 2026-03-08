@@ -144,6 +144,9 @@ async function getRedisClient(): Promise<RedisClientType> {
 }
 
 async function evalRateLimitScript(listKey: string, args: string[]): Promise<number> {
+	if (!env.REDIS_HOST) {
+		return 0;
+	}
 	const client = await getRedisClient();
 	const lua = getLuaScript();
 
@@ -189,6 +192,10 @@ function extractClientIp(event: RequestEvent): string | undefined {
 }
 
 export async function isRateLimited(event: RequestEvent): Promise<boolean> {
+	// Bypass rate limiting if Redis is not configured.
+	console.log(env.REDIS_HOST);
+	if (!env.REDIS_HOST) return false;
+
 	if (!shouldRateLimitPath(event.url.pathname)) return false;
 
 	const ip = extractClientIp(event);

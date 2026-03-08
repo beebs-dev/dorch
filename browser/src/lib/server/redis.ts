@@ -60,7 +60,10 @@ if (
 	});
 }
 
-export async function getRedisClient(): Promise<RedisClientType> {
+export async function getRedisClient(): Promise<RedisClientType|undefined> {
+	if (!env.REDIS_HOST) {
+		return undefined;
+	}
 	if (shuttingDown) {
 		throw new Error('redis is shutting down');
 	}

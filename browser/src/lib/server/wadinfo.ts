@@ -215,13 +215,15 @@ export function createWadinfoClient(
 			if (useCache) {
 				try {
 					const redis = await getRedisClient();
-					const cached = await redis.get(cacheKey);
-					if (cached) {
-						try {
-							const parsed = JSON.parse(cached) as FeaturedViewResponse;
-							return normalizeFeaturedViewResponse(parsed);
-						} catch {
-							// Ignore bad cache entries.
+					if (redis) {
+						const cached = await redis.get(cacheKey);
+						if (cached) {
+							try {
+								const parsed = JSON.parse(cached) as FeaturedViewResponse;
+								return normalizeFeaturedViewResponse(parsed);
+							} catch {
+								// Ignore bad cache entries.
+							}
 						}
 					}
 				} catch {
@@ -248,7 +250,9 @@ export function createWadinfoClient(
 				const ttlSeconds = Math.max(1, parseIntEnv('FEATURED_CACHE_TTL', 15));
 				try {
 					const redis = await getRedisClient();
-					await redis.set(cacheKey, JSON.stringify(normalized), { EX: ttlSeconds });
+					if (redis) {
+						await redis.set(cacheKey, JSON.stringify(normalized), { EX: ttlSeconds });
+					}
 				} catch {
 					// Fail open if Redis is unavailable.
 				}
