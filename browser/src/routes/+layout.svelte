@@ -377,7 +377,7 @@
 		{#if authState.isAuthenticated && (isServersRelated($page.url.pathname) || isWadRelated($page.url.pathname) || isActive('/account', $page.url.pathname))}
 			<div class="border-t border-red-950/40">
 				<nav
-					class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 px-4 py-1.5"
+					class="mx-auto flex max-w-6xl flex-wrap items-center justify-end gap-x-6 px-4 py-1.5"
 					aria-label="Section navigation"
 				>
 					{#if isServersRelated($page.url.pathname)}
