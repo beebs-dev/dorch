@@ -374,7 +374,7 @@
 				</button>
 			{#if authState.isAuthenticated && (isServersRelated($page.url.pathname) || isWadRelated($page.url.pathname) || isActive('/account', $page.url.pathname))}
 				<nav
-					class="-mt-1 basis-full flex items-center gap-x-6 pb-1.5"
+					class="-mt-1 basis-full flex items-center justify-end gap-x-6 pb-1.5"
 					aria-label="Section navigation"
 				>
 					{#if isServersRelated($page.url.pathname)}
