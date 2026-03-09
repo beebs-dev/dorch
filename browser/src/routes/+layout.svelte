@@ -372,12 +372,9 @@
 						/>
 					</svg>
 				</button>
-			</nav>
-		</div>
-		{#if authState.isAuthenticated && (isServersRelated($page.url.pathname) || isWadRelated($page.url.pathname) || isActive('/account', $page.url.pathname))}
-			<div class="border-t border-red-950/40">
+			{#if authState.isAuthenticated && (isServersRelated($page.url.pathname) || isWadRelated($page.url.pathname) || isActive('/account', $page.url.pathname))}
 				<nav
-					class="mx-auto flex max-w-6xl flex-wrap items-center justify-end gap-x-6 px-4 py-1"
+					class="-mt-1 basis-full flex items-center gap-x-6 pb-1.5"
 					aria-label="Section navigation"
 				>
 					{#if isServersRelated($page.url.pathname)}
@@ -448,15 +445,16 @@
 						</div>
 						<button
 							type="button"
-							class="ml-auto cursor-pointer text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400 transition-colors hover:text-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+							class="cursor-pointer text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400 transition-colors hover:text-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
 							onclick={signOut}
 						>
 							SIGN OUT
 						</button>
 					{/if}
 				</nav>
-			</div>
-		{/if}
+			{/if}
+			</nav>
+		</div>
 	</header>
 	<main class="min-w-0 flex-1">{@render children()}</main>
 	<footer class="border-t border-none bg-transparent px-4 pt-6 pb-20">
