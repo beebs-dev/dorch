@@ -269,7 +269,7 @@
 					<a
 						href={resolve('/servers')}
 						aria-current={isServersRelated($page.url.pathname) ? 'page' : undefined}
-						class={`-mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+						class={`-mb-px border-b-2 px-1 py-1 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
 							isServersRelated($page.url.pathname)
 								? 'border-red-400 text-zinc-100'
 								: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
@@ -281,7 +281,7 @@
 					<a
 						href={resolve('/')}
 						aria-current={isActive('/', $page.url.pathname) ? 'page' : undefined}
-						class={`-mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+						class={`-mb-px border-b-2 px-1 py-1 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
 							isActive('/', $page.url.pathname)
 								? 'border-red-400 text-zinc-100'
 								: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
@@ -294,7 +294,7 @@
 					<a
 						href={resolve('/wad')}
 						aria-current={isWadRelated($page.url.pathname) ? 'page' : undefined}
-						class={`-mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+						class={`-mb-px border-b-2 px-1 py-1 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
 							isWadRelated($page.url.pathname)
 								? 'border-red-400 text-zinc-100'
 								: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
@@ -306,7 +306,7 @@
 					<a
 						href={resolve('/wad')}
 						aria-current={isActive('/wad', $page.url.pathname) ? 'page' : undefined}
-						class={`-mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+						class={`-mb-px border-b-2 px-1 py-1 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
 							isActive('/wad', $page.url.pathname)
 								? 'border-red-400 text-zinc-100'
 								: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
@@ -319,7 +319,7 @@
 					<a
 						href={resolve('/account')}
 						aria-current={isActive('/account', $page.url.pathname) ? 'page' : undefined}
-						class={`-mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+						class={`-mb-px border-b-2 px-1 py-1 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
 							isActive('/account', $page.url.pathname)
 								? 'border-red-400 text-zinc-100'
 								: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
@@ -330,7 +330,7 @@
 				{:else}
 					<button
 						type="button"
-						class={`-mb-px cursor-pointer border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+						class={`-mb-px cursor-pointer border-b-2 px-1 py-1 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
 							loginOpen
 								? 'border-red-400 text-zinc-100'
 								: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
@@ -343,7 +343,7 @@
 
 				<button
 					type="button"
-					class={`-mb-px cursor-pointer border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+					class={`-mb-px cursor-pointer border-b-2 px-1 py-1 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
 						settingsOpen
 							? 'border-red-400 text-zinc-100'
 							: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
