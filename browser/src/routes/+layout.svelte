@@ -266,44 +266,17 @@
 				aria-label="Primary"
 			>
 				{#if authState.isAuthenticated}
-					<div class="group relative -mb-px">
-						<a
-							href={resolve('/servers')}
-							aria-current={isServersRelated($page.url.pathname) ? 'page' : undefined}
-							class={`inline-flex items-center gap-1 border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
-								isServersRelated($page.url.pathname)
-									? 'border-red-400 text-zinc-100'
-									: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
-							}`}
-						>
-							SERVERS
-							<svg
-								class="h-4 w-4 opacity-80"
-								viewBox="0 0 20 20"
-								fill="currentColor"
-								aria-hidden="true"
-							>
-								<path
-									fill-rule="evenodd"
-									d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.25a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
-									clip-rule="evenodd"
-								/>
-							</svg>
-						</a>
-
-						<div
-							class="absolute top-full left-0 z-50 hidden min-w-48 pt-2 group-focus-within:block group-hover:block"
-						>
-							<div class="overflow-hidden rounded-lg bg-zinc-950 ring-1 ring-zinc-800">
-								<a
-									href={resolve('/manage')}
-									class="block px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
-								>
-									MY SERVERS
-								</a>
-							</div>
-						</div>
-					</div>
+					<a
+						href={resolve('/servers')}
+						aria-current={isServersRelated($page.url.pathname) ? 'page' : undefined}
+						class={`-mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+							isServersRelated($page.url.pathname)
+								? 'border-red-400 text-zinc-100'
+								: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
+						}`}
+					>
+						SERVERS
+					</a>
 				{:else}
 					<a
 						href={resolve('/')}
@@ -318,56 +291,17 @@
 					</a>
 				{/if}
 				{#if authState.isAuthenticated}
-					<div class="group relative -mb-px">
-						<a
-							href={resolve('/wad')}
-							aria-current={isWadRelated($page.url.pathname) ? 'page' : undefined}
-							class={`inline-flex items-center gap-1 border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
-								isWadRelated($page.url.pathname)
-									? 'border-red-400 text-zinc-100'
-									: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
-							}`}
-						>
-							WAD BROWSER
-							<svg
-								class="h-4 w-4 opacity-80"
-								viewBox="0 0 20 20"
-								fill="currentColor"
-								aria-hidden="true"
-							>
-								<path
-									fill-rule="evenodd"
-									d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.25a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
-									clip-rule="evenodd"
-								/>
-							</svg>
-						</a>
-
-						<div
-							class="absolute top-full left-0 z-50 hidden min-w-48 pt-2 group-focus-within:block group-hover:block"
-						>
-							<div class="overflow-hidden rounded-lg bg-zinc-950 ring-1 ring-zinc-800">
-								<a
-									href={resolve('/wad')}
-									class="block px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
-								>
-									Browse WADs
-								</a>
-								<a
-									href={resolve('/my-wads')}
-									class="block px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
-								>
-									Manage WADs
-								</a>
-								<a
-									href={resolve('/upload')}
-									class="block px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
-								>
-									Upload WAD
-								</a>
-							</div>
-						</div>
-					</div>
+					<a
+						href={resolve('/wad')}
+						aria-current={isWadRelated($page.url.pathname) ? 'page' : undefined}
+						class={`-mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+							isWadRelated($page.url.pathname)
+								? 'border-red-400 text-zinc-100'
+								: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
+						}`}
+					>
+						WAD BROWSER
+					</a>
 				{:else}
 					<a
 						href={resolve('/wad')}
@@ -382,76 +316,17 @@
 					</a>
 				{/if}
 				{#if authState.isAuthenticated}
-					<div class="group relative -mb-px">
-						<a
-							href={resolve('/account')}
-							aria-current={isActive('/account', $page.url.pathname) ? 'page' : undefined}
-							class={`inline-flex items-center gap-1 border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
-								isActive('/account', $page.url.pathname)
-									? 'border-red-400 text-zinc-100'
-									: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
-							}`}
-						>
-							ACCOUNT
-							<svg
-								class="h-4 w-4 opacity-80"
-								viewBox="0 0 20 20"
-								fill="currentColor"
-								aria-hidden="true"
-							>
-								<path
-									fill-rule="evenodd"
-									d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.25a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
-									clip-rule="evenodd"
-								/>
-							</svg>
-						</a>
-
-						<div
-							class="absolute top-full right-0 z-50 hidden min-w-48 pt-2 group-focus-within:block group-hover:block"
-						>
-							<div class="overflow-hidden rounded-lg bg-zinc-950 ring-1 ring-zinc-800">
-								<div
-									class="flex items-center justify-between gap-3 border-b border-zinc-800 px-3 py-2 text-xs text-zinc-400"
-								>
-									<div class="min-w-0">
-										Signed in as
-										<span class="ml-1 font-semibold text-red-300"
-											>{authState.username ?? 'unknown'}</span
-										>
-									</div>
-									<div
-										class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-900 ring-1 ring-zinc-700"
-									>
-										{#if accountAvatarUrl}
-											<img
-												src={accountAvatarUrl}
-												alt="User avatar"
-												class="h-full w-full object-cover"
-											/>
-										{:else}
-											<span class="text-[10px] font-semibold text-zinc-300"
-												>{(authState.username?.trim()[0] ?? 'U').toUpperCase()}</span
-											>
-										{/if}
-									</div>
-								</div>
-								<a
-									href={resolve('/account')}
-									class="block px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
-								>
-									Manage Account
-								</a>
-								<button
-									type="button"
-									class="w-full cursor-pointer px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none"
-									onclick={signOut}
-								>
-									Sign out
-								</button>
-							</div>
-						</div>
-					</div>
+					<a
+						href={resolve('/account')}
+						aria-current={isActive('/account', $page.url.pathname) ? 'page' : undefined}
+						class={`-mb-px border-b-2 px-1 py-2 text-sm font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none focus-visible:ring-inset ${
+							isActive('/account', $page.url.pathname)
+								? 'border-red-400 text-zinc-100'
+								: 'border-transparent text-zinc-300 hover:border-red-700 hover:text-zinc-100'
+						}`}
+					>
+						ACCOUNT
+					</a>
 				{:else}
 					<button
 						type="button"
@@ -499,6 +374,89 @@
 				</button>
 			</nav>
 		</div>
+		{#if authState.isAuthenticated && (isServersRelated($page.url.pathname) || isWadRelated($page.url.pathname) || isActive('/account', $page.url.pathname))}
+			<div class="border-t border-red-950/40">
+				<nav
+					class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 px-4 py-1.5"
+					aria-label="Section navigation"
+				>
+					{#if isServersRelated($page.url.pathname)}
+						<a
+							href={resolve('/manage')}
+							aria-current={isActive('/manage', $page.url.pathname) ? 'page' : undefined}
+							class={`text-xs font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none ${
+								isActive('/manage', $page.url.pathname)
+									? 'text-zinc-100'
+									: 'text-zinc-400 hover:text-zinc-200'
+							}`}
+						>
+							MY SERVERS
+						</a>
+					{:else if isWadRelated($page.url.pathname)}
+						<a
+							href={resolve('/wad')}
+							aria-current={isActive('/wad', $page.url.pathname) ? 'page' : undefined}
+							class={`text-xs font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none ${
+								isActive('/wad', $page.url.pathname)
+									? 'text-zinc-100'
+									: 'text-zinc-400 hover:text-zinc-200'
+							}`}
+						>
+							BROWSE WADS
+						</a>
+						<a
+							href={resolve('/my-wads')}
+							aria-current={isActive('/my-wads', $page.url.pathname) ? 'page' : undefined}
+							class={`text-xs font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none ${
+								isActive('/my-wads', $page.url.pathname)
+									? 'text-zinc-100'
+									: 'text-zinc-400 hover:text-zinc-200'
+							}`}
+						>
+							MANAGE WADS
+						</a>
+						<a
+							href={resolve('/upload')}
+							aria-current={isActive('/upload', $page.url.pathname) ? 'page' : undefined}
+							class={`text-xs font-[var(--dorch-mono)] tracking-wide transition-colors focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none ${
+								isActive('/upload', $page.url.pathname)
+									? 'text-zinc-100'
+									: 'text-zinc-400 hover:text-zinc-200'
+							}`}
+						>
+							UPLOAD WAD
+						</a>
+					{:else if isActive('/account', $page.url.pathname)}
+						<div class="flex items-center gap-2 text-xs text-zinc-400">
+							<div
+								class="flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-800 ring-1 ring-zinc-700"
+								role="img"
+								aria-label="User avatar"
+							>
+								{#if accountAvatarUrl}
+									<img src={accountAvatarUrl} alt="" class="h-full w-full object-cover" />
+								{:else}
+									<span class="text-[9px] font-semibold text-zinc-300" aria-hidden="true">
+										{(authState.username?.trim()[0] ?? 'U').toUpperCase()}
+									</span>
+								{/if}
+							</div>
+							<span>
+								Signed in as
+								<span class="font-semibold text-red-300">{authState.username ?? 'unknown'}</span>
+							</span>
+						</div>
+						<button
+							type="button"
+							class="ml-auto cursor-pointer text-xs font-[var(--dorch-mono)] tracking-wide text-zinc-400 transition-colors hover:text-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:outline-none"
+							onclick={signOut}
+						>
+							SIGN OUT
+						</button>
+					{/if}
+				</nav>
+			</div>
+		{/if}
 	</header>
 	<main class="min-w-0 flex-1">{@render children()}</main>
 	<footer class="border-t border-none bg-transparent px-4 pt-6 pb-20">
@@ -549,7 +507,9 @@
 				SOURCE CODE
 			</a>
 		</div>
-		<div class="mx-auto mt-4 max-w-4xl text-center text-xs text-zinc-500 [&_a]:text-zinc-400 [&_a]:underline hover:[&_a]:text-zinc-300">
+		<div
+			class="mx-auto mt-4 max-w-4xl text-center text-xs text-zinc-500 [&_a]:text-zinc-400 [&_a]:underline hover:[&_a]:text-zinc-300"
+		>
 			{@html footerHtml}
 		</div>
 	</footer>
