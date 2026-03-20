@@ -460,13 +460,46 @@
 			liveMaxLatencyDuration: 30
 		});
 		// Basic recovery for fatal HLS errors; otherwise we can get stuck on a black frame.
+		// Use backoff to avoid tight retry loops on broken streams.
 		try {
 			const HlsCtor: any = Hls;
+			let networkErrorCount = 0;
+			let lastNetworkErrorTime = 0;
+			const MAX_NETWORK_RETRIES = 5;
+			const BASE_RETRY_DELAY_MS = 1000;
+
 			hls.on(HlsCtor.Events.ERROR, (_evt: unknown, data: any) => {
 				if (!data?.fatal) return;
 				try {
 					if (data?.type === HlsCtor.ErrorTypes.NETWORK_ERROR) {
-						hls?.startLoad();
+						const now = Date.now();
+						// Reset error count if it's been a while since the last error
+						if (now - lastNetworkErrorTime > 30000) {
+							networkErrorCount = 0;
+						}
+						lastNetworkErrorTime = now;
+						networkErrorCount++;
+
+						if (networkErrorCount > MAX_NETWORK_RETRIES) {
+							console.log('HLS network error retry limit reached, giving up', {
+								gameId: item.game_id,
+								errorCount: networkErrorCount
+							});
+							destroyHls(hls);
+							hls = null;
+							return;
+						}
+
+						// Exponential backoff: 1s, 2s, 4s, 8s, 16s
+						const delay = BASE_RETRY_DELAY_MS * Math.pow(2, networkErrorCount - 1);
+						dbg('HLS network error, retrying with backoff', {
+							gameId: item.game_id,
+							attempt: networkErrorCount,
+							delayMs: delay
+						});
+						setTimeout(() => {
+							hls?.startLoad();
+						}, delay);
 						return;
 					}
 					if (data?.type === HlsCtor.ErrorTypes.MEDIA_ERROR) {

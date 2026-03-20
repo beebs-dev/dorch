@@ -104,6 +104,8 @@
 		}, 5000);
 	}
 
+	let motdInitialized = false;
+
 	onMount(() => {
 		if (!browser) return;
 
@@ -120,6 +122,7 @@
 		motdIndex = Math.floor(Math.random() * motdMessages.length);
 		playCurrentMotd();
 		startMotdRotation();
+		motdInitialized = true;
 
 		return () => {
 			stopMotdTypingTimer();
@@ -128,6 +131,23 @@
 			window.removeEventListener('hashchange', syncLoginFromUrl);
 			window.removeEventListener('popstate', syncLoginFromUrl);
 		};
+	});
+
+	// Restart MOTD when navigating back to the home page
+	$effect(() => {
+		if (!browser || !motdInitialized) return;
+		const isHomePage = $page.url.pathname === resolve('/');
+		if (isHomePage) {
+			// Small delay to ensure the DOM is ready after navigation
+			requestAnimationFrame(() => {
+				playCurrentMotd();
+				startMotdRotation();
+			});
+		} else {
+			// Stop timers when leaving home page
+			stopMotdTypingTimer();
+			stopMotdRotateTimer();
+		}
 	});
 
 	function openLogin() {
