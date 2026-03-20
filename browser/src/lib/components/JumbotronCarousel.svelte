@@ -460,16 +460,28 @@
 			liveMaxLatencyDuration: 30
 		});
 		// Basic recovery for fatal HLS errors; otherwise we can get stuck on a black frame.
+		// networkRetries tracks consecutive fatal network errors to prevent a tight request loop
+		// when the stream URL is broken/offline.
+		let networkRetries = 0;
+		const MAX_NETWORK_RETRIES = 3;
 		try {
 			const HlsCtor: any = Hls;
+			// Reset the consecutive-error counter whenever a fragment loads successfully,
+			// so transient outages don't permanently exhaust the retry budget.
+			hls.on(HlsCtor.Events.FRAG_LOADED, () => {
+				networkRetries = 0;
+			});
 			hls.on(HlsCtor.Events.ERROR, (_evt: unknown, data: any) => {
 				if (!data?.fatal) return;
 				try {
 					if (data?.type === HlsCtor.ErrorTypes.NETWORK_ERROR) {
-						hls?.startLoad();
-						return;
-					}
-					if (data?.type === HlsCtor.ErrorTypes.MEDIA_ERROR) {
+						if (networkRetries < MAX_NETWORK_RETRIES) {
+							networkRetries++;
+							hls?.startLoad();
+							return;
+						}
+						// Too many consecutive network errors; fall through to destroy.
+					} else if (data?.type === HlsCtor.ErrorTypes.MEDIA_ERROR) {
 						hls?.recoverMediaError();
 						return;
 					}
@@ -477,6 +489,9 @@
 					// ignore
 				}
 				console.log('HLS fatal error, destroying HLS instance', { gameId: item.game_id, data });
+				const instance = hls;
+				hls = null;
+				destroyHls(instance);
 			});
 		} catch {
 			// ignore
