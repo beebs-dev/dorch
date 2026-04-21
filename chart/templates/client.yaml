@@ -21,11 +21,13 @@ data:
       }
 
       location = /readyz {
+        access_log off;
         add_header Content-Type text/plain;
         return 200 'ok';
       }
 
       location = /healthz {
+        access_log off;
         add_header Content-Type text/plain;
         return 200 'ok';
       }
