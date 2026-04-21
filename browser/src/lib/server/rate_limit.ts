@@ -193,7 +193,6 @@ function extractClientIp(event: RequestEvent): string | undefined {
 
 export async function isRateLimited(event: RequestEvent): Promise<boolean> {
 	// Bypass rate limiting if Redis is not configured.
-	console.log(env.REDIS_HOST);
 	if (!env.REDIS_HOST) return false;
 
 	if (!shouldRateLimitPath(event.url.pathname)) return false;
